@@ -1,0 +1,408 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+
+export const LANGUAGES = [
+  { code: "fr", label: "Français", dir: "ltr" },
+  { code: "en", label: "English", dir: "ltr" },
+  { code: "ar", label: "العربية", dir: "rtl" },
+  { code: "es", label: "Español", dir: "ltr" },
+  { code: "it", label: "Italiano", dir: "ltr" },
+] as const;
+
+export type LangCode = (typeof LANGUAGES)[number]["code"];
+
+type Dict = Record<string, string>;
+
+const fr: Dict = {
+  "nav.home": "Accueil",
+  "nav.products": "Produits",
+  "nav.about": "À propos",
+  "nav.contact": "Contact",
+  "nav.lang": "Langue",
+  "hero.badge": "Électroménager à Casablanca depuis des années",
+  "hero.title": "L'électroménager qui fait vivre votre maison",
+  "hero.subtitle":
+    "Téléviseurs, réfrigérateurs, climatiseurs et machines à laver. Des marques fiables, des conseils honnêtes et un service de proximité au 41 Boulevard Ghandi.",
+  "hero.cta": "Voir nos produits",
+  "hero.cta2": "Nous contacter",
+  "hero.stat1": "Catégories principales",
+  "hero.stat2": "Conseil personnalisé",
+  "hero.stat3": "Casablanca-Settat",
+  "cats.title": "Nos catégories",
+  "cats.subtitle": "Tout l'équipement essentiel de la maison, sélectionné avec soin.",
+  "cats.tv": "Téléviseurs",
+  "cats.tv.desc": "Écrans LED, QLED et Smart TV pour toutes les tailles de salon.",
+  "cats.fridge": "Réfrigérateurs",
+  "cats.fridge.desc": "Combinés, side-by-side et congélateurs économes en énergie.",
+  "cats.ac": "Climatiseurs",
+  "cats.ac.desc": "Split, inverter et solutions silencieuses pour l'été marocain.",
+  "cats.washer": "Machines à laver",
+  "cats.washer.desc": "Frontales et top, du lavage rapide au grand volume familial.",
+  "features.title": "Pourquoi Ghandi Home Electro",
+  "features.1.title": "Marques fiables",
+  "features.1.desc": "Uniquement des références reconnues, garanties et faciles à entretenir.",
+  "features.2.title": "Conseil sur mesure",
+  "features.2.desc": "Khaled Douiou et son équipe vous guident vers l'appareil adapté à votre foyer.",
+  "features.3.title": "Livraison locale",
+  "features.3.desc": "Livraison et installation dans Casablanca-Settat, rapidement.",
+  "features.4.title": "Service après-vente",
+  "features.4.desc": "Un interlocuteur unique, joignable directement par téléphone.",
+  "about.eyebrow": "Notre histoire",
+  "about.title": "Une maison de confiance, fondée par Khaled Douiou",
+  "about.body":
+    "Ghandi Home Electro est un magasin d'électroménager familial installé au cœur de Casablanca. Nous croyons qu'acheter un réfrigérateur ou une machine à laver doit être simple : des produits solides, un prix clair et quelqu'un qui répond quand vous appelez.",
+  "about.founder": "Fondateur",
+  "cta.title": "Une question sur un appareil ?",
+  "cta.subtitle": "Appelez-nous ou passez au magasin, nous sommes là pour vous aider.",
+  "cta.call": "Appeler maintenant",
+  "contact.title": "Contact",
+  "contact.subtitle": "Passez nous voir ou appelez-nous directement.",
+  "contact.phone": "Téléphone",
+  "contact.address": "Adresse",
+  "contact.hours": "Horaires",
+  "contact.hours.value": "Lundi – Samedi : 9h00 – 20h00",
+  "products.title": "Nos produits",
+  "products.subtitle": "Le catalogue est mis à jour en direct par le magasin.",
+  "products.all": "Tout",
+  "products.empty": "Le catalogue sera bientôt disponible. Contactez-nous en attendant.",
+  "products.emptyCat": "Aucun produit dans cette catégorie pour le moment.",
+  "product.inStock": "En stock",
+  "product.outOfStock": "Rupture de stock",
+  "product.serial": "Référence",
+  "product.stock": "Quantité disponible",
+  "product.description": "Description et caractéristiques",
+  "product.back": "Retour aux produits",
+  "product.zoomHint": "Survolez l'image et utilisez la molette pour zoomer.",
+  "product.ask": "Demander ce produit",
+  "footer.tagline": "Électroménager pour la maison — Casablanca.",
+  "footer.nav": "Navigation",
+  "footer.contact": "Contact",
+  "footer.rights": "Tous droits réservés.",
+};
+
+const en: Dict = {
+  "nav.home": "Home",
+  "nav.products": "Products",
+  "nav.about": "About",
+  "nav.contact": "Contact",
+  "nav.lang": "Language",
+  "hero.badge": "Home appliances in Casablanca",
+  "hero.title": "The appliances that bring your home to life",
+  "hero.subtitle":
+    "TVs, refrigerators, air conditioners and washing machines. Reliable brands, honest advice and local service at 41 Boulevard Ghandi.",
+  "hero.cta": "Browse products",
+  "hero.cta2": "Contact us",
+  "hero.stat1": "Core categories",
+  "hero.stat2": "Personal advice",
+  "hero.stat3": "Casablanca-Settat",
+  "cats.title": "Our categories",
+  "cats.subtitle": "Every essential for the home, carefully selected.",
+  "cats.tv": "Televisions",
+  "cats.tv.desc": "LED, QLED and Smart TVs for every living room size.",
+  "cats.fridge": "Refrigerators",
+  "cats.fridge.desc": "Combi, side-by-side and energy-saving freezers.",
+  "cats.ac": "Air conditioners",
+  "cats.ac.desc": "Split, inverter and quiet solutions for Moroccan summers.",
+  "cats.washer": "Washing machines",
+  "cats.washer.desc": "Front and top loaders, from quick wash to family size.",
+  "features.title": "Why Ghandi Home Electro",
+  "features.1.title": "Reliable brands",
+  "features.1.desc": "Only trusted references, under warranty and easy to service.",
+  "features.2.title": "Tailored advice",
+  "features.2.desc": "Khaled Douiou and his team guide you to the right appliance.",
+  "features.3.title": "Local delivery",
+  "features.3.desc": "Fast delivery and installation across Casablanca-Settat.",
+  "features.4.title": "After-sales service",
+  "features.4.desc": "One contact person, reachable directly by phone.",
+  "about.eyebrow": "Our story",
+  "about.title": "A trusted family store, founded by Khaled Douiou",
+  "about.body":
+    "Ghandi Home Electro is a family appliance store in the heart of Casablanca. We believe buying a fridge or a washing machine should be simple: solid products, clear prices, and someone who answers when you call.",
+  "about.founder": "Founder",
+  "cta.title": "Questions about an appliance?",
+  "cta.subtitle": "Call us or stop by the store — we are happy to help.",
+  "cta.call": "Call now",
+  "contact.title": "Contact",
+  "contact.subtitle": "Visit the store or call us directly.",
+  "contact.phone": "Phone",
+  "contact.address": "Address",
+  "contact.hours": "Opening hours",
+  "contact.hours.value": "Monday – Saturday: 9:00 – 20:00",
+  "products.title": "Our products",
+  "products.subtitle": "The catalogue is updated live by the store.",
+  "products.all": "All",
+  "products.empty": "The catalogue is coming soon. Get in touch in the meantime.",
+  "products.emptyCat": "No products in this category yet.",
+  "product.inStock": "In stock",
+  "product.outOfStock": "Out of stock",
+  "product.serial": "Reference",
+  "product.stock": "Available quantity",
+  "product.description": "Description and specifications",
+  "product.back": "Back to products",
+  "product.zoomHint": "Hover the image and scroll to zoom.",
+  "product.ask": "Ask about this product",
+  "footer.tagline": "Home appliances — Casablanca.",
+  "footer.nav": "Navigation",
+  "footer.contact": "Contact",
+  "footer.rights": "All rights reserved.",
+};
+
+const ar: Dict = {
+  "nav.home": "الرئيسية",
+  "nav.products": "المنتجات",
+  "nav.about": "من نحن",
+  "nav.contact": "اتصل بنا",
+  "nav.lang": "اللغة",
+  "hero.badge": "الأجهزة المنزلية في الدار البيضاء",
+  "hero.title": "أجهزة منزلية تمنح بيتك الحياة",
+  "hero.subtitle":
+    "تلفازات، ثلاجات، مكيفات وغسالات. علامات موثوقة، نصائح صادقة وخدمة قريبة في 41 شارع غاندي.",
+  "hero.cta": "تصفح المنتجات",
+  "hero.cta2": "اتصل بنا",
+  "hero.stat1": "فئات رئيسية",
+  "hero.stat2": "نصيحة شخصية",
+  "hero.stat3": "الدار البيضاء سطات",
+  "cats.title": "فئاتنا",
+  "cats.subtitle": "كل ما يحتاجه المنزل، مختار بعناية.",
+  "cats.tv": "التلفازات",
+  "cats.tv.desc": "شاشات LED وQLED وتلفازات ذكية لكل المقاسات.",
+  "cats.fridge": "الثلاجات",
+  "cats.fridge.desc": "ثلاجات مزدوجة وموفرة للطاقة.",
+  "cats.ac": "المكيفات",
+  "cats.ac.desc": "مكيفات سبليت وإنفرتر هادئة لصيف المغرب.",
+  "cats.washer": "الغسالات",
+  "cats.washer.desc": "تحميل أمامي وعلوي، من الغسل السريع إلى الحجم العائلي.",
+  "features.title": "لماذا غاندي هوم إلكترو",
+  "features.1.title": "علامات موثوقة",
+  "features.1.desc": "منتجات معروفة، بضمان وسهلة الصيانة.",
+  "features.2.title": "نصيحة مخصصة",
+  "features.2.desc": "خالد دويو وفريقه يرشدونك إلى الجهاز المناسب.",
+  "features.3.title": "توصيل محلي",
+  "features.3.desc": "توصيل وتركيب سريع في الدار البيضاء سطات.",
+  "features.4.title": "خدمة ما بعد البيع",
+  "features.4.desc": "شخص واحد للتواصل، متاح مباشرة على الهاتف.",
+  "about.eyebrow": "قصتنا",
+  "about.title": "متجر عائلي موثوق، أسسه خالد دويو",
+  "about.body":
+    "غاندي هوم إلكترو متجر عائلي للأجهزة المنزلية في قلب الدار البيضاء. نعتقد أن شراء ثلاجة أو غسالة يجب أن يكون بسيطًا: منتجات متينة، سعر واضح، وشخص يجيب عندما تتصل.",
+  "about.founder": "المؤسس",
+  "cta.title": "لديك سؤال عن جهاز؟",
+  "cta.subtitle": "اتصل بنا أو زر المتجر، نحن هنا لمساعدتك.",
+  "cta.call": "اتصل الآن",
+  "contact.title": "اتصل بنا",
+  "contact.subtitle": "زر المتجر أو اتصل بنا مباشرة.",
+  "contact.phone": "الهاتف",
+  "contact.address": "العنوان",
+  "contact.hours": "أوقات العمل",
+  "contact.hours.value": "الاثنين – السبت: 9:00 – 20:00",
+  "products.title": "منتجاتنا",
+  "products.subtitle": "يتم تحديث الكتالوج مباشرة من المتجر.",
+  "products.all": "الكل",
+  "products.empty": "الكتالوج قادم قريبًا. تواصل معنا في الأثناء.",
+  "products.emptyCat": "لا توجد منتجات في هذه الفئة حاليًا.",
+  "product.inStock": "متوفر",
+  "product.outOfStock": "غير متوفر",
+  "product.serial": "المرجع",
+  "product.stock": "الكمية المتوفرة",
+  "product.description": "الوصف والمواصفات",
+  "product.back": "العودة إلى المنتجات",
+  "product.zoomHint": "مرر المؤشر على الصورة واستخدم العجلة للتكبير.",
+  "product.ask": "اسأل عن هذا المنتج",
+  "footer.tagline": "أجهزة منزلية — الدار البيضاء.",
+  "footer.nav": "التنقل",
+  "footer.contact": "اتصل",
+  "footer.rights": "جميع الحقوق محفوظة.",
+};
+
+const es: Dict = {
+  "nav.home": "Inicio",
+  "nav.products": "Productos",
+  "nav.about": "Nosotros",
+  "nav.contact": "Contacto",
+  "nav.lang": "Idioma",
+  "hero.badge": "Electrodomésticos en Casablanca",
+  "hero.title": "Los electrodomésticos que dan vida a tu hogar",
+  "hero.subtitle":
+    "Televisores, refrigeradores, aires acondicionados y lavadoras. Marcas fiables, consejos honestos y servicio cercano en 41 Boulevard Ghandi.",
+  "hero.cta": "Ver productos",
+  "hero.cta2": "Contáctanos",
+  "hero.stat1": "Categorías principales",
+  "hero.stat2": "Asesoramiento personal",
+  "hero.stat3": "Casablanca-Settat",
+  "cats.title": "Nuestras categorías",
+  "cats.subtitle": "Todo lo esencial para el hogar, seleccionado con cuidado.",
+  "cats.tv": "Televisores",
+  "cats.tv.desc": "Pantallas LED, QLED y Smart TV para cada salón.",
+  "cats.fridge": "Refrigeradores",
+  "cats.fridge.desc": "Combis, side-by-side y congeladores de bajo consumo.",
+  "cats.ac": "Aires acondicionados",
+  "cats.ac.desc": "Split, inverter y soluciones silenciosas para el verano.",
+  "cats.washer": "Lavadoras",
+  "cats.washer.desc": "Carga frontal y superior, del lavado rápido al familiar.",
+  "features.title": "Por qué Ghandi Home Electro",
+  "features.1.title": "Marcas fiables",
+  "features.1.desc": "Solo referencias reconocidas, con garantía y fáciles de mantener.",
+  "features.2.title": "Asesoramiento a medida",
+  "features.2.desc": "Khaled Douiou y su equipo te guían al aparato adecuado.",
+  "features.3.title": "Entrega local",
+  "features.3.desc": "Entrega e instalación rápida en Casablanca-Settat.",
+  "features.4.title": "Servicio posventa",
+  "features.4.desc": "Un único contacto, disponible directamente por teléfono.",
+  "about.eyebrow": "Nuestra historia",
+  "about.title": "Una tienda familiar de confianza, fundada por Khaled Douiou",
+  "about.body":
+    "Ghandi Home Electro es una tienda familiar de electrodomésticos en el corazón de Casablanca. Creemos que comprar un refrigerador o una lavadora debe ser sencillo: productos sólidos, precio claro y alguien que responde cuando llamas.",
+  "about.founder": "Fundador",
+  "cta.title": "¿Preguntas sobre un aparato?",
+  "cta.subtitle": "Llámanos o visita la tienda, estamos para ayudarte.",
+  "cta.call": "Llamar ahora",
+  "contact.title": "Contacto",
+  "contact.subtitle": "Visita la tienda o llámanos directamente.",
+  "contact.phone": "Teléfono",
+  "contact.address": "Dirección",
+  "contact.hours": "Horario",
+  "contact.hours.value": "Lunes – Sábado: 9:00 – 20:00",
+  "products.title": "Nuestros productos",
+  "products.subtitle": "El catálogo se actualiza en directo desde la tienda.",
+  "products.all": "Todo",
+  "products.empty": "El catálogo llegará pronto. Contáctanos mientras tanto.",
+  "products.emptyCat": "Todavía no hay productos en esta categoría.",
+  "product.inStock": "En stock",
+  "product.outOfStock": "Agotado",
+  "product.serial": "Referencia",
+  "product.stock": "Cantidad disponible",
+  "product.description": "Descripción y características",
+  "product.back": "Volver a productos",
+  "product.zoomHint": "Pasa el cursor por la imagen y usa la rueda para ampliar.",
+  "product.ask": "Preguntar por este producto",
+  "footer.tagline": "Electrodomésticos — Casablanca.",
+  "footer.nav": "Navegación",
+  "footer.contact": "Contacto",
+  "footer.rights": "Todos los derechos reservados.",
+};
+
+const it: Dict = {
+  "nav.home": "Home",
+  "nav.products": "Prodotti",
+  "nav.about": "Chi siamo",
+  "nav.contact": "Contatti",
+  "nav.lang": "Lingua",
+  "hero.badge": "Elettrodomestici a Casablanca",
+  "hero.title": "Gli elettrodomestici che danno vita alla tua casa",
+  "hero.subtitle":
+    "Televisori, frigoriferi, climatizzatori e lavatrici. Marchi affidabili, consigli onesti e servizio di prossimità in 41 Boulevard Ghandi.",
+  "hero.cta": "Vedi i prodotti",
+  "hero.cta2": "Contattaci",
+  "hero.stat1": "Categorie principali",
+  "hero.stat2": "Consulenza personale",
+  "hero.stat3": "Casablanca-Settat",
+  "cats.title": "Le nostre categorie",
+  "cats.subtitle": "Tutto l'essenziale per la casa, scelto con cura.",
+  "cats.tv": "Televisori",
+  "cats.tv.desc": "Schermi LED, QLED e Smart TV per ogni soggiorno.",
+  "cats.fridge": "Frigoriferi",
+  "cats.fridge.desc": "Combinati, side-by-side e congelatori a basso consumo.",
+  "cats.ac": "Climatizzatori",
+  "cats.ac.desc": "Split, inverter e soluzioni silenziose per l'estate.",
+  "cats.washer": "Lavatrici",
+  "cats.washer.desc": "Carica frontale e dall'alto, dal lavaggio rapido al formato famiglia.",
+  "features.title": "Perché Ghandi Home Electro",
+  "features.1.title": "Marchi affidabili",
+  "features.1.desc": "Solo referenze riconosciute, in garanzia e facili da assistere.",
+  "features.2.title": "Consulenza su misura",
+  "features.2.desc": "Khaled Douiou e il suo team ti guidano all'apparecchio giusto.",
+  "features.3.title": "Consegna locale",
+  "features.3.desc": "Consegna e installazione rapida a Casablanca-Settat.",
+  "features.4.title": "Assistenza post-vendita",
+  "features.4.desc": "Un unico referente, raggiungibile direttamente al telefono.",
+  "about.eyebrow": "La nostra storia",
+  "about.title": "Un negozio di famiglia affidabile, fondato da Khaled Douiou",
+  "about.body":
+    "Ghandi Home Electro è un negozio di elettrodomestici a gestione familiare nel cuore di Casablanca. Crediamo che comprare un frigorifero o una lavatrice debba essere semplice: prodotti solidi, prezzo chiaro e qualcuno che risponde quando chiami.",
+  "about.founder": "Fondatore",
+  "cta.title": "Domande su un apparecchio?",
+  "cta.subtitle": "Chiamaci o passa in negozio, siamo qui per aiutarti.",
+  "cta.call": "Chiama ora",
+  "contact.title": "Contatti",
+  "contact.subtitle": "Vieni in negozio o chiamaci direttamente.",
+  "contact.phone": "Telefono",
+  "contact.address": "Indirizzo",
+  "contact.hours": "Orari",
+  "contact.hours.value": "Lunedì – Sabato: 9:00 – 20:00",
+  "products.title": "I nostri prodotti",
+  "products.subtitle": "Il catalogo è aggiornato in diretta dal negozio.",
+  "products.all": "Tutti",
+  "products.empty": "Il catalogo arriverà presto. Contattaci nel frattempo.",
+  "products.emptyCat": "Nessun prodotto in questa categoria per ora.",
+  "product.inStock": "Disponibile",
+  "product.outOfStock": "Esaurito",
+  "product.serial": "Riferimento",
+  "product.stock": "Quantità disponibile",
+  "product.description": "Descrizione e caratteristiche",
+  "product.back": "Torna ai prodotti",
+  "product.zoomHint": "Passa il mouse sull'immagine e usa la rotellina per ingrandire.",
+  "product.ask": "Chiedi informazioni",
+  "footer.tagline": "Elettrodomestici — Casablanca.",
+  "footer.nav": "Navigazione",
+  "footer.contact": "Contatti",
+  "footer.rights": "Tutti i diritti riservati.",
+};
+
+const DICTS: Record<LangCode, Dict> = { fr, en, ar, es, it };
+
+const STORAGE_KEY = "ghe-lang";
+
+type I18nValue = {
+  lang: LangCode;
+  dir: "ltr" | "rtl";
+  setLang: (lang: LangCode) => void;
+  t: (key: string) => string;
+};
+
+const I18nContext = createContext<I18nValue | null>(null);
+
+export function I18nProvider({ children }: { children: ReactNode }) {
+  const [lang, setLangState] = useState<LangCode>("fr");
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(STORAGE_KEY) as LangCode | null;
+    if (stored && stored in DICTS) setLangState(stored);
+  }, []);
+
+  const setLang = useCallback((next: LangCode) => {
+    setLangState(next);
+    window.localStorage.setItem(STORAGE_KEY, next);
+  }, []);
+
+  const dir = LANGUAGES.find((l) => l.code === lang)?.dir === "rtl" ? "rtl" : "ltr";
+
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = dir;
+  }, [lang, dir]);
+
+  const value = useMemo<I18nValue>(
+    () => ({
+      lang,
+      dir,
+      setLang,
+      t: (key: string) => DICTS[lang][key] ?? DICTS.fr[key] ?? key,
+    }),
+    [lang, dir, setLang],
+  );
+
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+}
+
+export function useI18n(): I18nValue {
+  const ctx = useContext(I18nContext);
+  if (!ctx) throw new Error("useI18n must be used within I18nProvider");
+  return ctx;
+}
