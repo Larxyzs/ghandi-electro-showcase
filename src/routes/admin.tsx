@@ -4,20 +4,25 @@ import { useServerFn } from "@tanstack/react-start";
 import { Loader2 } from "lucide-react";
 import {
   adminCreateCategory,
+  adminCreateStaff,
   adminDeleteCategory,
   adminDeleteProduct,
+  adminDeleteStaff,
   adminGetData,
+  adminListStaff,
   adminLogin,
   adminLogout,
   adminRenameCategory,
   adminSaveProduct,
   adminSaveSettings,
   adminStatus,
+  adminUpdateStaffPassword,
 } from "@/lib/admin.functions";
 import { AdminLogin } from "@/components/admin/AdminLogin";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import type { ProductDraft } from "@/components/admin/ProductForm";
 import type { SiteData, SiteSettings } from "@/lib/catalog-types";
+import type { AdminRole, StaffAccount } from "@/lib/admin-types";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -44,9 +49,14 @@ function AdminPage() {
   const saveProduct = useServerFn(adminSaveProduct);
   const deleteProductFn = useServerFn(adminDeleteProduct);
   const saveSettings = useServerFn(adminSaveSettings);
+  const listStaff = useServerFn(adminListStaff);
+  const createStaff = useServerFn(adminCreateStaff);
+  const updateStaffPassword = useServerFn(adminUpdateStaffPassword);
+  const deleteStaff = useServerFn(adminDeleteStaff);
 
   const [phase, setPhase] = useState<"loading" | "locked" | "ready">("loading");
   const [data, setData] = useState<SiteData | null>(null);
+  const [identity, setIdentity] = useState<{ username: string; role: AdminRole } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -64,9 +74,11 @@ function AdminPage() {
 
   useEffect(() => {
     (async () => {
-      const result = await status().catch(() => ({ authenticated: false }));
-      if (result.authenticated) await refresh();
-      else setPhase("locked");
+      const result = await status().catch(() => null);
+      if (result?.authenticated && result.username) {
+        setIdentity({ username: result.username, role: (result.role ?? "staff") as AdminRole });
+        await refresh();
+      } else setPhase("locked");
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -89,12 +101,15 @@ function AdminPage() {
     );
   }
 
-  if (phase === "locked" || !data) {
+  if (phase === "locked" || !data || !identity) {
     return (
       <AdminLogin
-        onSubmit={async (password) => {
-          const { ok } = await login({ data: { password } });
-          if (ok) await refresh();
+        onSubmit={async (username, password) => {
+          const { ok, role, username: name } = await login({ data: { username, password } });
+          if (ok && name) {
+            setIdentity({ username: name, role: (role ?? "staff") as AdminRole });
+            await refresh();
+          }
           return ok;
         }}
       />
@@ -105,9 +120,24 @@ function AdminPage() {
     <AdminDashboard
       data={data}
       busy={busy}
+      role={identity.role}
+      username={identity.username}
+      staffActions={{
+        list: async () => (await listStaff()) as StaffAccount[],
+        create: async (name, password) => {
+          await createStaff({ data: { username: name, password } });
+        },
+        resetPassword: async (id, password) => {
+          await updateStaffPassword({ data: { id, password } });
+        },
+        remove: async (id) => {
+          await deleteStaff({ data: { id } });
+        },
+      }}
       onLogout={async () => {
         await logout();
         setData(null);
+        setIdentity(null);
         setPhase("locked");
       }}
       onCreateCategory={(name) => run(() => createCategory({ data: { name } }))}
@@ -121,12 +151,14 @@ function AdminPage() {
               ...(draft.id ? { id: draft.id } : {}),
               category_id: draft.category_id,
               name: draft.name,
+              brand: draft.brand,
               serial_number: draft.serial_number,
               stock: draft.stock,
               price: draft.price === "" ? null : Number(draft.price),
               description: draft.description,
               imageData: draft.imageData ?? null,
               imageName: draft.imageName ?? null,
+              imageUrl: draft.imageUrl ?? null,
               removeImage: Boolean(draft.removeImage),
             },
           }),
