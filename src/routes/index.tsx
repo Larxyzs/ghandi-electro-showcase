@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Tv, Refrigerator, AirVent, WashingMachine, ShieldCheck, HeartHandshake, Truck, Wrench, Phone } from "lucide-react";
-import heroImage from "@/assets/hero-showroom.jpg";
+import heroAsset from "@/assets/hero-showroom-2.png.asset.json";
 import { SiteLayout } from "@/components/SiteLayout";
 import { Reveal } from "@/components/Reveal";
+import { BrandMarquee } from "@/components/BrandMarquee";
 import { useI18n } from "@/lib/i18n";
 import { COMPANY } from "@/lib/company";
 
@@ -103,7 +104,7 @@ function HomePage() {
           <Reveal variant="zoom" delay={180} className="relative">
             <div className="overflow-hidden rounded-[2rem] border border-border shadow-[var(--shadow-card)]">
               <img
-                src={heroImage}
+                src={heroAsset.url}
                 alt="Showroom d'électroménager Ghandi Home Electro à Casablanca"
                 className="h-full w-full object-cover"
                 width={1024}
@@ -123,6 +124,20 @@ function HomePage() {
             </div>
           </Reveal>
         </div>
+      </section>
+
+      <section className="border-y border-border bg-card py-14">
+        <div className="mx-auto w-full max-w-6xl px-5">
+          <Reveal>
+            <h2 className="text-center text-3xl font-bold">{t("brands.title")}</h2>
+            <p className="mx-auto mt-3 max-w-xl text-center text-foreground/65">
+              {t("brands.subtitle")}
+            </p>
+          </Reveal>
+        </div>
+        <Reveal delay={120} className="mt-10">
+          <BrandMarquee />
+        </Reveal>
       </section>
 
       <section className="mx-auto w-full max-w-6xl px-5 py-20">
