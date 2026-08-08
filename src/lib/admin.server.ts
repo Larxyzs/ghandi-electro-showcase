@@ -2,7 +2,10 @@ import { useSession } from "@tanstack/react-start/server";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { fetchSiteData, type SiteData } from "./catalog.server";
 
-type AdminSession = { unlocked?: boolean };
+export const SUPER_ADMIN_USERNAME = "khaled.douiou";
+
+export type AdminRole = "super" | "staff";
+type AdminSession = { unlocked?: boolean; username?: string; role?: AdminRole };
 
 function sessionConfig() {
   return {
@@ -13,24 +16,89 @@ function sessionConfig() {
   };
 }
 
-function matches(input: string, expected: string) {
-  const a = createHash("sha256").update(input, "utf8").digest();
-  const b = createHash("sha256").update(expected, "utf8").digest();
-  return timingSafeEqual(a, b);
+function equals(a: string, b: string) {
+  const x = createHash("sha256").update(a, "utf8").digest();
+  const y = createHash("sha256").update(b, "utf8").digest();
+  return timingSafeEqual(x, y);
 }
 
-export async function isUnlocked(): Promise<boolean> {
-  const session = await useSession<AdminSession>(sessionConfig());
-  return Boolean(session.data.unlocked);
+const PBKDF2_ITERATIONS = 120_000;
+
+function toHex(buffer: ArrayBuffer) {
+  return [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-export async function unlock(password: string): Promise<boolean> {
-  const expected = process.env["ADMIN_PASSWORD"];
-  if (!expected) throw new Error("ADMIN_PASSWORD is not configured");
-  if (!matches(password, expected)) return false;
+async function derive(password: string, saltHex: string, iterations: number) {
+  const salt = Uint8Array.from(saltHex.match(/.{2}/g) ?? [], (h) => parseInt(h, 16));
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt, iterations },
+    key,
+    256,
+  );
+  return toHex(bits);
+}
+
+export async function hashPassword(password: string) {
+  const saltBytes = new Uint8Array(16);
+  crypto.getRandomValues(saltBytes);
+  const saltHex = [...saltBytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const hash = await derive(password, saltHex, PBKDF2_ITERATIONS);
+  return `pbkdf2$${PBKDF2_ITERATIONS}$${saltHex}$${hash}`;
+}
+
+async function verifyPassword(password: string, stored: string) {
+  const [scheme, iterations, saltHex, hash] = stored.split("$");
+  if (scheme !== "pbkdf2" || !iterations || !saltHex || !hash) return false;
+  const candidate = await derive(password, saltHex, Number(iterations));
+  return equals(candidate, hash);
+}
+
+export type AdminIdentity = { username: string; role: AdminRole };
+
+export async function currentAdmin(): Promise<AdminIdentity | null> {
   const session = await useSession<AdminSession>(sessionConfig());
-  await session.update({ unlocked: true });
-  return true;
+  if (!session.data.unlocked || !session.data.username) return null;
+  return {
+    username: session.data.username,
+    role: session.data.role === "super" ? "super" : "staff",
+  };
+}
+
+export async function login(
+  username: string,
+  password: string,
+): Promise<AdminIdentity | null> {
+  const name = username.trim().toLowerCase();
+
+  if (name === SUPER_ADMIN_USERNAME) {
+    const expected = process.env["ADMIN_PASSWORD"];
+    if (!expected) throw new Error("ADMIN_PASSWORD is not configured");
+    if (!equals(password, expected)) return null;
+    const session = await useSession<AdminSession>(sessionConfig());
+    await session.update({ unlocked: true, username: name, role: "super" });
+    return { username: name, role: "super" };
+  }
+
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("admin_users")
+    .select("username, password_hash, role")
+    .eq("username", name)
+    .maybeSingle();
+  if (!data) return null;
+  if (!(await verifyPassword(password, data.password_hash))) return null;
+
+  const role: AdminRole = data.role === "super" ? "super" : "staff";
+  const session = await useSession<AdminSession>(sessionConfig());
+  await session.update({ unlocked: true, username: data.username, role });
+  return { username: data.username, role };
 }
 
 export async function lock(): Promise<void> {
@@ -39,7 +107,14 @@ export async function lock(): Promise<void> {
 }
 
 async function requireAdmin() {
-  if (!(await isUnlocked())) throw new Error("UNAUTHORIZED");
+  if (!(await currentAdmin())) throw new Error("UNAUTHORIZED");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
+}
+
+async function requireSuperAdmin() {
+  const me = await currentAdmin();
+  if (!me || me.role !== "super") throw new Error("FORBIDDEN");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin;
 }
@@ -54,8 +129,55 @@ function slugify(name: string) {
   return `${base || "categorie"}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+export type StaffAccount = { id: string; username: string; role: AdminRole; created_at: string };
+
+export async function listStaff(): Promise<StaffAccount[]> {
+  const db = await requireSuperAdmin();
+  const { data, error } = await db
+    .from("admin_users")
+    .select("id, username, role, created_at")
+    .order("created_at");
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    username: row.username,
+    role: row.role === "super" ? "super" : "staff",
+    created_at: row.created_at,
+  }));
+}
+
+export async function createStaff(username: string, password: string) {
+  const db = await requireSuperAdmin();
+  const name = username.trim().toLowerCase();
+  if (!/^[a-z0-9._-]{3,32}$/.test(name)) throw new Error("INVALID_USERNAME");
+  if (name === SUPER_ADMIN_USERNAME) throw new Error("USERNAME_TAKEN");
+  if (password.length < 6) throw new Error("WEAK_PASSWORD");
+  const password_hash = await hashPassword(password);
+  const { error } = await db
+    .from("admin_users")
+    .insert({ username: name, password_hash, role: "staff" });
+  if (error) throw new Error(error.code === "23505" ? "USERNAME_TAKEN" : error.message);
+  return { ok: true as const };
+}
+
+export async function updateStaffPassword(id: string, password: string) {
+  const db = await requireSuperAdmin();
+  if (password.length < 6) throw new Error("WEAK_PASSWORD");
+  const password_hash = await hashPassword(password);
+  const { error } = await db.from("admin_users").update({ password_hash }).eq("id", id);
+  if (error) throw new Error(error.message);
+  return { ok: true as const };
+}
+
+export async function deleteStaff(id: string) {
+  const db = await requireSuperAdmin();
+  const { error } = await db.from("admin_users").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  return { ok: true as const };
+}
+
 export async function adminData(): Promise<SiteData> {
-  if (!(await isUnlocked())) throw new Error("UNAUTHORIZED");
+  if (!(await currentAdmin())) throw new Error("UNAUTHORIZED");
   return fetchSiteData();
 }
 
@@ -80,7 +202,9 @@ export async function renameCategory(id: string, name: string) {
 export async function deleteCategory(id: string) {
   const db = await requireAdmin();
   const { data: products } = await db.from("products").select("image_url").eq("category_id", id);
-  const paths = (products ?? []).map((p) => p.image_url).filter((p): p is string => Boolean(p));
+  const paths = (products ?? [])
+    .map((p) => p.image_url)
+    .filter((p): p is string => Boolean(p) && !p!.startsWith("http"));
   if (paths.length) await db.storage.from("product-images").remove(paths);
   const { error } = await db.from("categories").delete().eq("id", id);
   if (error) throw new Error(error.message);
@@ -91,12 +215,14 @@ export type ProductInput = {
   id?: string;
   category_id: string;
   name: string;
+  brand: string;
   serial_number: string;
   stock: number;
   price: number | null;
   description: string;
   imageData?: string | null;
   imageName?: string | null;
+  imageUrl?: string | null;
   removeImage?: boolean;
 };
 
@@ -126,6 +252,10 @@ export async function saveProduct(input: ProductInput) {
   let imagePath: string | null | undefined = undefined;
   if (input.imageData && input.imageName) {
     imagePath = await storeImage(db, input.imageData, input.imageName);
+  } else if (input.imageUrl) {
+    const url = input.imageUrl.trim();
+    if (!/^https:\/\/[^\s]+$/i.test(url)) throw new Error("INVALID_IMAGE_URL");
+    imagePath = url;
   } else if (input.removeImage) {
     imagePath = null;
   }
@@ -133,6 +263,7 @@ export async function saveProduct(input: ProductInput) {
   const base = {
     category_id: input.category_id,
     name: input.name.trim(),
+    brand: input.brand.trim(),
     serial_number: input.serial_number.trim(),
     stock: Math.max(0, Math.floor(input.stock)),
     price: input.price,
@@ -145,11 +276,10 @@ export async function saveProduct(input: ProductInput) {
       .select("image_url")
       .eq("id", input.id)
       .maybeSingle();
-    const payload =
-      imagePath === undefined ? base : { ...base, image_url: imagePath };
+    const payload = imagePath === undefined ? base : { ...base, image_url: imagePath };
     const { error } = await db.from("products").update(payload).eq("id", input.id);
     if (error) throw new Error(error.message);
-    if (imagePath !== undefined && existing?.image_url) {
+    if (imagePath !== undefined && existing?.image_url && !existing.image_url.startsWith("http")) {
       await db.storage.from("product-images").remove([existing.image_url]);
     }
     return { id: input.id };
@@ -169,7 +299,9 @@ export async function deleteProduct(id: string) {
   const { data: existing } = await db.from("products").select("image_url").eq("id", id).maybeSingle();
   const { error } = await db.from("products").delete().eq("id", id);
   if (error) throw new Error(error.message);
-  if (existing?.image_url) await db.storage.from("product-images").remove([existing.image_url]);
+  if (existing?.image_url && !existing.image_url.startsWith("http")) {
+    await db.storage.from("product-images").remove([existing.image_url]);
+  }
   return { ok: true as const };
 }
 
