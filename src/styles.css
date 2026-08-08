@@ -225,3 +225,30 @@
   background-clip: text;
   color: transparent;
 }
+
+@keyframes ghe-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@utility marquee-track {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  animation: ghe-marquee 32s linear infinite;
+  will-change: transform;
+}
+
+@utility marquee-mask {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 8%,
+    black 92%,
+    transparent
+  );
+}
