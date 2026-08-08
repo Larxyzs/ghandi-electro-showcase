@@ -4,6 +4,7 @@ export type Product = {
   id: string;
   category_id: string;
   name: string;
+  brand: string;
   serial_number: string;
   stock: number;
   price: number | null;
