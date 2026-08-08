@@ -21,6 +21,14 @@ export type LangCode = (typeof LANGUAGES)[number]["code"];
 type Dict = Record<string, string>;
 
 const fr: Dict = {
+  "brands.title": "Nos marques",
+  "brands.subtitle": "Les grandes marques que nous distribuons au quotidien.",
+  "products.search": "Rechercher un produit, une catégorie ou une marque",
+  "products.brand": "Marque",
+  "products.category": "Catégorie",
+  "products.allBrands": "Toutes les marques",
+  "products.emptySearch": "Aucun produit ne correspond à votre recherche.",
+  "products.reset": "Réinitialiser",
   "nav.home": "Accueil",
   "nav.products": "Produits",
   "nav.about": "À propos",
@@ -88,6 +96,14 @@ const fr: Dict = {
 };
 
 const en: Dict = {
+  "brands.title": "Our brands",
+  "brands.subtitle": "The leading brands we work with every day.",
+  "products.search": "Search a product, category or brand",
+  "products.brand": "Brand",
+  "products.category": "Category",
+  "products.allBrands": "All brands",
+  "products.emptySearch": "No product matches your search.",
+  "products.reset": "Reset",
   "nav.home": "Home",
   "nav.products": "Products",
   "nav.about": "About",
@@ -155,6 +171,14 @@ const en: Dict = {
 };
 
 const ar: Dict = {
+  "brands.title": "علاماتنا التجارية",
+  "brands.subtitle": "أشهر العلامات التي نوفرها يوميًا.",
+  "products.search": "ابحث عن منتج أو فئة أو علامة تجارية",
+  "products.brand": "العلامة التجارية",
+  "products.category": "الفئة",
+  "products.allBrands": "كل العلامات",
+  "products.emptySearch": "لا يوجد منتج يطابق بحثك.",
+  "products.reset": "إعادة تعيين",
   "nav.home": "الرئيسية",
   "nav.products": "المنتجات",
   "nav.about": "من نحن",
@@ -222,6 +246,14 @@ const ar: Dict = {
 };
 
 const es: Dict = {
+  "brands.title": "Nuestras marcas",
+  "brands.subtitle": "Las grandes marcas con las que trabajamos cada día.",
+  "products.search": "Busca un producto, categoría o marca",
+  "products.brand": "Marca",
+  "products.category": "Categoría",
+  "products.allBrands": "Todas las marcas",
+  "products.emptySearch": "Ningún producto coincide con tu búsqueda.",
+  "products.reset": "Restablecer",
   "nav.home": "Inicio",
   "nav.products": "Productos",
   "nav.about": "Nosotros",
@@ -289,6 +321,14 @@ const es: Dict = {
 };
 
 const it: Dict = {
+  "brands.title": "I nostri marchi",
+  "brands.subtitle": "I grandi marchi con cui lavoriamo ogni giorno.",
+  "products.search": "Cerca un prodotto, una categoria o un marchio",
+  "products.brand": "Marchio",
+  "products.category": "Categoria",
+  "products.allBrands": "Tutti i marchi",
+  "products.emptySearch": "Nessun prodotto corrisponde alla ricerca.",
+  "products.reset": "Reimposta",
   "nav.home": "Home",
   "nav.products": "Prodotti",
   "nav.about": "Chi siamo",

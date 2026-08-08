@@ -1,15 +1,20 @@
 import { createServerFn } from "@tanstack/react-start";
 
 export const adminStatus = createServerFn({ method: "GET" }).handler(async () => {
-  const { isUnlocked } = await import("./admin.server");
-  return { authenticated: await isUnlocked() };
+  const { currentAdmin } = await import("./admin.server");
+  const me = await currentAdmin();
+  return { authenticated: Boolean(me), username: me?.username ?? null, role: me?.role ?? null };
 });
 
 export const adminLogin = createServerFn({ method: "POST" })
-  .inputValidator((data: { password: string }) => ({ password: String(data.password ?? "") }))
+  .inputValidator((data: { username: string; password: string }) => ({
+    username: String(data.username ?? "").slice(0, 64),
+    password: String(data.password ?? ""),
+  }))
   .handler(async ({ data }) => {
-    const { unlock } = await import("./admin.server");
-    return { ok: await unlock(data.password) };
+    const { login } = await import("./admin.server");
+    const me = await login(data.username, data.password);
+    return { ok: Boolean(me), role: me?.role ?? null, username: me?.username ?? null };
   });
 
 export const adminLogout = createServerFn({ method: "POST" }).handler(async () => {
@@ -22,6 +27,38 @@ export const adminGetData = createServerFn({ method: "GET" }).handler(async () =
   const { adminData } = await import("./admin.server");
   return adminData();
 });
+
+export const adminListStaff = createServerFn({ method: "GET" }).handler(async () => {
+  const { listStaff } = await import("./admin.server");
+  return listStaff();
+});
+
+export const adminCreateStaff = createServerFn({ method: "POST" })
+  .inputValidator((data: { username: string; password: string }) => ({
+    username: String(data.username ?? "").slice(0, 64),
+    password: String(data.password ?? ""),
+  }))
+  .handler(async ({ data }) => {
+    const { createStaff } = await import("./admin.server");
+    return createStaff(data.username, data.password);
+  });
+
+export const adminUpdateStaffPassword = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string; password: string }) => ({
+    id: String(data.id),
+    password: String(data.password ?? ""),
+  }))
+  .handler(async ({ data }) => {
+    const { updateStaffPassword } = await import("./admin.server");
+    return updateStaffPassword(data.id, data.password);
+  });
+
+export const adminDeleteStaff = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => ({ id: String(data.id) }))
+  .handler(async ({ data }) => {
+    const { deleteStaff } = await import("./admin.server");
+    return deleteStaff(data.id);
+  });
 
 export const adminCreateCategory = createServerFn({ method: "POST" })
   .inputValidator((data: { name: string }) => ({ name: String(data.name ?? "").slice(0, 80) }))
@@ -53,12 +90,14 @@ export type AdminProductInput = {
   id?: string;
   category_id: string;
   name: string;
+  brand: string;
   serial_number: string;
   stock: number;
   price: number | null;
   description: string;
   imageData?: string | null;
   imageName?: string | null;
+  imageUrl?: string | null;
   removeImage?: boolean;
 };
 
@@ -70,6 +109,7 @@ export const adminSaveProduct = createServerFn({ method: "POST" })
     if (!data.category_id) throw new Error("NO_CATEGORY");
     return saveProduct({
       ...data,
+      brand: data.brand ?? "",
       stock: Number.isFinite(data.stock) ? data.stock : 0,
       serial_number: data.serial_number ?? "",
       description: data.description ?? "",

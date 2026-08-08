@@ -47,13 +47,15 @@ export async function fetchSiteData(): Promise<SiteData> {
     supabase.from("categories").select("id, name, slug, sort_order").order("sort_order").order("name"),
     supabase
       .from("products")
-      .select("id, category_id, name, serial_number, stock, price, image_url, description, sort_order")
+      .select("id, category_id, name, brand, serial_number, stock, price, image_url, description, sort_order")
       .order("sort_order")
       .order("created_at"),
   ]);
 
   const rawProducts = productsRes.data ?? [];
-  const paths = rawProducts.map((p) => p.image_url).filter((p): p is string => Boolean(p));
+  const paths = rawProducts
+    .map((p) => p.image_url)
+    .filter((p): p is string => Boolean(p) && !p!.startsWith("http"));
   const signed = await signImagePaths(paths);
 
   return {
@@ -63,7 +65,11 @@ export async function fetchSiteData(): Promise<SiteData> {
       ...p,
       price: p.price === null ? null : Number(p.price),
       image_path: p.image_url ?? null,
-      image_url: p.image_url ? (signed[p.image_url] ?? null) : null,
+      image_url: p.image_url
+        ? p.image_url.startsWith("http")
+          ? p.image_url
+          : (signed[p.image_url] ?? null)
+        : null,
     })),
   };
 }

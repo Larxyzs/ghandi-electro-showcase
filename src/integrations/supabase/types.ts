@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_users: {
+        Row: {
+          created_at: string
+          id: string
+          password_hash: string
+          role: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          password_hash: string
+          role?: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          password_hash?: string
+          role?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
@@ -43,6 +70,7 @@ export type Database = {
       }
       products: {
         Row: {
+          brand: string
           category_id: string
           created_at: string
           description: string
@@ -56,6 +84,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          brand?: string
           category_id: string
           created_at?: string
           description?: string
@@ -69,6 +98,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          brand?: string
           category_id?: string
           created_at?: string
           description?: string
