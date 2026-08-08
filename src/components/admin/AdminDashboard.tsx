@@ -12,10 +12,13 @@ import {
   Palette,
   ExternalLink,
   Check,
+  Users,
 } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
 import type { Product, SiteData, SiteSettings } from "@/lib/catalog-types";
 import { ProductForm, type ProductDraft } from "@/components/admin/ProductForm";
+import { StaffPanel } from "@/components/admin/StaffPanel";
+import type { AdminRole, StaffAccount } from "@/lib/admin-types";
 import { cn } from "@/lib/utils";
 
 type Editing = { categoryId: string; product?: Product } | null;
@@ -23,6 +26,9 @@ type Editing = { categoryId: string; product?: Product } | null;
 export function AdminDashboard({
   data,
   busy,
+  role,
+  username,
+  staffActions,
   onLogout,
   onCreateCategory,
   onRenameCategory,
@@ -33,6 +39,14 @@ export function AdminDashboard({
 }: {
   data: SiteData;
   busy: boolean;
+  role: AdminRole;
+  username: string;
+  staffActions: {
+    list: () => Promise<StaffAccount[]>;
+    create: (username: string, password: string) => Promise<void>;
+    resetPassword: (id: string, password: string) => Promise<void>;
+    remove: (id: string) => Promise<void>;
+  };
   onLogout: () => void;
   onCreateCategory: (name: string) => Promise<void>;
   onRenameCategory: (id: string, name: string) => Promise<void>;
@@ -41,7 +55,7 @@ export function AdminDashboard({
   onDeleteProduct: (id: string) => Promise<void>;
   onSaveSettings: (settings: SiteSettings) => Promise<void>;
 }) {
-  const [tab, setTab] = useState<"inventory" | "design">("inventory");
+  const [tab, setTab] = useState<"inventory" | "design" | "staff">("inventory");
   const [newCategory, setNewCategory] = useState("");
   const [openCategory, setOpenCategory] = useState<string | null>(data.categories[0]?.id ?? null);
   const [editing, setEditing] = useState<Editing>(null);
@@ -71,7 +85,10 @@ export function AdminDashboard({
             <img src={logo.url} alt="" className="h-10 w-10 object-contain" />
             <div>
               <p className="text-sm font-semibold">Administration</p>
-              <p className="text-xs text-foreground/55">Ghandi Home Electro</p>
+              <p className="text-xs text-foreground/55">
+                {username}
+                {role === "super" ? " · Super admin" : ""}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -96,6 +113,9 @@ export function AdminDashboard({
             [
               { id: "inventory", label: "Inventaire", icon: Package },
               { id: "design", label: "Apparence", icon: Palette },
+              ...(role === "super"
+                ? ([{ id: "staff", label: "Gestion des admins", icon: Users }] as const)
+                : []),
             ] as const
           ).map((item) => (
             <button
@@ -116,7 +136,14 @@ export function AdminDashboard({
       </header>
 
       <main className="mx-auto w-full max-w-5xl px-5 py-10">
-        {tab === "inventory" ? (
+        {tab === "staff" && role === "super" ? (
+          <StaffPanel
+            load={staffActions.list}
+            onCreate={staffActions.create}
+            onResetPassword={staffActions.resetPassword}
+            onDelete={staffActions.remove}
+          />
+        ) : tab === "inventory" ? (
           <div className="space-y-6">
             <form
               onSubmit={async (e) => {
@@ -252,7 +279,10 @@ export function AdminDashboard({
                             <div className="min-w-0 flex-1">
                               <p className="truncate font-semibold">{product.name}</p>
                               <p className="mt-0.5 truncate text-xs text-foreground/55">
-                                {product.serial_number || "—"} ·{" "}
+                                {[product.brand, product.serial_number]
+                                  .filter(Boolean)
+                                  .join(" · ") || "—"}{" "}
+                                ·{" "}
                                 <span
                                   className={product.stock > 0 ? "text-brand" : "text-destructive"}
                                 >
