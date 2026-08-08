@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
-import { PackageSearch } from "lucide-react";
+import { PackageSearch, Search, X } from "lucide-react";
 import { SiteLayout } from "@/components/SiteLayout";
 import { Reveal } from "@/components/Reveal";
 import { useI18n } from "@/lib/i18n";
 import type { SiteData } from "@/lib/catalog-types";
+import { BRAND_NAMES } from "@/lib/brands";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/produits/")({
@@ -30,11 +31,33 @@ function ProductsPage() {
   const { t } = useI18n();
   const data = useLoaderData({ from: "__root__" }) as SiteData;
   const [active, setActive] = useState<string>("all");
+  const [brand, setBrand] = useState<string>("all");
+  const [query, setQuery] = useState("");
 
-  const products = useMemo(
-    () => (active === "all" ? data.products : data.products.filter((p) => p.category_id === active)),
-    [active, data.products],
+  const brandOptions = useMemo(() => {
+    const fromProducts = data.products.map((p) => p.brand).filter(Boolean);
+    return Array.from(new Set([...BRAND_NAMES, ...fromProducts]));
+  }, [data.products]);
+
+  const categoryName = useMemo(
+    () => new Map(data.categories.map((c) => [c.id, c.name])),
+    [data.categories],
   );
+
+  const products = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return data.products.filter((p) => {
+      if (active !== "all" && p.category_id !== active) return false;
+      if (brand !== "all" && (p.brand ?? "").toLowerCase() !== brand.toLowerCase()) return false;
+      if (!q) return true;
+      const haystack = [p.name, p.brand, p.serial_number, categoryName.get(p.category_id) ?? ""]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [active, brand, query, data.products, categoryName]);
+
+  const filtered = query.trim() !== "" || brand !== "all" || active !== "all";
 
   return (
     <SiteLayout>
@@ -42,6 +65,33 @@ function ProductsPage() {
         <Reveal>
           <h1 className="text-4xl font-bold sm:text-5xl">{t("products.title")}</h1>
           <p className="mt-4 max-w-xl text-foreground/65">{t("products.subtitle")}</p>
+        </Reveal>
+
+        <Reveal delay={100} className="mt-10 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="relative">
+            <Search className="absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("products.search")}
+              aria-label={t("products.search")}
+              className="w-full rounded-full border border-border bg-card py-3 ps-11 pe-4 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/25"
+            />
+          </div>
+          <select
+            value={brand}
+            onChange={(e) => setBrand(e.target.value)}
+            aria-label={t("products.brand")}
+            className="rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold outline-none focus:border-brand"
+          >
+            <option value="all">{t("products.allBrands")}</option>
+            {brandOptions.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
         </Reveal>
 
         {data.categories.length > 0 && (
@@ -61,6 +111,19 @@ function ProductsPage() {
                 {c.name}
               </button>
             ))}
+            {filtered && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActive("all");
+                  setBrand("all");
+                  setQuery("");
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-5 py-2 text-sm font-semibold text-foreground/60 hover:border-brand hover:text-brand"
+              >
+                <X className="h-3.5 w-3.5" /> {t("products.reset")}
+              </button>
+            )}
           </Reveal>
         )}
 
@@ -69,7 +132,11 @@ function ProductsPage() {
             <div className="mt-14 flex flex-col items-center gap-4 rounded-[2rem] border border-dashed border-border bg-brand-soft/40 px-8 py-20 text-center">
               <PackageSearch className="h-9 w-9 text-brand" />
               <p className="max-w-md text-foreground/70">
-                {data.products.length === 0 ? t("products.empty") : t("products.emptyCat")}
+                {data.products.length === 0
+                  ? t("products.empty")
+                  : filtered
+                    ? t("products.emptySearch")
+                    : t("products.emptyCat")}
               </p>
             </div>
           </Reveal>
@@ -108,6 +175,11 @@ function ProductsPage() {
                   </div>
                   <div className="flex flex-1 flex-col p-6">
                     <h2 className="text-lg font-semibold">{p.name}</h2>
+                    {p.brand && (
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-brand">
+                        {p.brand}
+                      </p>
+                    )}
                     {p.serial_number && (
                       <p className="mt-1 text-xs text-foreground/50">
                         {t("product.serial")} : {p.serial_number}
