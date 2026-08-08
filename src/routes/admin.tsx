@@ -88,6 +88,14 @@ function AdminPage() {
     try {
       await fn();
       await refresh();
+    } catch (err) {
+      if (err instanceof Error && err.message === "UNAUTHORIZED") {
+        setData(null);
+        setIdentity(null);
+        setPhase("locked");
+      } else {
+        console.error(err);
+      }
     } finally {
       setBusy(false);
     }
