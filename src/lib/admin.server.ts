@@ -14,7 +14,7 @@ function sessionConfig() {
     maxAge: 60 * 60 * 24 * 60,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env["NODE_ENV"] === "production",
       sameSite: "lax" as const,
       path: "/",
     },
