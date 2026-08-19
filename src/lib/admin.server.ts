@@ -321,7 +321,7 @@ export async function deleteNode(id: string) {
 
 export type ProductInput = {
   id?: string;
-  category_id: string;
+  node_id: string;
   name: string;
   brand: string;
   serial_number: string;
@@ -369,7 +369,7 @@ export async function saveProduct(input: ProductInput) {
   }
 
   const base = {
-    category_id: input.category_id,
+    node_id: input.node_id,
     name: input.name.trim(),
     brand: input.brand.trim(),
     serial_number: input.serial_number.trim(),
