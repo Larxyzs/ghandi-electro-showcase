@@ -124,14 +124,35 @@ async function requireSuperAdmin() {
   return supabaseAdmin;
 }
 
-function slugify(name: string) {
-  const base = name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-  return `${base || "categorie"}-${Math.random().toString(36).slice(2, 7)}`;
+function slugBase(name: string) {
+  return (
+    name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "") || "dossier"
+  );
+}
+
+async function uniqueSlug(
+  db: Awaited<ReturnType<typeof requireAdmin>>,
+  parentId: string | null,
+  name: string,
+  excludeId?: string,
+) {
+  const base = slugBase(name);
+  let query = db.from("catalog_nodes").select("slug, id");
+  query = parentId ? query.eq("parent_id", parentId) : query.is("parent_id", null);
+  const { data } = await query;
+  const taken = new Set(
+    (data ?? []).filter((row) => row.id !== excludeId).map((row) => row.slug),
+  );
+  if (!taken.has(base)) return base;
+  for (let i = 2; i < 500; i += 1) {
+    if (!taken.has(`${base}-${i}`)) return `${base}-${i}`;
+  }
+  return `${base}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
 export type StaffAccount = { id: string; username: string; role: AdminRole; created_at: string };
@@ -186,39 +207,121 @@ export async function adminData(): Promise<SiteData> {
   return fetchSiteData();
 }
 
-export async function createCategory(name: string) {
+export async function createNode(parentId: string | null, name: string) {
   const db = await requireAdmin();
+  let level = 1;
+  if (parentId) {
+    const { data: parent } = await db
+      .from("catalog_nodes")
+      .select("id, level")
+      .eq("id", parentId)
+      .maybeSingle();
+    if (!parent) throw new Error("PARENT_NOT_FOUND");
+    if (parent.level >= 3) throw new Error("MAX_DEPTH");
+    level = parent.level + 1;
+  }
+
+  let siblings = db.from("catalog_nodes").select("sort_order");
+  siblings = parentId ? siblings.eq("parent_id", parentId) : siblings.is("parent_id", null);
+  const { data: existing } = await siblings;
+  const sort_order = (existing ?? []).reduce((max, row) => Math.max(max, row.sort_order), -1) + 1;
+
+  const slug = await uniqueSlug(db, parentId, name);
   const { data, error } = await db
-    .from("categories")
-    .insert({ name: name.trim(), slug: slugify(name) })
+    .from("catalog_nodes")
+    .insert({ parent_id: parentId, name: name.trim(), slug, level, sort_order })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
   return { id: data.id };
 }
 
-export async function renameCategory(id: string, name: string) {
+export async function renameNode(id: string, name: string) {
   const db = await requireAdmin();
-  const { error } = await db.from("categories").update({ name: name.trim() }).eq("id", id);
+  const { data: node } = await db
+    .from("catalog_nodes")
+    .select("id, parent_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!node) throw new Error("NOT_FOUND");
+  const slug = await uniqueSlug(db, node.parent_id, name, id);
+  const { error } = await db
+    .from("catalog_nodes")
+    .update({ name: name.trim(), slug })
+    .eq("id", id);
   if (error) throw new Error(error.message);
   return { ok: true as const };
 }
 
-export async function deleteCategory(id: string) {
+/** Moves a folder up or down among its siblings. */
+export async function moveNode(id: string, direction: "up" | "down") {
   const db = await requireAdmin();
-  const { data: products } = await db.from("products").select("image_url").eq("category_id", id);
+  const { data: node } = await db
+    .from("catalog_nodes")
+    .select("id, parent_id, sort_order")
+    .eq("id", id)
+    .maybeSingle();
+  if (!node) throw new Error("NOT_FOUND");
+
+  let query = db.from("catalog_nodes").select("id, sort_order, name").order("sort_order");
+  query = node.parent_id ? query.eq("parent_id", node.parent_id) : query.is("parent_id", null);
+  const { data: siblings } = await query;
+  const ordered = (siblings ?? []).slice();
+  const index = ordered.findIndex((s) => s.id === id);
+  const target = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || target < 0 || target >= ordered.length) return { ok: true as const };
+
+  const a = ordered[index]!;
+  const b = ordered[target]!;
+  ordered[index] = b;
+  ordered[target] = a;
+  for (const [position, item] of ordered.entries()) {
+    await db.from("catalog_nodes").update({ sort_order: position }).eq("id", item.id);
+  }
+  return { ok: true as const };
+}
+
+async function descendantIds(
+  db: Awaited<ReturnType<typeof requireAdmin>>,
+  rootId: string,
+): Promise<string[]> {
+  const { data } = await db.from("catalog_nodes").select("id, parent_id");
+  const all = data ?? [];
+  const ids = [rootId];
+  const walk = (parent: string) => {
+    for (const child of all.filter((n) => n.parent_id === parent)) {
+      ids.push(child.id);
+      walk(child.id);
+    }
+  };
+  walk(rootId);
+  return ids;
+}
+
+/** Counts what a folder deletion would destroy, used for the confirmation dialog. */
+export async function nodeDeletionImpact(id: string) {
+  const db = await requireAdmin();
+  const ids = await descendantIds(db, id);
+  const { data: products } = await db.from("products").select("id").in("node_id", ids);
+  return { folders: ids.length - 1, products: (products ?? []).length };
+}
+
+export async function deleteNode(id: string) {
+  const db = await requireAdmin();
+  const ids = await descendantIds(db, id);
+  const { data: products } = await db.from("products").select("image_url").in("node_id", ids);
   const paths = (products ?? [])
     .map((p) => p.image_url)
     .filter((p): p is string => Boolean(p) && !p!.startsWith("http"));
   if (paths.length) await db.storage.from("product-images").remove(paths);
-  const { error } = await db.from("categories").delete().eq("id", id);
+  const { error } = await db.from("catalog_nodes").delete().eq("id", id);
   if (error) throw new Error(error.message);
   return { ok: true as const };
 }
 
 export type ProductInput = {
   id?: string;
-  category_id: string;
+  node_id: string;
   name: string;
   brand: string;
   serial_number: string;
@@ -266,7 +369,7 @@ export async function saveProduct(input: ProductInput) {
   }
 
   const base = {
-    category_id: input.category_id,
+    node_id: input.node_id,
     name: input.name.trim(),
     brand: input.brand.trim(),
     serial_number: input.serial_number.trim(),

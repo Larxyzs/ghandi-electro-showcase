@@ -3,7 +3,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { DEFAULT_SETTINGS, type SiteData } from "./catalog-types";
 
 export { DEFAULT_SETTINGS };
-export type { Category, Product, SiteSettings, SiteData } from "./catalog-types";
+export type { CatalogNode, Product, SiteSettings, SiteData } from "./catalog-types";
 
 function publicClient() {
   const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
@@ -38,16 +38,20 @@ export async function signImagePaths(paths: string[]): Promise<Record<string, st
 export async function fetchSiteData(): Promise<SiteData> {
   const supabase = publicClient();
 
-  const [settingsRes, categoriesRes, productsRes] = await Promise.all([
+  const [settingsRes, nodesRes, productsRes] = await Promise.all([
     supabase
       .from("site_settings")
       .select("primary_color, secondary_color, text_color")
       .eq("id", "default")
       .maybeSingle(),
-    supabase.from("categories").select("id, name, slug, sort_order").order("sort_order").order("name"),
+    supabase
+      .from("catalog_nodes")
+      .select("id, parent_id, name, slug, level, sort_order")
+      .order("sort_order")
+      .order("name"),
     supabase
       .from("products")
-      .select("id, category_id, name, brand, serial_number, stock, price, image_url, description, sort_order")
+      .select("id, node_id, name, brand, serial_number, stock, price, image_url, description, sort_order")
       .order("sort_order")
       .order("created_at"),
   ]);
@@ -60,7 +64,7 @@ export async function fetchSiteData(): Promise<SiteData> {
 
   return {
     settings: settingsRes.data ?? DEFAULT_SETTINGS,
-    categories: categoriesRes.data ?? [],
+    nodes: (nodesRes.data ?? []).map((n) => ({ ...n, level: n.level as 1 | 2 | 3 })),
     products: rawProducts.map((p) => ({
       ...p,
       price: p.price === null ? null : Number(p.price),
