@@ -124,14 +124,35 @@ async function requireSuperAdmin() {
   return supabaseAdmin;
 }
 
-function slugify(name: string) {
-  const base = name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-  return `${base || "categorie"}-${Math.random().toString(36).slice(2, 7)}`;
+function slugBase(name: string) {
+  return (
+    name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "") || "dossier"
+  );
+}
+
+async function uniqueSlug(
+  db: Awaited<ReturnType<typeof requireAdmin>>,
+  parentId: string | null,
+  name: string,
+  excludeId?: string,
+) {
+  const base = slugBase(name);
+  let query = db.from("catalog_nodes").select("slug, id");
+  query = parentId ? query.eq("parent_id", parentId) : query.is("parent_id", null);
+  const { data } = await query;
+  const taken = new Set(
+    (data ?? []).filter((row) => row.id !== excludeId).map((row) => row.slug),
+  );
+  if (!taken.has(base)) return base;
+  for (let i = 2; i < 500; i += 1) {
+    if (!taken.has(`${base}-${i}`)) return `${base}-${i}`;
+  }
+  return `${base}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
 export type StaffAccount = { id: string; username: string; role: AdminRole; created_at: string };
