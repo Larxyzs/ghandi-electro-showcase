@@ -41,11 +41,13 @@ export type Database = {
         }
         Relationships: []
       }
-      categories: {
+      catalog_nodes: {
         Row: {
           created_at: string
           id: string
+          level: number
           name: string
+          parent_id: string | null
           slug: string
           sort_order: number
           updated_at: string
@@ -53,7 +55,9 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          level: number
           name: string
+          parent_id?: string | null
           slug: string
           sort_order?: number
           updated_at?: string
@@ -61,22 +65,32 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          level?: number
           name?: string
+          parent_id?: string | null
           slug?: string
           sort_order?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "catalog_nodes_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       products: {
         Row: {
           brand: string
-          category_id: string
           created_at: string
           description: string
           id: string
           image_url: string | null
           name: string
+          node_id: string
           price: number | null
           serial_number: string
           sort_order: number
@@ -85,12 +99,12 @@ export type Database = {
         }
         Insert: {
           brand?: string
-          category_id: string
           created_at?: string
           description?: string
           id?: string
           image_url?: string | null
           name: string
+          node_id: string
           price?: number | null
           serial_number?: string
           sort_order?: number
@@ -99,12 +113,12 @@ export type Database = {
         }
         Update: {
           brand?: string
-          category_id?: string
           created_at?: string
           description?: string
           id?: string
           image_url?: string | null
           name?: string
+          node_id?: string
           price?: number | null
           serial_number?: string
           sort_order?: number
@@ -113,10 +127,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "products_category_id_fkey"
-            columns: ["category_id"]
+            foreignKeyName: "products_node_id_fkey"
+            columns: ["node_id"]
             isOneToOne: false
-            referencedRelation: "categories"
+            referencedRelation: "catalog_nodes"
             referencedColumns: ["id"]
           },
         ]
