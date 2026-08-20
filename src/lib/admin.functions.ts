@@ -60,35 +60,55 @@ export const adminDeleteStaff = createServerFn({ method: "POST" })
     return deleteStaff(data.id);
   });
 
-export const adminCreateCategory = createServerFn({ method: "POST" })
-  .inputValidator((data: { name: string }) => ({ name: String(data.name ?? "").slice(0, 80) }))
+export const adminCreateNode = createServerFn({ method: "POST" })
+  .inputValidator((data: { parentId: string | null; name: string }) => ({
+    parentId: data.parentId ? String(data.parentId) : null,
+    name: String(data.name ?? "").slice(0, 80),
+  }))
   .handler(async ({ data }) => {
-    const { createCategory } = await import("./admin.server");
+    const { createNode } = await import("./admin.server");
     if (!data.name.trim()) throw new Error("EMPTY_NAME");
-    return createCategory(data.name);
+    return createNode(data.parentId, data.name);
   });
 
-export const adminRenameCategory = createServerFn({ method: "POST" })
+export const adminRenameNode = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string; name: string }) => ({
     id: String(data.id),
     name: String(data.name ?? "").slice(0, 80),
   }))
   .handler(async ({ data }) => {
-    const { renameCategory } = await import("./admin.server");
+    const { renameNode } = await import("./admin.server");
     if (!data.name.trim()) throw new Error("EMPTY_NAME");
-    return renameCategory(data.id, data.name);
+    return renameNode(data.id, data.name);
   });
 
-export const adminDeleteCategory = createServerFn({ method: "POST" })
+export const adminMoveNode = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string; direction: "up" | "down" }) => ({
+    id: String(data.id),
+    direction: data.direction === "up" ? ("up" as const) : ("down" as const),
+  }))
+  .handler(async ({ data }) => {
+    const { moveNode } = await import("./admin.server");
+    return moveNode(data.id, data.direction);
+  });
+
+export const adminNodeImpact = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string }) => ({ id: String(data.id) }))
   .handler(async ({ data }) => {
-    const { deleteCategory } = await import("./admin.server");
-    return deleteCategory(data.id);
+    const { nodeDeletionImpact } = await import("./admin.server");
+    return nodeDeletionImpact(data.id);
+  });
+
+export const adminDeleteNode = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => ({ id: String(data.id) }))
+  .handler(async ({ data }) => {
+    const { deleteNode } = await import("./admin.server");
+    return deleteNode(data.id);
   });
 
 export type AdminProductInput = {
   id?: string;
-  category_id: string;
+  node_id: string;
   name: string;
   brand: string;
   serial_number: string;
@@ -106,7 +126,7 @@ export const adminSaveProduct = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { saveProduct } = await import("./admin.server");
     if (!data.name?.trim()) throw new Error("EMPTY_NAME");
-    if (!data.category_id) throw new Error("NO_CATEGORY");
+    if (!data.node_id) throw new Error("NO_FOLDER");
     return saveProduct({
       ...data,
       brand: data.brand ?? "",
