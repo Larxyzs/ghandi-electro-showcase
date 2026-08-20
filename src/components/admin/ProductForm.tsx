@@ -19,14 +19,14 @@ export type ProductDraft = {
 
 export function ProductForm({
   product,
-  categoryId,
+  nodeId,
   onCancel,
   onSave,
 }: {
   product?: Product;
-  categoryId: string;
+  nodeId: string;
   onCancel: () => void;
-  onSave: (draft: ProductDraft & { category_id: string }) => Promise<void>;
+  onSave: (draft: ProductDraft & { node_id: string }) => Promise<void>;
 }) {
   const [draft, setDraft] = useState<ProductDraft>({
     id: product?.id,
@@ -85,7 +85,7 @@ export function ProductForm({
         setBusy(true);
         setError(null);
         try {
-          await onSave({ ...draft, category_id: categoryId });
+          await onSave({ ...draft, node_id: nodeId });
         } catch (err) {
           setError(err instanceof Error ? err.message : "Enregistrement impossible.");
         } finally {
