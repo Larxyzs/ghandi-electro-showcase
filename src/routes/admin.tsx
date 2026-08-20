@@ -3,16 +3,18 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2 } from "lucide-react";
 import {
-  adminCreateCategory,
   adminCreateStaff,
-  adminDeleteCategory,
+  adminCreateNode,
+  adminDeleteNode,
   adminDeleteProduct,
   adminDeleteStaff,
   adminGetData,
   adminListStaff,
   adminLogin,
   adminLogout,
-  adminRenameCategory,
+  adminMoveNode,
+  adminNodeImpact,
+  adminRenameNode,
   adminSaveProduct,
   adminSaveSettings,
   adminStatus,
@@ -43,9 +45,11 @@ function AdminPage() {
   const login = useServerFn(adminLogin);
   const logout = useServerFn(adminLogout);
   const getData = useServerFn(adminGetData);
-  const createCategory = useServerFn(adminCreateCategory);
-  const renameCategory = useServerFn(adminRenameCategory);
-  const deleteCategory = useServerFn(adminDeleteCategory);
+  const createNode = useServerFn(adminCreateNode);
+  const renameNode = useServerFn(adminRenameNode);
+  const moveNode = useServerFn(adminMoveNode);
+  const nodeImpact = useServerFn(adminNodeImpact);
+  const deleteNode = useServerFn(adminDeleteNode);
   const saveProduct = useServerFn(adminSaveProduct);
   const deleteProductFn = useServerFn(adminDeleteProduct);
   const saveSettings = useServerFn(adminSaveSettings);
@@ -148,30 +152,33 @@ function AdminPage() {
         setIdentity(null);
         setPhase("locked");
       }}
-      onCreateCategory={(name) => run(() => createCategory({ data: { name } }))}
-      onRenameCategory={(id, name) => run(() => renameCategory({ data: { id, name } }))}
-      onDeleteCategory={(id) => run(() => deleteCategory({ data: { id } }))}
-      onDeleteProduct={(id) => run(() => deleteProductFn({ data: { id } }))}
-      onSaveProduct={(draft: ProductDraft & { category_id: string }) =>
-        run(() =>
-          saveProduct({
-            data: {
-              ...(draft.id ? { id: draft.id } : {}),
-              category_id: draft.category_id,
-              name: draft.name,
-              brand: draft.brand,
-              serial_number: draft.serial_number,
-              stock: draft.stock,
-              price: draft.price === "" ? null : Number(draft.price),
-              description: draft.description,
-              imageData: draft.imageData ?? null,
-              imageName: draft.imageName ?? null,
-              imageUrl: draft.imageUrl ?? null,
-              removeImage: Boolean(draft.removeImage),
-            },
-          }),
-        )
-      }
+      catalogActions={{
+        createNode: (parentId, name) => run(() => createNode({ data: { parentId, name } })),
+        renameNode: (id, name) => run(() => renameNode({ data: { id, name } })),
+        moveNode: (id, direction) => run(() => moveNode({ data: { id, direction } })),
+        deleteNode: (id) => run(() => deleteNode({ data: { id } })),
+        nodeImpact: async (id) => await nodeImpact({ data: { id } }),
+        deleteProduct: (id) => run(() => deleteProductFn({ data: { id } })),
+        saveProduct: (draft: ProductDraft & { node_id: string }) =>
+          run(() =>
+            saveProduct({
+              data: {
+                ...(draft.id ? { id: draft.id } : {}),
+                node_id: draft.node_id,
+                name: draft.name,
+                brand: draft.brand,
+                serial_number: draft.serial_number,
+                stock: draft.stock,
+                price: draft.price === "" ? null : Number(draft.price),
+                description: draft.description,
+                imageData: draft.imageData ?? null,
+                imageName: draft.imageName ?? null,
+                imageUrl: draft.imageUrl ?? null,
+                removeImage: Boolean(draft.removeImage),
+              },
+            }),
+          ),
+      }}
       onSaveSettings={(settings: SiteSettings) => run(() => saveSettings({ data: settings }))}
     />
   );
