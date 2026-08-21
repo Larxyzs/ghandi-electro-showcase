@@ -14,7 +14,8 @@ import { Route as AProposRouteImport } from './routes/a-propos'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ProduitsIndexRouteImport } from './routes/produits.index'
-import { Route as ProduitsProductIdRouteImport } from './routes/produits.$productId'
+import { Route as ProduitsSplatRouteImport } from './routes/produits.$'
+import { Route as ProduitsArticleProductIdRouteImport } from './routes/produits.article.$productId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -41,27 +42,35 @@ const ProduitsIndexRoute = ProduitsIndexRouteImport.update({
   path: '/produits/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProduitsProductIdRoute = ProduitsProductIdRouteImport.update({
-  id: '/produits/$productId',
-  path: '/produits/$productId',
+const ProduitsSplatRoute = ProduitsSplatRouteImport.update({
+  id: '/produits/$',
+  path: '/produits/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProduitsArticleProductIdRoute =
+  ProduitsArticleProductIdRouteImport.update({
+    id: '/produits/article/$productId',
+    path: '/produits/article/$productId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
   '/contact': typeof ContactRoute
-  '/produits/$productId': typeof ProduitsProductIdRoute
+  '/produits/$': typeof ProduitsSplatRoute
   '/produits/': typeof ProduitsIndexRoute
+  '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
   '/contact': typeof ContactRoute
-  '/produits/$productId': typeof ProduitsProductIdRoute
+  '/produits/$': typeof ProduitsSplatRoute
   '/produits': typeof ProduitsIndexRoute
+  '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -69,8 +78,9 @@ export interface FileRoutesById {
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
   '/contact': typeof ContactRoute
-  '/produits/$productId': typeof ProduitsProductIdRoute
+  '/produits/$': typeof ProduitsSplatRoute
   '/produits/': typeof ProduitsIndexRoute
+  '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -79,24 +89,27 @@ export interface FileRouteTypes {
     | '/a-propos'
     | '/admin'
     | '/contact'
-    | '/produits/$productId'
+    | '/produits/$'
     | '/produits/'
+    | '/produits/article/$productId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/a-propos'
     | '/admin'
     | '/contact'
-    | '/produits/$productId'
+    | '/produits/$'
     | '/produits'
+    | '/produits/article/$productId'
   id:
     | '__root__'
     | '/'
     | '/a-propos'
     | '/admin'
     | '/contact'
-    | '/produits/$productId'
+    | '/produits/$'
     | '/produits/'
+    | '/produits/article/$productId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -104,8 +117,9 @@ export interface RootRouteChildren {
   AProposRoute: typeof AProposRoute
   AdminRoute: typeof AdminRoute
   ContactRoute: typeof ContactRoute
-  ProduitsProductIdRoute: typeof ProduitsProductIdRoute
+  ProduitsSplatRoute: typeof ProduitsSplatRoute
   ProduitsIndexRoute: typeof ProduitsIndexRoute
+  ProduitsArticleProductIdRoute: typeof ProduitsArticleProductIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -145,11 +159,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProduitsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/produits/$productId': {
-      id: '/produits/$productId'
-      path: '/produits/$productId'
-      fullPath: '/produits/$productId'
-      preLoaderRoute: typeof ProduitsProductIdRouteImport
+    '/produits/$': {
+      id: '/produits/$'
+      path: '/produits/$'
+      fullPath: '/produits/$'
+      preLoaderRoute: typeof ProduitsSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/produits/article/$productId': {
+      id: '/produits/article/$productId'
+      path: '/produits/article/$productId'
+      fullPath: '/produits/article/$productId'
+      preLoaderRoute: typeof ProduitsArticleProductIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -160,8 +181,9 @@ const rootRouteChildren: RootRouteChildren = {
   AProposRoute: AProposRoute,
   AdminRoute: AdminRoute,
   ContactRoute: ContactRoute,
-  ProduitsProductIdRoute: ProduitsProductIdRoute,
+  ProduitsSplatRoute: ProduitsSplatRoute,
   ProduitsIndexRoute: ProduitsIndexRoute,
+  ProduitsArticleProductIdRoute: ProduitsArticleProductIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
