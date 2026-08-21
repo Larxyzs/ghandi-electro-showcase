@@ -58,7 +58,8 @@ export function SiteLayout({ children }: { children: ReactNode }) {
             <NavLinks />
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+            <HeaderSearch />
             <LanguageSwitcher />
             <a
               href={COMPANY.phoneHref}
@@ -94,6 +95,8 @@ export function SiteLayout({ children }: { children: ReactNode }) {
       </header>
 
       <main className="flex-1">{children}</main>
+
+      <WhatsAppFloating />
 
       <footer className="mt-24 border-t border-border bg-brand-soft/60">
         <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 py-14 sm:grid-cols-2 lg:grid-cols-3">
