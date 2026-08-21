@@ -3,8 +3,11 @@ import { Link } from "@tanstack/react-router";
 import { Menu, Phone, X, MapPin } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { HeaderSearch } from "@/components/HeaderSearch";
+import { WhatsAppFloating } from "@/components/WhatsAppFloating";
 import { useI18n } from "@/lib/i18n";
 import { COMPANY } from "@/lib/company";
+
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useI18n();
