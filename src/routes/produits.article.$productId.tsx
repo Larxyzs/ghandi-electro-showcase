@@ -8,7 +8,7 @@ import type { SiteData } from "@/lib/catalog-types";
 import { COMPANY } from "@/lib/company";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/produits/$productId")({
+export const Route = createFileRoute("/produits/article/$productId")({
   head: () => ({
     meta: [
       { title: "Produit | Ghandi Home Electro" },
