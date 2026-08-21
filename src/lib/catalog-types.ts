@@ -77,6 +77,35 @@ export function productsIn(nodes: CatalogNode[], products: Product[], nodeId: st
   return products.filter((p) => ids.has(p.node_id));
 }
 
+function normalize(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+/** Loose multi-word search over product name, brand, serial and its folder path. */
+export function searchProducts(nodes: CatalogNode[], products: Product[], query: string) {
+  const terms = normalize(query).split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return products;
+  return products.filter((product) => {
+    const haystack = normalize(
+      [
+        product.name,
+        product.brand,
+        product.serial_number,
+        ...pathOf(nodes, product.node_id).map((n) => n.name),
+      ].join(" "),
+    );
+    return terms.every((term) => haystack.includes(term));
+  });
+}
+
+/** Level-1 / level-2 ancestor of a product's folder, if any. */
+export function ancestorAtLevel(nodes: CatalogNode[], nodeId: string, level: NodeLevel) {
+  return pathOf(nodes, nodeId).find((n) => n.level === level) ?? null;
+}
+
 export const DEFAULT_SETTINGS: SiteSettings = {
   primary_color: "#ffffff",
   secondary_color: "#1266e8",
