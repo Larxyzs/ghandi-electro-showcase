@@ -17,10 +17,12 @@ import {
 } from "lucide-react";
 import type {
   CindyActivityKind,
+  CindyBulkItem,
   CindyEvent,
   CindySource,
   ResearchedProduct,
 } from "@/lib/cindy-types";
+
 import { cn } from "@/lib/utils";
 
 type Bubble = { id: number; role: "admin" | "cindy"; text: string };
