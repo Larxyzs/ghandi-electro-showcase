@@ -35,7 +35,7 @@ import {
 } from "@/lib/admin.functions";
 import { AdminLogin } from "@/components/admin/AdminLogin";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
-import type { ProductDraft } from "@/components/admin/ProductForm";
+import type { FolderDraft, ProductDraft } from "@/components/admin/ProductForm";
 import type { SiteData, SiteSettings } from "@/lib/catalog-types";
 import type { AdminRole, StaffAccount } from "@/lib/admin-types";
 
@@ -190,7 +190,7 @@ function AdminPage() {
         moveNode: (id, direction) => run(() => moveNode({ data: { id, direction } })),
         deleteNode: (id) => run(() => deleteNode({ data: { id } })),
         nodeImpact: async (id) => await nodeImpact({ data: { id } }),
-        quickCreate: (fromId, folders, draft: ProductDraft) =>
+        quickCreate: (fromId, folders: FolderDraft[], draft: ProductDraft) =>
           run(() =>
             quickCreate({
               data: {

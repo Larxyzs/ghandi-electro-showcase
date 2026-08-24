@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { ImagePlus, Loader2, Trash2, X } from "lucide-react";
 import { LEVEL_LABELS, type NodeLevel, type Product } from "@/lib/catalog-types";
 import { BRAND_NAMES } from "@/lib/brands";
+import { ImagePicker } from "@/components/admin/ImagePicker";
 
 export type ProductDraft = {
   id?: string | undefined;
@@ -18,6 +19,15 @@ export type ProductDraft = {
   removeImage?: boolean | undefined;
 };
 
+/** A folder (Catégorie → Type → Produit → Format) created on the fly: name + image. */
+export type FolderDraft = {
+  name: string;
+  imageData?: string | null;
+  imageName?: string | null;
+  imageUrl?: string | null;
+};
+
+
 export function ProductForm({
   product,
   nodeId,
@@ -33,9 +43,12 @@ export function ProductForm({
   /** Subset of folderLevels that may be left empty (e.g. the optional Format). */
   optionalLevels?: NodeLevel[];
   onCancel: () => void;
-  onSave: (draft: ProductDraft & { node_id: string; folders: string[] }) => Promise<void>;
+  onSave: (draft: ProductDraft & { node_id: string; folders: FolderDraft[] }) => Promise<void>;
 }) {
-  const [folders, setFolders] = useState<string[]>(() => (folderLevels ?? []).map(() => ""));
+  const [folders, setFolders] = useState<FolderDraft[]>(() =>
+    (folderLevels ?? []).map(() => ({ name: "" })),
+  );
+
   const [draft, setDraft] = useState<ProductDraft>({
     id: product?.id,
     name: product?.name ?? "",
@@ -93,7 +106,7 @@ export function ProductForm({
         }
         const levels = folderLevels ?? [];
         const isOptional = (level: NodeLevel) => (optionalLevels ?? []).includes(level);
-        if (levels.some((level, i) => !isOptional(level) && !(folders[i] ?? "").trim())) {
+        if (levels.some((level, i) => !isOptional(level) && !(folders[i]?.name ?? "").trim())) {
           setError("Renseignez tous les dossiers obligatoires à créer.");
           return;
         }
@@ -103,7 +116,9 @@ export function ProductForm({
           await onSave({
             ...draft,
             node_id: nodeId,
-            folders: folders.map((n) => n.trim()).filter(Boolean),
+            folders: folders
+              .map((f) => ({ ...f, name: f.name.trim() }))
+              .filter((f) => f.name.length > 0),
           });
         } catch (err) {
           setError(err instanceof Error ? err.message : "Enregistrement impossible.");
@@ -123,25 +138,50 @@ export function ProductForm({
       {folderLevels && folderLevels.length > 0 && (
         <div className="mt-5 grid gap-4 rounded-2xl border border-dashed border-brand/40 bg-background p-4 sm:grid-cols-2">
           <p className="text-xs font-semibold tracking-[0.14em] text-brand uppercase sm:col-span-2">
-            Dossiers à créer
+            Dossiers à créer — nom + image, comme les catégories
           </p>
           {folderLevels.map((level, index) => (
-            <label key={level} className="text-sm font-medium">
-              {LEVEL_LABELS[level]}
-              {(optionalLevels ?? []).includes(level) && (
-                <span className="ms-1.5 text-xs font-normal text-foreground/50">(optionnel)</span>
-              )}
-              <input
-                className={`mt-1.5 ${field}`}
-                value={folders[index] ?? ""}
-                onChange={(e) =>
-                  setFolders((prev) => prev.map((v, i) => (i === index ? e.target.value : v)))
-                }
-                placeholder={`Nom du ${LEVEL_LABELS[level].toLowerCase()}`}
-              />
-            </label>
+            <div key={level} className="rounded-2xl border border-border bg-card p-4">
+              <label className="block text-sm font-medium">
+                {LEVEL_LABELS[level]}
+                {(optionalLevels ?? []).includes(level) && (
+                  <span className="ms-1.5 text-xs font-normal text-foreground/50">(optionnel)</span>
+                )}
+                <input
+                  className={`mt-1.5 ${field}`}
+                  value={folders[index]?.name ?? ""}
+                  onChange={(e) =>
+                    setFolders((prev) =>
+                      prev.map((v, i) => (i === index ? { ...v, name: e.target.value } : v)),
+                    )
+                  }
+                  placeholder={`Nom du ${LEVEL_LABELS[level].toLowerCase()}`}
+                />
+              </label>
+              <div className="mt-3">
+                <ImagePicker
+                  label={`Image du ${LEVEL_LABELS[level].toLowerCase()}`}
+                  onError={setError}
+                  onChange={(image) =>
+                    setFolders((prev) =>
+                      prev.map((v, i) =>
+                        i === index
+                          ? {
+                              name: v.name,
+                              imageData: image.imageData ?? null,
+                              imageName: image.imageName ?? null,
+                              imageUrl: image.imageUrl ?? null,
+                            }
+                          : v,
+                      ),
+                    )
+                  }
+                />
+              </div>
+            </div>
           ))}
         </div>
+
       )}
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">

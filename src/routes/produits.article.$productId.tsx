@@ -118,8 +118,11 @@ function ProductDetail() {
                 <dt className="text-xs tracking-wide text-foreground/55 uppercase">
                   {t("product.stock")}
                 </dt>
-                <dd className="mt-1 font-semibold">{product.stock}</dd>
+                <dd className="mt-1 font-semibold">
+                  {inStock ? t("product.inStock") : t("product.outOfStock")}
+                </dd>
               </div>
+
             </dl>
 
             {product.characteristics && (

@@ -174,14 +174,25 @@ export const adminQuickCreate = createServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       fromId: string | null;
-      folders: string[];
+      folders: {
+        name: string;
+        imageData?: string | null;
+        imageName?: string | null;
+        imageUrl?: string | null;
+      }[];
       product: Omit<AdminProductInput, "id" | "node_id">;
     }) => ({
       fromId: data.fromId ? String(data.fromId) : null,
-      folders: (data.folders ?? []).map((n) => String(n ?? "").slice(0, 80)),
+      folders: (data.folders ?? []).map((folder) => ({
+        name: String(folder?.name ?? "").slice(0, 80),
+        imageData: folder?.imageData ?? null,
+        imageName: folder?.imageName ?? null,
+        imageUrl: folder?.imageUrl ?? null,
+      })),
       product: data.product,
     }),
   )
+
   .handler(async ({ data }) => {
     const { quickCreateChain } = await import("./admin.server");
     if (!data.product?.name?.trim()) throw new Error("EMPTY_NAME");
