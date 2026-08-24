@@ -101,6 +101,26 @@ export const adminMoveNode = createServerFn({ method: "POST" })
     return moveNode(data.id, data.direction);
   });
 
+export const adminReparentNode = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string; parentId: string | null }) => ({
+    id: String(data.id),
+    parentId: data.parentId ? String(data.parentId) : null,
+  }))
+  .handler(async ({ data }) => {
+    const { reparentNode } = await import("./admin.server");
+    return reparentNode(data.id, data.parentId);
+  });
+
+export const adminMoveProductToNode = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string; nodeId: string }) => ({
+    id: String(data.id),
+    nodeId: String(data.nodeId),
+  }))
+  .handler(async ({ data }) => {
+    const { moveProductToNode } = await import("./admin.server");
+    return moveProductToNode(data.id, data.nodeId);
+  });
+
 export const adminNodeImpact = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string }) => ({ id: String(data.id) }))
   .handler(async ({ data }) => {

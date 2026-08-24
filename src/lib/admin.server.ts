@@ -322,6 +322,83 @@ export async function moveNode(id: string, direction: "up" | "down") {
   return { ok: true as const };
 }
 
+/** Drag & drop: moves a folder (with its whole subtree) under a new parent. */
+export async function reparentNode(id: string, newParentId: string | null) {
+  const db = await requireAdmin();
+  const { data: all } = await db.from("catalog_nodes").select("id, parent_id, level, name");
+  const rows = all ?? [];
+  const node = rows.find((n) => n.id === id);
+  if (!node) throw new Error("NOT_FOUND");
+  if (newParentId === id) throw new Error("INVALID_TARGET");
+  if ((node.parent_id ?? null) === (newParentId ?? null)) return { ok: true as const };
+
+  let newLevel = 1;
+  if (newParentId) {
+    const parent = rows.find((n) => n.id === newParentId);
+    if (!parent) throw new Error("PARENT_NOT_FOUND");
+    // Prevent dropping a folder inside its own subtree.
+    let cursor: string | null = parent.id;
+    while (cursor) {
+      if (cursor === id) throw new Error("CIRCULAR");
+      cursor = rows.find((n) => n.id === cursor)?.parent_id ?? null;
+    }
+    newLevel = parent.level + 1;
+  }
+  if (newLevel > 4) throw new Error("MAX_DEPTH");
+
+  // Depth of the moved subtree must still fit within 4 levels.
+  const depthOf = (rootId: string): number => {
+    const kids = rows.filter((n) => n.parent_id === rootId);
+    return kids.length === 0 ? 1 : 1 + Math.max(...kids.map((k) => depthOf(k.id)));
+  };
+  if (newLevel + depthOf(id) - 1 > 4) throw new Error("TOO_DEEP");
+
+  let siblings = db.from("catalog_nodes").select("sort_order");
+  siblings = newParentId
+    ? siblings.eq("parent_id", newParentId)
+    : siblings.is("parent_id", null);
+  const { data: existing } = await siblings;
+  const sort_order = (existing ?? []).reduce((max, row) => Math.max(max, row.sort_order), -1) + 1;
+  const slug = await uniqueSlug(db, newParentId, node.name, id);
+
+  const { error } = await db
+    .from("catalog_nodes")
+    .update({ parent_id: newParentId, level: newLevel, sort_order, slug })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+
+  // Re-level descendants relative to the moved folder.
+  const shift = newLevel - node.level;
+  if (shift !== 0) {
+    const relevel = async (parentId: string) => {
+      for (const child of rows.filter((n) => n.parent_id === parentId)) {
+        await db
+          .from("catalog_nodes")
+          .update({ level: child.level + shift })
+          .eq("id", child.id);
+        await relevel(child.id);
+      }
+    };
+    await relevel(id);
+  }
+  return { ok: true as const };
+}
+
+/** Drag & drop: moves a product into another Produit/Format folder. */
+export async function moveProductToNode(id: string, nodeId: string) {
+  const db = await requireAdmin();
+  const { data: target } = await db
+    .from("catalog_nodes")
+    .select("id, level")
+    .eq("id", nodeId)
+    .maybeSingle();
+  if (!target) throw new Error("PARENT_NOT_FOUND");
+  if (target.level < 3) throw new Error("INVALID_TARGET");
+  const { error } = await db.from("products").update({ node_id: nodeId }).eq("id", id);
+  if (error) throw new Error(error.message);
+  return { ok: true as const };
+}
+
 async function descendantIds(
   db: Awaited<ReturnType<typeof requireAdmin>>,
   rootId: string,

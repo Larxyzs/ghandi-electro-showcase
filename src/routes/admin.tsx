@@ -13,6 +13,8 @@ import {
   adminLogin,
   adminLogout,
   adminMoveNode,
+  adminReparentNode,
+  adminMoveProductToNode,
   adminNodeImpact,
   adminRenameNode,
   adminSaveProduct,
@@ -61,6 +63,8 @@ function AdminPage() {
   const createNode = useServerFn(adminCreateNode);
   const renameNode = useServerFn(adminRenameNode);
   const moveNode = useServerFn(adminMoveNode);
+  const reparentNode = useServerFn(adminReparentNode);
+  const moveProductToNode = useServerFn(adminMoveProductToNode);
   const nodeImpact = useServerFn(adminNodeImpact);
   const deleteNode = useServerFn(adminDeleteNode);
   const saveProduct = useServerFn(adminSaveProduct);
@@ -188,6 +192,8 @@ function AdminPage() {
           run(() => createNode({ data: { parentId, name, image } })),
         renameNode: (id, name, image) => run(() => renameNode({ data: { id, name, image } })),
         moveNode: (id, direction) => run(() => moveNode({ data: { id, direction } })),
+        reparentNode: (id, parentId) => run(() => reparentNode({ data: { id, parentId } })),
+        moveProductToNode: (id, nodeId) => run(() => moveProductToNode({ data: { id, nodeId } })),
         deleteNode: (id) => run(() => deleteNode({ data: { id } })),
         nodeImpact: async (id) => await nodeImpact({ data: { id } }),
         quickCreate: (fromId, folders: FolderDraft[], draft: ProductDraft) =>
