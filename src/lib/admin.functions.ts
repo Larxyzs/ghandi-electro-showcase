@@ -123,7 +123,12 @@ export type AdminProductInput = {
   serial_number: string;
   stock: number;
   price: number | null;
-  description: string;
+  characteristics: string;
+  specifications?: { label: string; value: string }[];
+  gallery?: string[];
+  marketing_sections?: unknown[];
+  source_url?: string | null;
+  source_name?: string | null;
   featured?: boolean;
   imageData?: string | null;
   imageName?: string | null;
@@ -142,7 +147,7 @@ export const adminSaveProduct = createServerFn({ method: "POST" })
       brand: data.brand ?? "",
       stock: Number.isFinite(data.stock) ? data.stock : 0,
       serial_number: data.serial_number ?? "",
-      description: data.description ?? "",
+      characteristics: data.characteristics ?? "",
       price: data.price ?? null,
     });
   });
@@ -188,7 +193,7 @@ export const adminQuickCreate = createServerFn({ method: "POST" })
         brand: data.product.brand ?? "",
         stock: Number.isFinite(data.product.stock) ? data.product.stock : 0,
         serial_number: data.product.serial_number ?? "",
-        description: data.product.description ?? "",
+        characteristics: data.product.characteristics ?? "",
         price: data.product.price ?? null,
       },
     });
@@ -227,4 +232,14 @@ export const adminMovePopularSearch = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { movePopularSearch } = await import("./admin.server");
     return movePopularSearch(data.id, data.direction);
+  });
+
+
+/* ---------- Site mode ---------- */
+
+export const adminSetSiteMode = createServerFn({ method: "POST" })
+  .inputValidator((data: { mode: string }) => ({ mode: String(data.mode) }))
+  .handler(async ({ data }) => {
+    const { setSiteMode } = await import("./admin.server");
+    return setSiteMode(data.mode as "online" | "maintenance" | "coming_soon" | "closed");
   });

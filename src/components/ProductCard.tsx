@@ -48,7 +48,7 @@ export function ProductCard({ product }: { product: Product }) {
             {t("product.serial")} : {product.serial_number}
           </p>
         )}
-        <p className="mt-3 line-clamp-2 text-sm text-foreground/65">{product.description}</p>
+        <p className="mt-3 line-clamp-2 text-sm text-foreground/65">{product.characteristics}</p>
         {product.price !== null && (
           <p className="mt-4 text-lg font-bold text-brand">
             {product.price.toLocaleString("fr-MA")} MAD
