@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Clock, Database, History, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { CindyChat, CindyAvatar } from "./CindyChat";
 import { CindyReview, type CindyImportPayload } from "./CindyReview";
-import type { CindyEvent, ResearchedProduct } from "@/lib/cindy-types";
+import { CindyBulkReview } from "./CindyBulkReview";
+import type { CindyBulkItem, CindyEvent, ResearchedProduct } from "@/lib/cindy-types";
 import type { SiteData } from "@/lib/catalog-types";
 import { cn } from "@/lib/utils";
+
 
 export type CindyActions = {
   listSessions: () => Promise<
