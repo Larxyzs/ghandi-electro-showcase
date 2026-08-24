@@ -61,7 +61,7 @@ export function CatalogExplorer({
   const [renaming, setRenaming] = useState<CatalogNode | null>(null);
   const [editing, setEditing] = useState<{ product?: Product } | null>(null);
   const [quick, setQuick] = useState(false);
-  const [noFormat, setNoFormat] = useState<Record<string, boolean>>({});
+  const [formatChoice, setFormatChoice] = useState<Record<string, "keep" | "none">>({});
   const [pending, setPending] = useState<{ node: CatalogNode; folders: number; products: number } | null>(
     null,
   );
