@@ -106,6 +106,7 @@ export function ImagePicker({
       setPreview(result);
       onChange({ imageData: result, imageName: file.name, imageUrl: null, removeImage: false });
       onError?.(null);
+      void checkImage(result);
     };
     reader.readAsDataURL(file);
   };
