@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  Box,
   ChevronRight,
   Folder,
   FolderPlus,
@@ -11,9 +12,11 @@ import {
   Plus,
   Tag,
   Trash2,
+  Zap,
 } from "lucide-react";
 import {
   LEVEL_LABELS,
+  canHoldProducts,
   childrenOf,
   pathOf,
   productsIn,
@@ -25,7 +28,7 @@ import {
 import { ProductForm, type ProductDraft } from "@/components/admin/ProductForm";
 import { cn } from "@/lib/utils";
 
-const LEVEL_ICON: Record<NodeLevel, typeof Folder> = { 1: Folder, 2: Layers, 3: Tag };
+const LEVEL_ICON: Record<NodeLevel, typeof Folder> = { 1: Folder, 2: Layers, 3: Tag, 4: Box };
 
 export type CatalogActions = {
   createNode: (parentId: string | null, name: string) => Promise<void>;
@@ -34,6 +37,11 @@ export type CatalogActions = {
   deleteNode: (id: string) => Promise<void>;
   nodeImpact: (id: string) => Promise<{ folders: number; products: number }>;
   saveProduct: (draft: ProductDraft & { node_id: string }) => Promise<void>;
+  quickCreate: (
+    fromId: string | null,
+    folders: string[],
+    draft: ProductDraft,
+  ) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
 };
 
@@ -50,6 +58,7 @@ export function CatalogExplorer({
   const [newName, setNewName] = useState("");
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const [editing, setEditing] = useState<{ product?: Product } | null>(null);
+  const [quick, setQuick] = useState(false);
   const [pending, setPending] = useState<{ node: CatalogNode; folders: number; products: number } | null>(
     null,
   );
@@ -61,8 +70,14 @@ export function CatalogExplorer({
   const trail = useMemo(() => pathOf(data.nodes, currentId), [data.nodes, currentId]);
   const folders = useMemo(() => childrenOf(data.nodes, currentId), [data.nodes, currentId]);
   const childLevel = ((current?.level ?? 0) + 1) as NodeLevel;
-  const canCreateFolder = (current?.level ?? 0) < 3;
-  const isLeaf = current?.level === 3;
+  const level = (current?.level ?? 0) as 0 | NodeLevel;
+  const canCreateFolder = level < 4;
+  const isLeaf = current ? canHoldProducts(current.level) : false;
+  const missingLevels = useMemo(
+    () =>
+      Array.from({ length: Math.max(0, 3 - level) }, (_, i) => (level + i + 1) as NodeLevel),
+    [level],
+  );
   const products = useMemo(
     () => (isLeaf && current ? data.products.filter((p) => p.node_id === current.id) : []),
     [data.products, current, isLeaf],
@@ -130,6 +145,27 @@ export function CatalogExplorer({
           </button>
         </form>
       )}
+
+      {missingLevels.length > 0 &&
+        (quick ? (
+          <ProductForm
+            nodeId=""
+            folderLevels={missingLevels}
+            onCancel={() => setQuick(false)}
+            onSave={async (draft) => {
+              await actions.quickCreate(currentId, draft.folders, draft);
+              setQuick(false);
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setQuick(true)}
+            className="inline-flex items-center gap-2 rounded-full border border-brand/40 bg-brand-soft/60 px-5 py-2.5 text-sm font-semibold text-brand-deep hover:bg-brand-soft"
+          >
+            <Zap className="h-4 w-4" /> Ajout rapide · créer {missingLevels.map((l) => LEVEL_LABELS[l]).join(" → ")} + article
+          </button>
+        ))}
 
       {folders.length === 0 && !isLeaf && (
         <p className="rounded-3xl border border-dashed border-border bg-card px-6 py-14 text-center text-sm text-foreground/60">

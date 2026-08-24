@@ -64,7 +64,7 @@ export async function fetchSiteData(): Promise<SiteData> {
 
   return {
     settings: settingsRes.data ?? DEFAULT_SETTINGS,
-    nodes: (nodesRes.data ?? []).map((n) => ({ ...n, level: n.level as 1 | 2 | 3 })),
+    nodes: (nodesRes.data ?? []).map((n) => ({ ...n, level: n.level as 1 | 2 | 3 | 4 })),
     products: rawProducts.map((p) => ({
       ...p,
       price: p.price === null ? null : Number(p.price),

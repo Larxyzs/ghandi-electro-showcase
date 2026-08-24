@@ -219,7 +219,7 @@ export async function createNode(parentId: string | null, name: string) {
       .eq("id", parentId)
       .maybeSingle();
     if (!parent) throw new Error("PARENT_NOT_FOUND");
-    if (parent.level >= 3) throw new Error("MAX_DEPTH");
+    if (parent.level >= 4) throw new Error("MAX_DEPTH");
     level = parent.level + 1;
   }
 
@@ -431,4 +431,43 @@ export async function saveSettings(input: {
     .eq("id", "default");
   if (error) throw new Error(error.message);
   return { ok: true as const };
+}
+
+/**
+ * Quick-jump: creates every missing folder between `fromId` and the new
+ * product (Modèle) in one action, then creates the product itself.
+ * `folders` are the names of the levels still missing, top to bottom.
+ */
+export async function quickCreateChain(input: {
+  fromId: string | null;
+  folders: string[];
+  product: Omit<ProductInput, "node_id" | "id">;
+}) {
+  const db = await requireAdmin();
+
+  let level = 0;
+  if (input.fromId) {
+    const { data: from } = await db
+      .from("catalog_nodes")
+      .select("id, level")
+      .eq("id", input.fromId)
+      .maybeSingle();
+    if (!from) throw new Error("PARENT_NOT_FOUND");
+    level = from.level;
+  }
+
+  const names = input.folders.map((n) => n.trim()).filter(Boolean);
+  if (names.length !== input.folders.length) throw new Error("EMPTY_NAME");
+  if (level + names.length > 4) throw new Error("MAX_DEPTH");
+  if (level + names.length < 3) throw new Error("MISSING_LEVELS");
+
+  let parentId = input.fromId;
+  for (const name of names) {
+    const created = await createNode(parentId, name);
+    parentId = created.id;
+  }
+  if (!parentId) throw new Error("NO_FOLDER");
+
+  const product = await saveProduct({ ...input.product, node_id: parentId });
+  return { nodeId: parentId, productId: product.id };
 }

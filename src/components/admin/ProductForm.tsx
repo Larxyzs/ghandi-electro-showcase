@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { ImagePlus, Loader2, Trash2, X } from "lucide-react";
-import type { Product } from "@/lib/catalog-types";
+import { LEVEL_LABELS, type NodeLevel, type Product } from "@/lib/catalog-types";
 import { BRAND_NAMES } from "@/lib/brands";
 
 export type ProductDraft = {
@@ -20,14 +20,18 @@ export type ProductDraft = {
 export function ProductForm({
   product,
   nodeId,
+  folderLevels,
   onCancel,
   onSave,
 }: {
   product?: Product;
   nodeId: string;
+  /** Quick-jump: folder levels to create on the fly before saving the product. */
+  folderLevels?: NodeLevel[];
   onCancel: () => void;
-  onSave: (draft: ProductDraft & { node_id: string }) => Promise<void>;
+  onSave: (draft: ProductDraft & { node_id: string; folders: string[] }) => Promise<void>;
 }) {
+  const [folders, setFolders] = useState<string[]>(() => (folderLevels ?? []).map(() => ""));
   const [draft, setDraft] = useState<ProductDraft>({
     id: product?.id,
     name: product?.name ?? "",
@@ -82,10 +86,14 @@ export function ProductForm({
           setError("Le nom est obligatoire.");
           return;
         }
+        if (folders.some((name) => !name.trim())) {
+          setError("Renseignez tous les dossiers à créer.");
+          return;
+        }
         setBusy(true);
         setError(null);
         try {
-          await onSave({ ...draft, node_id: nodeId });
+          await onSave({ ...draft, node_id: nodeId, folders: folders.map((n) => n.trim()) });
         } catch (err) {
           setError(err instanceof Error ? err.message : "Enregistrement impossible.");
         } finally {
@@ -100,6 +108,27 @@ export function ProductForm({
           <X className="h-4 w-4" />
         </button>
       </div>
+
+      {folderLevels && folderLevels.length > 0 && (
+        <div className="mt-5 grid gap-4 rounded-2xl border border-dashed border-brand/40 bg-background p-4 sm:grid-cols-2">
+          <p className="text-xs font-semibold tracking-[0.14em] text-brand uppercase sm:col-span-2">
+            Dossiers à créer
+          </p>
+          {folderLevels.map((level, index) => (
+            <label key={level} className="text-sm font-medium">
+              {LEVEL_LABELS[level]}
+              <input
+                className={`mt-1.5 ${field}`}
+                value={folders[index] ?? ""}
+                onChange={(e) =>
+                  setFolders((prev) => prev.map((v, i) => (i === index ? e.target.value : v)))
+                }
+                placeholder={`Nom du ${LEVEL_LABELS[level].toLowerCase()}`}
+              />
+            </label>
+          ))}
+        </div>
+      )}
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <label className="text-sm font-medium">

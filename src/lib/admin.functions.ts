@@ -154,3 +154,32 @@ export const adminSaveSettings = createServerFn({ method: "POST" })
     const { saveSettings } = await import("./admin.server");
     return saveSettings(data);
   });
+
+export const adminQuickCreate = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      fromId: string | null;
+      folders: string[];
+      product: Omit<AdminProductInput, "id" | "node_id">;
+    }) => ({
+      fromId: data.fromId ? String(data.fromId) : null,
+      folders: (data.folders ?? []).map((n) => String(n ?? "").slice(0, 80)),
+      product: data.product,
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { quickCreateChain } = await import("./admin.server");
+    if (!data.product?.name?.trim()) throw new Error("EMPTY_NAME");
+    return quickCreateChain({
+      fromId: data.fromId,
+      folders: data.folders,
+      product: {
+        ...data.product,
+        brand: data.product.brand ?? "",
+        stock: Number.isFinite(data.product.stock) ? data.product.stock : 0,
+        serial_number: data.product.serial_number ?? "",
+        description: data.product.description ?? "",
+        price: data.product.price ?? null,
+      },
+    });
+  });

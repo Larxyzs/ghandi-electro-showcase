@@ -16,6 +16,7 @@ import {
   adminNodeImpact,
   adminRenameNode,
   adminSaveProduct,
+  adminQuickCreate,
   adminSaveSettings,
   adminStatus,
   adminUpdateStaffPassword,
@@ -51,6 +52,7 @@ function AdminPage() {
   const nodeImpact = useServerFn(adminNodeImpact);
   const deleteNode = useServerFn(adminDeleteNode);
   const saveProduct = useServerFn(adminSaveProduct);
+  const quickCreate = useServerFn(adminQuickCreate);
   const deleteProductFn = useServerFn(adminDeleteProduct);
   const saveSettings = useServerFn(adminSaveSettings);
   const listStaff = useServerFn(adminListStaff);
@@ -158,6 +160,27 @@ function AdminPage() {
         moveNode: (id, direction) => run(() => moveNode({ data: { id, direction } })),
         deleteNode: (id) => run(() => deleteNode({ data: { id } })),
         nodeImpact: async (id) => await nodeImpact({ data: { id } }),
+        quickCreate: (fromId, folders, draft: ProductDraft) =>
+          run(() =>
+            quickCreate({
+              data: {
+                fromId,
+                folders,
+                product: {
+                  name: draft.name,
+                  brand: draft.brand,
+                  serial_number: draft.serial_number,
+                  stock: draft.stock,
+                  price: draft.price === "" ? null : Number(draft.price),
+                  description: draft.description,
+                  imageData: draft.imageData ?? null,
+                  imageName: draft.imageName ?? null,
+                  imageUrl: draft.imageUrl ?? null,
+                  removeImage: false,
+                },
+              },
+            }),
+          ),
         deleteProduct: (id) => run(() => deleteProductFn({ data: { id } })),
         saveProduct: (draft: ProductDraft & { node_id: string }) =>
           run(() =>

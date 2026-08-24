@@ -1,4 +1,12 @@
-export type NodeLevel = 1 | 2 | 3;
+export type NodeLevel = 1 | 2 | 3 | 4;
+
+/** Deepest folder level: level 4 (Format) is optional. */
+export const MAX_LEVEL: NodeLevel = 4;
+
+/** Products (Modèles) live in a Produit (level 3) or, when it has some, a Format (level 4). */
+export function canHoldProducts(level: NodeLevel) {
+  return level >= 3;
+}
 
 export type CatalogNode = {
   id: string;
@@ -37,8 +45,9 @@ export type SiteData = {
 
 export const LEVEL_LABELS: Record<NodeLevel, string> = {
   1: "Catégorie",
-  2: "Type d'appareil",
-  3: "Modèle",
+  2: "Type de produit",
+  3: "Produit",
+  4: "Format",
 };
 
 export function childrenOf(nodes: CatalogNode[], parentId: string | null) {
