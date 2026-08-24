@@ -27,6 +27,8 @@ export function ImagePicker({
   const [mode, setMode] = useState<"upload" | "url">(startsHttp ? "url" : "upload");
   const [url, setUrl] = useState(startsHttp ? (initialPath as string) : "");
   const fileRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+
 
   const field =
     "w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/25";
@@ -85,7 +87,34 @@ export function ImagePicker({
         </div>
 
         {mode === "upload" ? (
-          <div className="flex flex-wrap gap-2">
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              const file = Array.from(e.dataTransfer.files).find((f) =>
+                f.type.startsWith("image/"),
+              );
+              if (file) onFile(file);
+              else onError?.("Déposez un fichier image (JPG, PNG, WebP…).");
+            }}
+            onPaste={(e) => {
+              const file = Array.from(e.clipboardData.files).find((f) =>
+                f.type.startsWith("image/"),
+              );
+              if (file) {
+                e.preventDefault();
+                onFile(file);
+              }
+            }}
+            className={`flex flex-1 flex-wrap items-center gap-2 rounded-xl border-2 border-dashed p-3 transition-colors ${
+              dragging ? "border-brand bg-brand-soft/60" : "border-border"
+            }`}
+          >
             <input
               ref={fileRef}
               type="file"
@@ -104,6 +133,9 @@ export function ImagePicker({
             >
               Choisir une image
             </button>
+            <span className="text-xs text-foreground/55">
+              ou glissez-déposez / collez une image ici
+            </span>
             {preview && (
               <button
                 type="button"
@@ -119,6 +151,7 @@ export function ImagePicker({
             )}
           </div>
         ) : (
+
           <label className="flex-1 text-sm font-medium">
             Lien de l'image (https)
             <input
