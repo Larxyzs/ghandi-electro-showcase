@@ -614,7 +614,7 @@ export type CindySessionRow = {
   id: string;
   title: string;
   query: string;
-  events: unknown[];
+  events: Json[];
   created_at: string;
   updated_at: string;
 };
@@ -630,7 +630,7 @@ export async function listCindySessions() {
     .limit(30);
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => {
-    const payload = (row.messages ?? {}) as { query?: string; events?: unknown[] };
+    const payload = (row.messages ?? {}) as { query?: string; events?: Json[] };
     return {
       id: row.id,
       title: row.title,
