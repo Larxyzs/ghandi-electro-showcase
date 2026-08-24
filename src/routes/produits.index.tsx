@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
-import { fallback, zodValidator } from "@tanstack/zod-adapter";
-import { z } from "zod";
 import { ChevronRight, PackageSearch, Search, X } from "lucide-react";
 import { SiteLayout } from "@/components/SiteLayout";
 import { Reveal } from "@/components/Reveal";
@@ -16,12 +14,9 @@ import {
 import { BRAND_NAMES } from "@/lib/brands";
 import { cn } from "@/lib/utils";
 
-const searchSchema = z.object({
-  q: fallback(z.string(), "").default(""),
-});
-
 export const Route = createFileRoute("/produits/")({
-  validateSearch: zodValidator(searchSchema),
+  validateSearch: (search: Record<string, unknown>): { q?: string } =>
+    typeof search["q"] === "string" && search["q"] !== "" ? { q: search["q"] } : {},
   head: () => ({
     meta: [
       { title: "Produits | Ghandi Home Electro" },
@@ -50,7 +45,7 @@ export const Route = createFileRoute("/produits/")({
 function ProductsPage() {
   const { t } = useI18n();
   const data = useLoaderData({ from: "__root__" }) as SiteData;
-  const { q } = Route.useSearch();
+  const { q = "" } = Route.useSearch();
   const navigate = Route.useNavigate();
 
   const [category, setCategory] = useState("all");

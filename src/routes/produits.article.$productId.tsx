@@ -4,8 +4,8 @@ import { SiteLayout } from "@/components/SiteLayout";
 import { Reveal } from "@/components/Reveal";
 import { ZoomImage } from "@/components/ZoomImage";
 import { useI18n } from "@/lib/i18n";
-import type { SiteData } from "@/lib/catalog-types";
-import { COMPANY } from "@/lib/company";
+import { pathOf, type SiteData } from "@/lib/catalog-types";
+import { COMPANY, productWhatsappMessage, whatsappLink } from "@/lib/company";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/produits/article/$productId")({
@@ -44,7 +44,7 @@ function ProductDetail() {
 
   if (!product) throw notFound();
 
-  const category = data.categories.find((c) => c.id === product.category_id);
+  const trail = pathOf(data.nodes, product.node_id);
   const inStock = product.stock > 0;
 
   return (
@@ -69,10 +69,21 @@ function ProductDetail() {
           </Reveal>
 
           <Reveal variant="right" delay={120}>
-            {category && (
-              <span className="text-xs font-semibold tracking-[0.2em] text-brand uppercase">
-                {category.name}
-              </span>
+            {trail.length > 0 && (
+              <nav className="flex flex-wrap items-center gap-1.5 text-xs font-semibold tracking-[0.14em] text-brand uppercase">
+                {trail.map((node, index) => (
+                  <span key={node.id} className="inline-flex items-center gap-1.5">
+                    {index > 0 && <span className="text-foreground/30">/</span>}
+                    <Link
+                      to="/produits/$"
+                      params={{ _splat: trail.slice(0, index + 1).map((n) => n.slug).join("/") }}
+                      className="hover:underline"
+                    >
+                      {node.name}
+                    </Link>
+                  </span>
+                ))}
+              </nav>
             )}
             <h1 className="mt-4 text-3xl font-bold sm:text-4xl">{product.name}</h1>
 
@@ -127,6 +138,18 @@ function ProductDetail() {
               style={{ background: "var(--gradient-brand)" }}
             >
               <Phone className="h-4 w-4" /> {t("product.ask")}
+            </a>
+
+            <a
+              href={whatsappLink(productWhatsappMessage(product))}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 ms-0 inline-flex items-center gap-2 rounded-full bg-[oklch(0.72_0.17_147)] px-6 py-3 text-sm font-semibold text-[oklch(1_0_0)] shadow-[var(--shadow-soft)] transition-transform hover:scale-[1.03] sm:ms-3"
+            >
+              <svg viewBox="0 0 32 32" className="h-4 w-4 fill-current" aria-hidden="true">
+                <path d="M16.03 4C9.4 4 4.03 9.37 4.03 16c0 2.11.55 4.09 1.5 5.81L4 28l6.35-1.5A11.94 11.94 0 0 0 16.03 28c6.63 0 12-5.37 12-12s-5.37-12-12-12Zm0 21.8a9.7 9.7 0 0 1-5.03-1.36l-.36-.21-3.77.89.9-3.67-.23-.38A9.75 9.75 0 0 1 6.23 16c0-5.4 4.4-9.8 9.8-9.8s9.8 4.4 9.8 9.8-4.4 9.8-9.8 9.8Z" />
+              </svg>
+              Discuter de ce produit sur WhatsApp
             </a>
           </Reveal>
         </div>
