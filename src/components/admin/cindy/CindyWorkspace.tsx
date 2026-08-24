@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { Clock, Database, History, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
+import {
+  Clock,
+  Database,
+  History,
+  Loader2,
+  MessageSquare,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { CindyChat, CindyAvatar } from "./CindyChat";
+import { CindyAgentChat } from "./CindyAgentChat";
 import { CindyReview, type CindyImportPayload } from "./CindyReview";
 import { CindyBulkReview } from "./CindyBulkReview";
 import type { CindyBulkItem, CindyEvent, ResearchedProduct } from "@/lib/cindy-types";
@@ -37,6 +48,8 @@ export type CindyActions = {
     }[]
   >;
   forgetMemory: (id: string) => Promise<void>;
+  /** Reloads the admin's view of the site after Cindy changed something. */
+  refreshSite?: () => Promise<void> | void;
 };
 
 export function CindyWorkspace({
@@ -59,6 +72,7 @@ export function CindyWorkspace({
   const [history, setHistory] = useState<Awaited<ReturnType<CindyActions["listActions"]>>>([]);
   const [memory, setMemory] = useState<Awaited<ReturnType<CindyActions["listMemory"]>>>([]);
   const [pane, setPane] = useState<"sessions" | "memory" | "history">("sessions");
+  const [mode, setMode] = useState<"chat" | "research">("chat");
   const [loading, setLoading] = useState(true);
   const [replay, setReplay] = useState<{ query: string; events: CindyEvent[] } | null>(null);
 
@@ -91,7 +105,35 @@ export function CindyWorkspace({
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
       <div className="space-y-6">
-        {bulk ? (
+        <div className="grid grid-cols-2 gap-1 rounded-2xl border border-border bg-card p-1.5">
+          {(
+            [
+              ["chat", "Discussion", MessageSquare],
+              ["research", "Recherche produit", Search],
+            ] as const
+          ).map(([id, label, Icon]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setMode(id)}
+              className={cn(
+                "flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition",
+                mode === id ? "bg-brand-soft text-brand-deep" : "text-foreground/60 hover:text-brand",
+              )}
+            >
+              <Icon className="h-4 w-4" /> {label}
+            </button>
+          ))}
+        </div>
+
+        {mode === "chat" ? (
+          <CindyAgentChat
+            onChanged={() => {
+              void actions.refreshSite?.();
+              void refresh();
+            }}
+          />
+        ) : bulk ? (
           <CindyBulkReview
             items={bulk}
             data={data}
