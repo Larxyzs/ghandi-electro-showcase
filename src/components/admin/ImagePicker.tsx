@@ -45,7 +45,52 @@ export function ImagePicker({
   const [url, setUrl] = useState(startsHttp ? (initialPath as string) : "");
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [verdict, setVerdict] = useState<ImageVerdict | null>(null);
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const checkToken = useRef(0);
 
+  /** Asks Cindy to confirm the image is a clean, well-scaled product shot. */
+  const checkImage = async (source: string) => {
+    const token = ++checkToken.current;
+    setChecking(true);
+    setVerdict(null);
+    setCheckError(null);
+    try {
+      const size = await measure(source);
+      const res = await fetch("/api/admin/check-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(source.startsWith("data:") ? { imageData: source } : { imageUrl: source }),
+          ...(size ?? {}),
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as (ImageVerdict & { error?: string }) | null;
+      if (token !== checkToken.current) return;
+      if (!res.ok || !data || data.error) {
+        setCheckError(data?.error ?? "Vérification de l'image impossible.");
+        return;
+      }
+      setVerdict({
+        verdict: data.verdict,
+        summary: data.summary,
+        issues: data.issues ?? [],
+        advice: data.advice ?? "",
+      });
+    } catch {
+      if (token === checkToken.current) setCheckError("Vérification de l'image impossible.");
+    } finally {
+      if (token === checkToken.current) setChecking(false);
+    }
+  };
+
+  const clearCheck = () => {
+    checkToken.current++;
+    setChecking(false);
+    setVerdict(null);
+    setCheckError(null);
+  };
 
   const field =
     "w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/25";
