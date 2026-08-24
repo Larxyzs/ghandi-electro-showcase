@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLoaderData } from "@tanstack/react-router";
+import { Link, useLoaderData, useNavigate } from "@tanstack/react-router";
 import { PackageSearch, Search, X } from "lucide-react";
 import { searchProducts, type SiteData } from "@/lib/catalog-types";
 import { useI18n } from "@/lib/i18n";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 export function HeaderSearch() {
   const { t } = useI18n();
   const data = useLoaderData({ from: "__root__" }) as SiteData;
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -79,6 +80,30 @@ export function HeaderSearch() {
           </button>
         )}
       </div>
+
+      {open && query.trim() === "" && data.popularSearches.length > 0 && (
+        <div className="absolute top-12 end-0 z-50 w-[min(26rem,calc(100vw-2.5rem))] rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+          <p className="text-[0.7rem] font-semibold tracking-wide text-foreground/50 uppercase">
+            Recherches populaires
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {data.popularSearches.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  setQuery("");
+                  navigate({ to: "/produits", search: { q: item.term } });
+                }}
+                className="rounded-full border border-border bg-brand-soft/50 px-3.5 py-1.5 text-xs font-semibold text-brand-deep transition-colors hover:border-brand/40 hover:bg-brand-soft"
+              >
+                {item.term}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {open && query.trim() !== "" && (
         <div className="absolute top-12 end-0 z-50 w-[min(26rem,calc(100vw-2.5rem))] overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]">
