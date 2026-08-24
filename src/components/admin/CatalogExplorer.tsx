@@ -73,11 +73,12 @@ export function CatalogExplorer({
   const level = (current?.level ?? 0) as 0 | NodeLevel;
   const canCreateFolder = level < 4;
   const isLeaf = current ? canHoldProducts(current.level) : false;
+  /** Levels still to create: required down to Produit (3) + the optional Format (4). */
   const missingLevels = useMemo(
-    () =>
-      Array.from({ length: Math.max(0, 3 - level) }, (_, i) => (level + i + 1) as NodeLevel),
+    () => Array.from({ length: Math.max(0, 4 - level) }, (_, i) => (level + i + 1) as NodeLevel),
     [level],
   );
+  const optionalLevels = useMemo<NodeLevel[]>(() => [4], []);
   const products = useMemo(
     () => (isLeaf && current ? data.products.filter((p) => p.node_id === current.id) : []),
     [data.products, current, isLeaf],
@@ -151,6 +152,7 @@ export function CatalogExplorer({
           <ProductForm
             nodeId=""
             folderLevels={missingLevels}
+            optionalLevels={optionalLevels}
             onCancel={() => setQuick(false)}
             onSave={async (draft) => {
               await actions.quickCreate(currentId, draft.folders, draft);
@@ -163,7 +165,11 @@ export function CatalogExplorer({
             onClick={() => setQuick(true)}
             className="inline-flex items-center gap-2 rounded-full border border-brand/40 bg-brand-soft/60 px-5 py-2.5 text-sm font-semibold text-brand-deep hover:bg-brand-soft"
           >
-            <Zap className="h-4 w-4" /> Ajout rapide · créer {missingLevels.map((l) => LEVEL_LABELS[l]).join(" → ")} + article
+            <Zap className="h-4 w-4" /> Ajout rapide · créer{" "}
+            {missingLevels
+              .map((l) => (optionalLevels.includes(l) ? `${LEVEL_LABELS[l]} (optionnel)` : LEVEL_LABELS[l]))
+              .join(" → ")}{" "}
+            + article
           </button>
         ))}
 
