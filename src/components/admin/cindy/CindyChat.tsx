@@ -285,6 +285,11 @@ export function CindyChat({
     const force = /(à|a) nouveau|nouveau la recherche|refai|refaire|re-?cherche.? de nouveau|re-?research|force/i.test(
       raw,
     );
+    const refs = parseReferences(raw);
+    if (refs.length > 1) {
+      void run(refs[0]!, force, refs);
+      return;
+    }
     const query = raw
       .replace(/\b(recherche|rechercher|refais|refaire|cherche|find|research)\b/gi, " ")
       .replace(/\b((à|a) nouveau|de nouveau|encore|stp|s'il te pla(î|i)t|pour moi)\b/gi, " ")
@@ -292,6 +297,7 @@ export function CindyChat({
       .trim();
     void run(query.length >= 2 ? query : raw, force);
   };
+
 
   return (
     <div className="flex h-[min(78vh,760px)] flex-col overflow-hidden rounded-3xl border border-border bg-background">
