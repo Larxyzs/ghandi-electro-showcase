@@ -72,7 +72,7 @@ export function CatalogExplorer({
   const childLevel = ((current?.level ?? 0) + 1) as NodeLevel;
   const level = (current?.level ?? 0) as 0 | NodeLevel;
   const canCreateFolder = level < 4;
-  const isLeaf = level >= 3;
+  const isLeaf = current ? canHoldProducts(current.level) : false;
   const missingLevels = useMemo(
     () =>
       Array.from({ length: Math.max(0, 3 - level) }, (_, i) => (level + i + 1) as NodeLevel),
