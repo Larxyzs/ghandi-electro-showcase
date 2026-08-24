@@ -146,6 +146,27 @@ export function CatalogExplorer({
         </form>
       )}
 
+      {missingLevels.length > 0 &&
+        (quick ? (
+          <ProductForm
+            nodeId=""
+            folderLevels={missingLevels}
+            onCancel={() => setQuick(false)}
+            onSave={async (draft) => {
+              await actions.quickCreate(currentId, draft.folders, draft);
+              setQuick(false);
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setQuick(true)}
+            className="inline-flex items-center gap-2 rounded-full border border-brand/40 bg-brand-soft/60 px-5 py-2.5 text-sm font-semibold text-brand-deep hover:bg-brand-soft"
+          >
+            <Zap className="h-4 w-4" /> Ajout rapide · créer {missingLevels.map((l) => LEVEL_LABELS[l]).join(" → ")} + article
+          </button>
+        ))}
+
       {folders.length === 0 && !isLeaf && (
         <p className="rounded-3xl border border-dashed border-border bg-card px-6 py-14 text-center text-sm text-foreground/60">
           Aucun dossier ici. Créez un {LEVEL_LABELS[childLevel].toLowerCase()} pour commencer.
