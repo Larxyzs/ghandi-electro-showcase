@@ -109,6 +109,27 @@ export function ProductForm({
         </button>
       </div>
 
+      {folderLevels && folderLevels.length > 0 && (
+        <div className="mt-5 grid gap-4 rounded-2xl border border-dashed border-brand/40 bg-background p-4 sm:grid-cols-2">
+          <p className="text-xs font-semibold tracking-[0.14em] text-brand uppercase sm:col-span-2">
+            Dossiers à créer
+          </p>
+          {folderLevels.map((level, index) => (
+            <label key={level} className="text-sm font-medium">
+              {LEVEL_LABELS[level]}
+              <input
+                className={`mt-1.5 ${field}`}
+                value={folders[index] ?? ""}
+                onChange={(e) =>
+                  setFolders((prev) => prev.map((v, i) => (i === index ? e.target.value : v)))
+                }
+                placeholder={`Nom du ${LEVEL_LABELS[level].toLowerCase()}`}
+              />
+            </label>
+          ))}
+        </div>
+      )}
+
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <label className="text-sm font-medium">
           Nom
