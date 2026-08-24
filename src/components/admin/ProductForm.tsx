@@ -21,6 +21,7 @@ export function ProductForm({
   product,
   nodeId,
   folderLevels,
+  optionalLevels,
   onCancel,
   onSave,
 }: {
@@ -28,6 +29,8 @@ export function ProductForm({
   nodeId: string;
   /** Quick-jump: folder levels to create on the fly before saving the product. */
   folderLevels?: NodeLevel[];
+  /** Subset of folderLevels that may be left empty (e.g. the optional Format). */
+  optionalLevels?: NodeLevel[];
   onCancel: () => void;
   onSave: (draft: ProductDraft & { node_id: string; folders: string[] }) => Promise<void>;
 }) {
@@ -86,14 +89,20 @@ export function ProductForm({
           setError("Le nom est obligatoire.");
           return;
         }
-        if (folders.some((name) => !name.trim())) {
-          setError("Renseignez tous les dossiers à créer.");
+        const levels = folderLevels ?? [];
+        const isOptional = (level: NodeLevel) => (optionalLevels ?? []).includes(level);
+        if (levels.some((level, i) => !isOptional(level) && !(folders[i] ?? "").trim())) {
+          setError("Renseignez tous les dossiers obligatoires à créer.");
           return;
         }
         setBusy(true);
         setError(null);
         try {
-          await onSave({ ...draft, node_id: nodeId, folders: folders.map((n) => n.trim()) });
+          await onSave({
+            ...draft,
+            node_id: nodeId,
+            folders: folders.map((n) => n.trim()).filter(Boolean),
+          });
         } catch (err) {
           setError(err instanceof Error ? err.message : "Enregistrement impossible.");
         } finally {
@@ -117,6 +126,9 @@ export function ProductForm({
           {folderLevels.map((level, index) => (
             <label key={level} className="text-sm font-medium">
               {LEVEL_LABELS[level]}
+              {(optionalLevels ?? []).includes(level) && (
+                <span className="ms-1.5 text-xs font-normal text-foreground/50">(optionnel)</span>
+              )}
               <input
                 className={`mt-1.5 ${field}`}
                 value={folders[index] ?? ""}
