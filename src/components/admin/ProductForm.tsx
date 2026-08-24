@@ -18,6 +18,15 @@ export type ProductDraft = {
   removeImage?: boolean | undefined;
 };
 
+/** A folder (Catégorie → Type → Produit → Format) created on the fly: name + image. */
+export type FolderDraft = {
+  name: string;
+  imageData?: string | null;
+  imageName?: string | null;
+  imageUrl?: string | null;
+};
+
+
 export function ProductForm({
   product,
   nodeId,
