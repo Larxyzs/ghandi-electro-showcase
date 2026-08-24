@@ -27,6 +27,8 @@ import {
   adminSaveCindySession,
   adminDeleteCindySession,
   adminListActions,
+  adminListResearchMemory,
+  adminForgetResearchMemory,
   adminUndoAction,
   adminRecordAction,
   adminSetSiteMode,
@@ -76,6 +78,8 @@ function AdminPage() {
   const saveCindySession = useServerFn(adminSaveCindySession);
   const deleteCindySession = useServerFn(adminDeleteCindySession);
   const listActionsFn = useServerFn(adminListActions);
+  const listResearchMemoryFn = useServerFn(adminListResearchMemory);
+  const forgetResearchMemoryFn = useServerFn(adminForgetResearchMemory);
   const undoActionFn = useServerFn(adminUndoAction);
   const recordActionFn = useServerFn(adminRecordAction);
   const setSiteModeFn = useServerFn(adminSetSiteMode);
@@ -254,6 +258,19 @@ function AdminPage() {
             created_at: a.created_at,
           })),
         undoAction: (id) => run(() => undoActionFn({ data: { id } })),
+        listMemory: async () =>
+          (await listResearchMemoryFn()).map((m) => ({
+            id: m.id,
+            query: m.query,
+            brand: m.brand,
+            model: m.model,
+            hits: m.hits,
+            searches_used: m.searches_used,
+            updated_at: m.updated_at,
+          })),
+        forgetMemory: async (id) => {
+          await forgetResearchMemoryFn({ data: { id } });
+        },
         importProduct: async (payload) => {
           await run(async () => {
             const saved = await saveProduct({

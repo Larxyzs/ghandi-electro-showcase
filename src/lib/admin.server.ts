@@ -741,3 +741,25 @@ export async function undoAction(id: string) {
   await db.from("cindy_actions").update({ undone_at: new Date().toISOString() }).eq("id", id);
   return { ok: true as const };
 }
+
+// ===================== Cindy research memory (cache) =====================
+
+/** Cached products Cindy has already researched — admin only. */
+export async function listResearchMemory() {
+  const db = await requireAdmin();
+  const { data, error } = await db
+    .from("cindy_cache")
+    .select("id, query, brand, model, hits, searches_used, updated_at")
+    .order("updated_at", { ascending: false })
+    .limit(100);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/** Forgets one cached product so the next request researches it from scratch. */
+export async function forgetResearchMemory(id: string) {
+  const db = await requireAdmin();
+  const { error } = await db.from("cindy_cache").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}

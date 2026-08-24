@@ -47,39 +47,102 @@ function guessBrand(query: string) {
   return "";
 }
 
-type TavilyResult = { url: string; title: string; content: string; raw_content?: string | null };
+export type SearchHit = { url: string; title: string; content: string };
 
-async function tavilySearch(
-  query: string,
-  opts: { images?: boolean; domains?: string[]; depth?: "basic" | "advanced"; max?: number } = {},
-) {
-  const key = process.env["TAVILY_API_KEY"];
-  if (!key) throw new Error("SEARCH_NOT_CONFIGURED");
-  const res = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      query,
-      search_depth: opts.depth ?? "advanced",
-      max_results: opts.max ?? 6,
-      include_raw_content: true,
-      include_images: Boolean(opts.images),
-      include_image_descriptions: false,
-      ...(opts.domains && opts.domains.length ? { include_domains: opts.domains } : {}),
-    }),
-  });
+/** Self-hosted SearXNG is the only search layer. One request = one "search". */
+async function searxSearch(query: string, opts: { max?: number } = {}): Promise<SearchHit[]> {
+  const base = (process.env["SEARXNG_URL"] ?? "").trim().replace(/\/+$/, "");
+  if (!base) throw new Error("SEARCH_NOT_CONFIGURED");
+  const url = new URL(`${base}/search`);
+  url.searchParams.set("q", query);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("language", "fr");
+  url.searchParams.set("safesearch", "0");
+  url.searchParams.set("categories", "general");
+
+  const headers: Record<string, string> = { Accept: "application/json" };
+  const token = (process.env["SEARXNG_TOKEN"] ?? "").trim();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(url.toString(), { headers });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`SEARCH_FAILED: ${res.status} ${text.slice(0, 200)}`);
+    const text = await res.text().catch(() => "");
+    throw new Error(`SEARCH_FAILED: ${res.status} ${text.slice(0, 160)}`);
   }
   const json = (await res.json()) as {
-    results?: TavilyResult[];
-    images?: (string | { url: string })[];
+    results?: { url?: string; title?: string; content?: string }[];
   };
-  return {
-    results: json.results ?? [],
-    images: (json.images ?? []).map((i) => (typeof i === "string" ? i : i.url)).filter(Boolean),
+  const hits: SearchHit[] = [];
+  const seen = new Set<string>();
+  for (const r of json.results ?? []) {
+    if (!r.url || !/^https?:\/\//.test(r.url) || seen.has(r.url)) continue;
+    seen.add(r.url);
+    hits.push({ url: r.url, title: r.title ?? domainOf(r.url), content: r.content ?? "" });
+    if (hits.length >= (opts.max ?? 10)) break;
+  }
+  return hits;
+}
+
+/** Reads a page directly (no search credit) and returns its text plus image URLs. */
+async function readPage(url: string): Promise<{ text: string; images: string[] }> {
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
+      "Accept-Language": "fr,en;q=0.8",
+    },
+  });
+  if (!res.ok) throw new Error(`PAGE_FAILED: ${res.status}`);
+  const html = await res.text();
+
+  const images: string[] = [];
+  const push = (raw: string) => {
+    try {
+      const abs = new URL(raw.trim(), url).toString();
+      if (!/^https?:\/\//.test(abs)) return;
+      if (/\.(svg|gif)(\?|$)/i.test(abs)) return;
+      if (/sprite|logo|icon|placeholder|pixel|tracking/i.test(abs)) return;
+      if (!images.includes(abs)) images.push(abs);
+    } catch {
+      /* ignore malformed image url */
+    }
   };
+  for (const m of html.matchAll(
+    /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/gi,
+  ))
+    push(m[1] ?? "");
+  for (const m of html.matchAll(/<img[^>]+(?:data-src|data-original|src)=["']([^"']+)["']/gi))
+    push(m[1] ?? "");
+  for (const m of html.matchAll(/<source[^>]+srcset=["']([^"']+)["']/gi)) {
+    const first = (m[1] ?? "").split(",")[0]?.trim().split(/\s+/)[0];
+    if (first) push(first);
+  }
+
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/[ \t\u00a0]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return { text, images: images.slice(0, 24) };
+}
+
+/** Stable cache key: brand/model characters only, so casing and spacing never miss. */
+export function cacheKeyOf(query: string) {
+  return query
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
 }
 
 const EXTRACTION_SCHEMA = {
@@ -305,153 +368,361 @@ async function extractWithAI(input: {
   };
 }
 
+// ===================== Research cache (Supabase) =====================
+
+type CacheRow = {
+  id: string;
+  cache_key: string;
+  query: string;
+  product: ResearchedProduct;
+  hits: number;
+  searches_used: number;
+  updated_at: string;
+};
+
+async function cacheLookup(key: string): Promise<CacheRow | null> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("cindy_cache")
+    .select("id, cache_key, query, product, hits, searches_used, updated_at")
+    .eq("cache_key", key)
+    .maybeSingle();
+  return (data as CacheRow | null) ?? null;
+}
+
+async function cacheTouch(row: CacheRow) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  await supabaseAdmin
+    .from("cindy_cache")
+    .update({ hits: (row.hits ?? 0) + 1 })
+    .eq("id", row.id);
+}
+
+async function cacheSave(input: {
+  key: string;
+  query: string;
+  product: ResearchedProduct;
+  images: string[];
+  searchesUsed: number;
+}) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  await supabaseAdmin.from("cindy_cache").upsert(
+    {
+      cache_key: input.key,
+      query: input.query,
+      brand: input.product.brand,
+      model: input.product.model,
+      product: JSON.parse(JSON.stringify(input.product)),
+      sources: JSON.parse(JSON.stringify(input.product.sources)),
+      images: input.images,
+      searches_used: input.searchesUsed,
+      hits: 0,
+    },
+    { onConflict: "cache_key" },
+  );
+}
+
+/** Admin-only: forget a cached product so the next request researches it again. */
+export async function clearCachedResearch(query: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  await supabaseAdmin.from("cindy_cache").delete().eq("cache_key", cacheKeyOf(query));
+}
+
+export async function listCachedResearch() {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("cindy_cache")
+    .select("id, query, brand, model, hits, searches_used, updated_at")
+    .order("updated_at", { ascending: false })
+    .limit(100);
+  return data ?? [];
+}
+
+// ===================== Research pipeline =====================
+
+/** True when the extracted product is too thin to publish without more sources. */
+function missingEssentials(product: ResearchedProduct) {
+  const missing: string[] = [];
+  if (!product.name.trim()) missing.push("nom");
+  if (!product.characteristics.trim()) missing.push("caractéristiques");
+  if (product.specifications.length < 4) missing.push("spécifications");
+  if (product.images.length === 0) missing.push("images");
+  return missing;
+}
+
+function rankHits(hits: SearchHit[], brandGuess: string, officialDomains: string[]) {
+  return [...hits].sort((a, b) => score(b) - score(a));
+  function score(hit: SearchHit) {
+    const host = domainOf(hit.url);
+    let value = 0;
+    if (officialDomains.some((d) => host.endsWith(d))) value += 100;
+    else if (isOfficial(hit.url, brandGuess)) value += 60;
+    if (/support|forum|review|avis|blog|youtube|facebook|pinterest/i.test(hit.url)) value -= 40;
+    if (/fiche|spec|technique|product|produit/i.test(hit.url)) value += 10;
+    return value;
+  }
+}
+
 /**
- * Runs a real research pass and reports every actual step through `emit`.
- * No step is emitted unless the corresponding network call really happened.
+ * Economical research: cache first, then ONE search, then read the best official
+ * page and stop. A second search only runs when essential data is still missing.
+ * Every emitted step corresponds to a network call that really happened.
  */
-export async function researchProduct(query: string, emit: (event: CindyEvent) => void) {
+export async function researchProduct(
+  query: string,
+  emit: (event: CindyEvent) => void,
+  options: { force?: boolean } = {},
+) {
   const brandGuess = guessBrand(query);
   const officialDomains = brandGuess ? (OFFICIAL_DOMAINS[brandGuess] ?? []) : [];
+  const key = cacheKeyOf(query);
+  let searchesUsed = 0;
+
+  // ---- 0. Cache first: no network call at all when the product is known ----
+  emit({
+    type: "activity",
+    id: "c0",
+    kind: "cache",
+    label: "Mémoire",
+    detail: "Vérification des recherches déjà effectuées",
+    status: "running",
+  });
+
+  const cached = options.force ? null : await cacheLookup(key);
+  if (cached) {
+    emit({
+      type: "activity",
+      id: "c0",
+      kind: "cache",
+      label: "Mémoire",
+      detail: `Déjà étudié le ${new Date(cached.updated_at).toLocaleDateString("fr-FR")} — 0 recherche web`,
+      status: "done",
+    });
+    const product = cached.product;
+    for (const source of product.sources ?? [])
+      emit({
+        type: "source",
+        source: {
+          url: source.url,
+          domain: source.name,
+          title: source.name,
+          official: source.official,
+          status: "En mémoire",
+        },
+      });
+    emit({ type: "checklist", label: "Nom du produit", done: Boolean(product.name) });
+    emit({ type: "checklist", label: "Caractéristiques", done: Boolean(product.characteristics) });
+    emit({ type: "checklist", label: "Spécifications", done: product.specifications.length > 0 });
+    emit({ type: "checklist", label: "Images", done: product.images.length > 0 });
+    emit({ type: "result", product, cached: true });
+    emit({
+      type: "message",
+      text: "J'avais déjà étudié ce produit : je réutilise ma fiche, sans aucune recherche web. Dites-moi « recherche à nouveau » si vous voulez que je reprenne la recherche depuis zéro.",
+    });
+    await cacheTouch(cached);
+    return product;
+  }
+
+  emit({
+    type: "activity",
+    id: "c0",
+    kind: "cache",
+    label: "Mémoire",
+    detail: options.force ? "Nouvelle recherche demandée" : "Produit inconnu, je le recherche une fois",
+    status: "done",
+  });
 
   emit({
     type: "message",
-    text: `Très bien ! Je recherche « ${query} » et je rassemble les informations officielles du produit.`,
+    text: `Je fais une seule recherche sur « ${query} », j'ouvre la page officielle du fabricant et j'en extrais tout.`,
   });
 
-  // 1. Broad web search
-  emit({ type: "activity", id: "s1", kind: "search", label: "Recherche", detail: query, status: "running" });
-  const broad = await tavilySearch(`${query} fiche produit caractéristiques spécifications`, {
-    images: true,
-    max: 6,
-  });
+  // ---- 1. ONE exact-reference search ----
+  emit({ type: "activity", id: "s1", kind: "search", label: "Recherche (1)", detail: query, status: "running" });
+  const hits = await searxSearch(
+    officialDomains.length ? `"${query}" site:${officialDomains[0]}` : `"${query}"`,
+    { max: 10 },
+  );
+  searchesUsed += 1;
+  const ranked = rankHits(hits, brandGuess, officialDomains);
   emit({
     type: "activity",
     id: "s1",
     kind: "search",
-    label: "Recherche",
-    detail: `${broad.results.length} résultat(s) pour « ${query} »`,
-    status: "done",
+    label: "Recherche (1)",
+    detail: `${ranked.length} résultat(s) — je garde la meilleure page`,
+    status: ranked.length ? "done" : "error",
   });
 
-  if (broad.results.length === 0) {
-    emit({ type: "error", message: `Aucun résultat trouvé pour « ${query} ». Vérifiez la référence.` });
+  let pool = ranked;
+  if (pool.length === 0 && officialDomains.length) {
+    // The site-restricted search found nothing: one open search instead.
+    emit({
+      type: "activity",
+      id: "s1b",
+      kind: "search",
+      label: "Recherche (2)",
+      detail: "Aucune page officielle, recherche ouverte",
+      status: "running",
+    });
+    pool = rankHits(await searxSearch(`"${query}" fiche technique`, { max: 10 }), brandGuess, []);
+    searchesUsed += 1;
+    emit({
+      type: "activity",
+      id: "s1b",
+      kind: "search",
+      label: "Recherche (2)",
+      detail: `${pool.length} résultat(s)`,
+      status: pool.length ? "done" : "error",
+    });
+  }
+
+  if (pool.length === 0) {
+    emit({ type: "error", message: `Aucun résultat pour « ${query} ». Vérifiez la référence.` });
     return null;
   }
 
-  // 2. Official manufacturer search
-  let officialResults: TavilyResult[] = [];
-  let officialImages: string[] = [];
-  if (officialDomains.length) {
+  // ---- 2. Read the best page (direct fetch, no search) ----
+  const sources: CindySource[] = [];
+  const pages: { url: string; title: string; content: string }[] = [];
+  const images: string[] = [];
+
+  const readInto = async (hit: SearchHit, activityId: string) => {
     emit({
       type: "activity",
-      id: "s2",
+      id: activityId,
       kind: "open",
-      label: "Site officiel",
-      detail: officialDomains.join(", "),
+      label: "Ouverture",
+      detail: domainOf(hit.url),
       status: "running",
     });
     try {
-      const official = await tavilySearch(`${query}`, {
-        images: true,
-        domains: officialDomains,
-        max: 4,
+      const page = await readPage(hit.url);
+      pages.push({ url: hit.url, title: hit.title, content: page.text || hit.content });
+      for (const img of page.images) if (!images.includes(img)) images.push(img);
+      sources.push({
+        url: hit.url,
+        domain: domainOf(hit.url),
+        title: hit.title || domainOf(hit.url),
+        official: isOfficial(hit.url, brandGuess),
+        status: page.text.length > 800 ? "Page lue entièrement" : "Contenu limité",
       });
-      officialResults = official.results;
-      officialImages = official.images;
+      emit({
+        type: "activity",
+        id: activityId,
+        kind: "read",
+        label: "Lecture",
+        detail: `${domainOf(hit.url)} — ${Math.round((page.text.length / 1000) * 10) / 10} k caractères, ${page.images.length} image(s)`,
+        status: "done",
+      });
+      emit({ type: "source", source: sources[sources.length - 1]! });
+      return true;
+    } catch {
+      emit({
+        type: "activity",
+        id: activityId,
+        kind: "open",
+        label: "Ouverture",
+        detail: `${domainOf(hit.url)} illisible`,
+        status: "error",
+      });
+      return false;
+    }
+  };
+
+  let index = 0;
+  while (index < pool.length && pages.length === 0) {
+    await readInto(pool[index]!, `p${index}`);
+    index += 1;
+  }
+
+  if (pages.length === 0) {
+    emit({ type: "error", message: "Impossible d'ouvrir la page produit. Réessayez plus tard." });
+    return null;
+  }
+
+  // ---- 3. Extract everything from that page ----
+  emit({
+    type: "activity",
+    id: "x1",
+    kind: "extract",
+    label: "Extraction",
+    detail: "Toutes les informations de la page officielle",
+    status: "running",
+  });
+  let product = await extractWithAI({ query, sources: pages, images: images.slice(0, 14) });
+  emit({
+    type: "activity",
+    id: "x1",
+    kind: "extract",
+    label: "Extraction",
+    detail: `${product.specifications.length} spécification(s), ${product.images.length} image(s)`,
+    status: "done",
+  });
+
+  // ---- 4. Only if essentials are still missing: one complementary search ----
+  const missing = missingEssentials(product);
+  if (missing.length > 0) {
+    emit({
+      type: "activity",
+      id: "s2",
+      kind: "search",
+      label: `Recherche complémentaire`,
+      detail: `Manque : ${missing.join(", ")}`,
+      status: "running",
+    });
+    try {
+      const extra = rankHits(
+        await searxSearch(`"${query}" ${missing.join(" ")} fiche technique`, { max: 8 }),
+        brandGuess,
+        officialDomains,
+      ).filter((hit) => !pages.some((p) => p.url === hit.url));
+      searchesUsed += 1;
       emit({
         type: "activity",
         id: "s2",
-        kind: "open",
-        label: "Site officiel",
-        detail: officialResults.length
-          ? `Page officielle trouvée (${officialDomains[0]})`
-          : `Aucune page officielle sur ${officialDomains[0]}`,
+        kind: "search",
+        label: "Recherche complémentaire",
+        detail: `${extra.length} résultat(s)`,
         status: "done",
       });
+      let added = 0;
+      for (const hit of extra) {
+        if (added >= 2) break;
+        if (await readInto(hit, `p2${added}`)) added += 1;
+      }
+      if (added > 0) {
+        emit({
+          type: "activity",
+          id: "x2",
+          kind: "extract",
+          label: "Extraction",
+          detail: "Complément d'informations",
+          status: "running",
+        });
+        product = await extractWithAI({ query, sources: pages, images: images.slice(0, 14) });
+        emit({
+          type: "activity",
+          id: "x2",
+          kind: "extract",
+          label: "Extraction",
+          detail: `${product.specifications.length} spécification(s), ${product.images.length} image(s)`,
+          status: "done",
+        });
+      }
     } catch {
       emit({
         type: "activity",
         id: "s2",
-        kind: "open",
-        label: "Site officiel",
-        detail: "Consultation impossible",
+        kind: "search",
+        label: "Recherche complémentaire",
+        detail: "Impossible",
         status: "error",
       });
     }
   }
 
-  const merged: TavilyResult[] = [];
-  const seen = new Set<string>();
-  for (const r of [...officialResults, ...broad.results]) {
-    if (seen.has(r.url)) continue;
-    seen.add(r.url);
-    merged.push(r);
-  }
-  const picked = merged.slice(0, 6);
-
-  // 3. Report the real sources used
-  const sources: CindySource[] = picked.map((r) => ({
-    url: r.url,
-    domain: domainOf(r.url),
-    title: r.title || domainOf(r.url),
-    official: isOfficial(r.url, brandGuess),
-    status: (r.raw_content ?? r.content ?? "").length > 400 ? "Contenu lu" : "Contenu limité",
-  }));
-  for (const source of sources) emit({ type: "source", source });
-
-  emit({
-    type: "activity",
-    id: "s3",
-    kind: "read",
-    label: "Lecture",
-    detail: `Spécifications sur ${picked.length} page(s)`,
-    status: "done",
-  });
-
-  // 4. Images
-  const images = [...new Set([...officialImages, ...broad.images])].filter((u) =>
-    /^https?:\/\//.test(u),
-  );
-  emit({
-    type: "activity",
-    id: "s4",
-    kind: "images",
-    label: "Images",
-    detail: `${images.length} image(s) trouvée(s)`,
-    status: images.length ? "done" : "error",
-  });
-
-  // 5. Extraction
-  emit({
-    type: "activity",
-    id: "s5",
-    kind: "extract",
-    label: "Extraction",
-    detail: "Normalisation des informations produit",
-    status: "running",
-  });
-  emit({ type: "message", text: "J'ai trouvé le produit. J'extrais les informations…" });
-
-  const product = await extractWithAI({
-    query,
-    sources: picked.map((r) => ({
-      url: r.url,
-      title: r.title,
-      content: r.raw_content || r.content || "",
-    })),
-    images: images.slice(0, 10),
-  });
-
   product.sources = sources.map((s) => ({ name: s.domain, url: s.url, official: s.official }));
-
-  emit({
-    type: "activity",
-    id: "s5",
-    kind: "extract",
-    label: "Extraction",
-    detail: "Informations produit extraites",
-    status: "done",
-  });
 
   emit({ type: "checklist", label: "Nom du produit", done: Boolean(product.name) });
   emit({ type: "checklist", label: "Modèle / référence", done: Boolean(product.model) });
@@ -464,10 +735,12 @@ export async function researchProduct(query: string, emit: (event: CindyEvent) =
     done: product.sources.some((s) => s.official),
   });
 
-  emit({ type: "result", product });
+  await cacheSave({ key, query, product, images: images.slice(0, 14), searchesUsed });
+
+  emit({ type: "result", product, cached: false });
   emit({
     type: "message",
-    text: "Tout est prêt. Vérifiez les informations, ajoutez votre prix et votre stock, puis importez le produit.",
+    text: `Terminé avec ${searchesUsed} recherche${searchesUsed > 1 ? "s" : ""} web. Je garde cette fiche en mémoire : ce produit ne sera plus jamais recherché, sauf si vous me le demandez.`,
   });
 
   return product;

@@ -306,3 +306,15 @@ export const adminRecordAction = createServerFn({ method: "POST" })
       after_state: (data.after_state ?? null) as never,
     });
   });
+
+export const adminListResearchMemory = createServerFn({ method: "POST" }).handler(async () => {
+  const { listResearchMemory } = await import("./admin.server");
+  return listResearchMemory();
+});
+
+export const adminForgetResearchMemory = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => data)
+  .handler(async ({ data }) => {
+    const { forgetResearchMemory } = await import("./admin.server");
+    return forgetResearchMemory(data.id);
+  });

@@ -124,6 +124,51 @@ export type Database = {
         }
         Relationships: []
       }
+      cindy_cache: {
+        Row: {
+          brand: string
+          cache_key: string
+          created_at: string
+          hits: number
+          id: string
+          images: Json
+          model: string
+          product: Json
+          query: string
+          searches_used: number
+          sources: Json
+          updated_at: string
+        }
+        Insert: {
+          brand?: string
+          cache_key: string
+          created_at?: string
+          hits?: number
+          id?: string
+          images?: Json
+          model?: string
+          product: Json
+          query: string
+          searches_used?: number
+          sources?: Json
+          updated_at?: string
+        }
+        Update: {
+          brand?: string
+          cache_key?: string
+          created_at?: string
+          hits?: number
+          id?: string
+          images?: Json
+          model?: string
+          product?: Json
+          query?: string
+          searches_used?: number
+          sources?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cindy_sessions: {
         Row: {
           admin_username: string

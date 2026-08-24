@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Clock, History, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Clock, Database, History, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { CindyChat, CindyAvatar } from "./CindyChat";
 import { CindyReview, type CindyImportPayload } from "./CindyReview";
 import type { CindyEvent, ResearchedProduct } from "@/lib/cindy-types";
@@ -23,6 +23,18 @@ export type CindyActions = {
     }[]
   >;
   undoAction: (id: string) => Promise<void>;
+  listMemory: () => Promise<
+    {
+      id: string;
+      query: string;
+      brand: string;
+      model: string;
+      hits: number;
+      searches_used: number;
+      updated_at: string;
+    }[]
+  >;
+  forgetMemory: (id: string) => Promise<void>;
 };
 
 export function CindyWorkspace({
@@ -40,16 +52,22 @@ export function CindyWorkspace({
   const [result, setResult] = useState<ResearchedProduct | null>(null);
   const [sessions, setSessions] = useState<Awaited<ReturnType<CindyActions["listSessions"]>>>([]);
   const [history, setHistory] = useState<Awaited<ReturnType<CindyActions["listActions"]>>>([]);
-  const [pane, setPane] = useState<"sessions" | "history">("sessions");
+  const [memory, setMemory] = useState<Awaited<ReturnType<CindyActions["listMemory"]>>>([]);
+  const [pane, setPane] = useState<"sessions" | "memory" | "history">("sessions");
   const [loading, setLoading] = useState(true);
   const [replay, setReplay] = useState<{ query: string; events: CindyEvent[] } | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, h] = await Promise.all([actions.listSessions(), actions.listActions()]);
+      const [s, h, m] = await Promise.all([
+        actions.listSessions(),
+        actions.listActions(),
+        actions.listMemory(),
+      ]);
       setSessions(s);
       setHistory(h);
+      setMemory(m);
     } finally {
       setLoading(false);
     }
@@ -153,10 +171,11 @@ export function CindyWorkspace({
         </button>
 
         <div className="rounded-3xl border border-border bg-card p-2">
-          <div className="grid grid-cols-2 gap-1">
+          <div className="grid grid-cols-3 gap-1">
             {(
               [
                 ["sessions", "Recherches", Clock],
+                ["memory", "Mémoire", Database],
                 ["history", "Historique", History],
               ] as const
             ).map(([id, label, Icon]) => (
@@ -217,6 +236,43 @@ export function CindyWorkspace({
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
+                </div>
+              ))}
+
+            {!loading && pane === "memory" && memory.length === 0 && (
+              <p className="px-2 py-6 text-center text-xs text-foreground/50">
+                Aucun produit en mémoire. Chaque recherche y est enregistrée pour ne jamais être
+                refaite.
+              </p>
+            )}
+
+            {!loading &&
+              pane === "memory" &&
+              memory.map((entry) => (
+                <div key={entry.id} className="rounded-xl px-2.5 py-2 hover:bg-brand-soft/40">
+                  <p className="truncate text-xs font-semibold">{entry.query}</p>
+                  <p className="text-[11px] text-foreground/50">
+                    {entry.searches_used} recherche(s) web · réutilisée {entry.hits} fois
+                  </p>
+                  <div className="mt-1 flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setReplay({ query: entry.query, events: [] })}
+                      className="text-[11px] font-semibold text-brand"
+                    >
+                      Réutiliser
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await actions.forgetMemory(entry.id);
+                        void refresh();
+                      }}
+                      className="text-[11px] font-semibold text-foreground/50 hover:text-destructive"
+                    >
+                      Oublier
+                    </button>
+                  </div>
                 </div>
               ))}
 
