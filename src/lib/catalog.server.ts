@@ -38,7 +38,7 @@ export async function signImagePaths(paths: string[]): Promise<Record<string, st
 export async function fetchSiteData(): Promise<SiteData> {
   const supabase = publicClient();
 
-  const [settingsRes, nodesRes, productsRes] = await Promise.all([
+  const [settingsRes, nodesRes, productsRes, searchesRes] = await Promise.all([
     supabase
       .from("site_settings")
       .select("primary_color, secondary_color, text_color")
@@ -46,34 +46,47 @@ export async function fetchSiteData(): Promise<SiteData> {
       .maybeSingle(),
     supabase
       .from("catalog_nodes")
-      .select("id, parent_id, name, slug, level, sort_order")
+      .select("id, parent_id, name, slug, level, sort_order, image_url")
       .order("sort_order")
       .order("name"),
     supabase
       .from("products")
-      .select("id, node_id, name, brand, serial_number, stock, price, image_url, description, sort_order")
+      .select(
+        "id, node_id, name, brand, serial_number, stock, price, image_url, description, sort_order, featured",
+      )
       .order("sort_order")
       .order("created_at"),
+    supabase.from("popular_searches").select("id, term, sort_order").order("sort_order"),
   ]);
 
   const rawProducts = productsRes.data ?? [];
-  const paths = rawProducts
-    .map((p) => p.image_url)
-    .filter((p): p is string => Boolean(p) && !p!.startsWith("http"));
+  const rawNodes = nodesRes.data ?? [];
+  const isPath = (value: string | null): value is string =>
+    Boolean(value) && !value!.startsWith("http");
+  const paths = Array.from(
+    new Set([
+      ...rawProducts.map((p) => p.image_url).filter(isPath),
+      ...rawNodes.map((n) => n.image_url).filter(isPath),
+    ]),
+  );
   const signed = await signImagePaths(paths);
+  const resolve = (value: string | null) =>
+    value ? (value.startsWith("http") ? value : (signed[value] ?? null)) : null;
 
   return {
     settings: settingsRes.data ?? DEFAULT_SETTINGS,
-    nodes: (nodesRes.data ?? []).map((n) => ({ ...n, level: n.level as 1 | 2 | 3 | 4 })),
+    nodes: rawNodes.map((n) => ({
+      ...n,
+      level: n.level as 1 | 2 | 3 | 4,
+      image_path: n.image_url ?? null,
+      image_url: resolve(n.image_url),
+    })),
     products: rawProducts.map((p) => ({
       ...p,
       price: p.price === null ? null : Number(p.price),
       image_path: p.image_url ?? null,
-      image_url: p.image_url
-        ? p.image_url.startsWith("http")
-          ? p.image_url
-          : (signed[p.image_url] ?? null)
-        : null,
+      image_url: resolve(p.image_url),
     })),
+    popularSearches: searchesRes.data ?? [],
   };
 }
