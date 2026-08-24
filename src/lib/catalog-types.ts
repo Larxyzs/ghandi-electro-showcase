@@ -15,6 +15,10 @@ export type CatalogNode = {
   slug: string;
   level: NodeLevel;
   sort_order: number;
+  /** Raw stored value: a storage path or an https URL. */
+  image_path: string | null;
+  /** Ready-to-render URL (signed when stored in the bucket). */
+  image_url: string | null;
 };
 
 export type Product = {
@@ -29,6 +33,7 @@ export type Product = {
   image_url: string | null;
   description: string;
   sort_order: number;
+  featured: boolean;
 };
 
 export type SiteSettings = {
@@ -37,10 +42,13 @@ export type SiteSettings = {
   text_color: string;
 };
 
+export type PopularSearch = { id: string; term: string; sort_order: number };
+
 export type SiteData = {
   settings: SiteSettings;
   nodes: CatalogNode[];
   products: Product[];
+  popularSearches: PopularSearch[];
 };
 
 export const LEVEL_LABELS: Record<NodeLevel, string> = {
