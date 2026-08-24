@@ -1,6 +1,14 @@
 import type { MarketingSection, ProductSpec } from "./catalog-types";
 
-export type CindyActivityKind = "search" | "open" | "read" | "images" | "extract" | "compare" | "cache";
+export type CindyActivityKind =
+  | "search"
+  | "open"
+  | "read"
+  | "images"
+  | "extract"
+  | "compare"
+  | "cache"
+  | "action";
 
 export type CindyActivityStatus = "running" | "done" | "error";
 
@@ -55,6 +63,18 @@ export type CindyEvent =
   | { type: "done" };
 
 
+/** Events streamed by the conversational agent (chat + live site actions). */
+export type CindyAgentEvent =
+  | CindyEvent
+  | { type: "delta"; text: string }
+  | { type: "assistant"; text: string }
+  | { type: "changed" };
+
+export type CindyChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 export type CindySessionSummary = {
   id: string;
   title: string;
@@ -74,5 +94,6 @@ export const ACTIVITY_LABELS: Record<CindyActivityKind, string> = {
   images: "Images",
   extract: "Extraction",
   compare: "Comparaison",
+  action: "Action",
   cache: "Mémoire",
 };

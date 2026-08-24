@@ -16,6 +16,7 @@ import {
   Search,
   Sparkles,
   Wand2,
+  Zap,
 } from "lucide-react";
 import type {
   CindyActivityKind,
@@ -45,6 +46,7 @@ const KIND_ICON: Record<CindyActivityKind, typeof Search> = {
   extract: Wand2,
   compare: Sparkles,
   cache: Database,
+  action: Zap,
 };
 
 export function CindyAvatar({ className }: { className?: string }) {
