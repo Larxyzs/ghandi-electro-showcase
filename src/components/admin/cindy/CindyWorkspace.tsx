@@ -188,7 +188,10 @@ export function CindyWorkspace({
           onClick={() => {
             setResult(null);
             setReplay(null);
+            setBulk(null);
+            setRetryQuery(null);
             setChatKey((k) => k + 1);
+
           }}
           className="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-primary-foreground"
           style={{ background: "var(--gradient-brand)" }}
