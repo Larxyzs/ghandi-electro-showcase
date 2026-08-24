@@ -65,7 +65,15 @@ function HomePage() {
             </Reveal>
             <Reveal variant="blur" delay={120}>
               <h1 className="mt-6 text-4xl leading-[1.06] font-bold sm:text-5xl lg:text-[4.1rem]">
-                <span className="brand-gradient-text gradient-pan">{t("hero.title")}</span>
+                <span
+                  className="gradient-pan bg-clip-text text-transparent"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(120deg, var(--ink) 0%, var(--brand-deep) 55%, var(--brand) 100%)",
+                  }}
+                >
+                  {t("hero.title")}
+                </span>
               </h1>
             </Reveal>
             <Reveal variant="left" delay={240}>
