@@ -45,6 +45,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          image_url: string | null
           level: number
           name: string
           parent_id: string | null
@@ -55,6 +56,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          image_url?: string | null
           level: number
           name: string
           parent_id?: string | null
@@ -65,6 +67,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          image_url?: string | null
           level?: number
           name?: string
           parent_id?: string | null
@@ -82,11 +85,33 @@ export type Database = {
           },
         ]
       }
+      popular_searches: {
+        Row: {
+          created_at: string
+          id: string
+          sort_order: number
+          term: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          sort_order?: number
+          term: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          sort_order?: number
+          term?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           brand: string
           created_at: string
           description: string
+          featured: boolean
           id: string
           image_url: string | null
           name: string
@@ -101,6 +126,7 @@ export type Database = {
           brand?: string
           created_at?: string
           description?: string
+          featured?: boolean
           id?: string
           image_url?: string | null
           name: string
@@ -115,6 +141,7 @@ export type Database = {
           brand?: string
           created_at?: string
           description?: string
+          featured?: boolean
           id?: string
           image_url?: string | null
           name?: string

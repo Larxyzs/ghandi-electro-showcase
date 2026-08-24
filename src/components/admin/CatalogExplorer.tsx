@@ -26,13 +26,15 @@ import {
   type SiteData,
 } from "@/lib/catalog-types";
 import { ProductForm, type ProductDraft } from "@/components/admin/ProductForm";
+import { NodeForm } from "@/components/admin/NodeForm";
+import type { ImageDraft } from "@/components/admin/ImagePicker";
 import { cn } from "@/lib/utils";
 
 const LEVEL_ICON: Record<NodeLevel, typeof Folder> = { 1: Folder, 2: Layers, 3: Tag, 4: Box };
 
 export type CatalogActions = {
-  createNode: (parentId: string | null, name: string) => Promise<void>;
-  renameNode: (id: string, name: string) => Promise<void>;
+  createNode: (parentId: string | null, name: string, image: ImageDraft) => Promise<void>;
+  renameNode: (id: string, name: string, image: ImageDraft) => Promise<void>;
   moveNode: (id: string, direction: "up" | "down") => Promise<void>;
   deleteNode: (id: string) => Promise<void>;
   nodeImpact: (id: string) => Promise<{ folders: number; products: number }>;
@@ -55,8 +57,8 @@ export function CatalogExplorer({
   actions: CatalogActions;
 }) {
   const [currentId, setCurrentId] = useState<string | null>(null);
-  const [newName, setNewName] = useState("");
-  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [renaming, setRenaming] = useState<CatalogNode | null>(null);
   const [editing, setEditing] = useState<{ product?: Product } | null>(null);
   const [quick, setQuick] = useState(false);
   const [pending, setPending] = useState<{ node: CatalogNode; folders: number; products: number } | null>(
@@ -120,32 +122,26 @@ export function CatalogExplorer({
         {busy && <Loader2 className="ms-auto h-4 w-4 animate-spin text-brand" />}
       </nav>
 
-      {canCreateFolder && (
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (!newName.trim()) return;
-            await actions.createNode(currentId, newName.trim());
-            setNewName("");
-          }}
-          className="flex flex-wrap gap-3 rounded-3xl border border-border bg-card p-5"
-        >
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder={`Nouveau dossier · ${LEVEL_LABELS[childLevel]}`}
-            className="min-w-[240px] flex-1 rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/25"
+      {canCreateFolder &&
+        (creating ? (
+          <NodeForm
+            level={childLevel}
+            onCancel={() => setCreating(false)}
+            onSave={async (name, image) => {
+              await actions.createNode(currentId, name, image);
+              setCreating(false);
+            }}
           />
+        ) : (
           <button
-            type="submit"
-            disabled={!newName.trim()}
-            className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+            type="button"
+            onClick={() => setCreating(true)}
+            className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-primary-foreground"
             style={{ background: "var(--gradient-brand)" }}
           >
-            <FolderPlus className="h-4 w-4" /> Créer
+            <FolderPlus className="h-4 w-4" /> Nouveau dossier · {LEVEL_LABELS[childLevel]}
           </button>
-        </form>
-      )}
+        ))}
 
       {missingLevels.length > 0 &&
         (quick ? (
@@ -184,90 +180,79 @@ export function CatalogExplorer({
           const Icon = LEVEL_ICON[node.level];
           const count = productsIn(data.nodes, data.products, node.id).length;
           const subCount = childrenOf(data.nodes, node.id).length;
+
+          if (renaming?.id === node.id) {
+            return (
+              <NodeForm
+                key={node.id}
+                node={node}
+                level={node.level}
+                onCancel={() => setRenaming(null)}
+                onSave={async (name, image) => {
+                  await actions.renameNode(node.id, name, image);
+                  setRenaming(null);
+                }}
+              />
+            );
+          }
+
           return (
             <div
               key={node.id}
               className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4"
             >
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand-deep">
-                <Icon className="h-5 w-5" />
+              <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-brand-soft text-brand-deep">
+                {node.image_url ? (
+                  <img src={node.image_url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <Icon className="h-5 w-5" />
+                )}
               </span>
-              {renaming?.id === node.id ? (
-                <input
-                  autoFocus
-                  value={renaming.name}
-                  onChange={(e) => setRenaming({ id: node.id, name: e.target.value })}
-                  onKeyDown={async (e) => {
-                    if (e.key === "Enter" && renaming.name.trim()) {
-                      await actions.renameNode(node.id, renaming.name.trim());
-                      setRenaming(null);
-                    }
-                    if (e.key === "Escape") setRenaming(null);
-                  }}
-                  className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
-                />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setCurrentId(node.id)}
-                  className="min-w-0 flex-1 text-start"
-                >
-                  <p className="truncate font-semibold">{node.name}</p>
-                  <p className="text-xs text-foreground/55">
-                    {LEVEL_LABELS[node.level]} · {subCount} sous-dossier(s) · {count} produit(s)
-                  </p>
-                </button>
-              )}
-
-              {renaming?.id === node.id ? (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (renaming.name.trim()) await actions.renameNode(node.id, renaming.name.trim());
-                    setRenaming(null);
-                  }}
-                  className="rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-primary-foreground"
-                >
-                  OK
-                </button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    disabled={index === 0}
-                    onClick={() => actions.moveNode(node.id, "up")}
-                    aria-label="Monter"
-                    className="rounded-full px-2 py-1 text-xs font-semibold text-foreground/50 hover:text-brand disabled:opacity-30"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    disabled={index === folders.length - 1}
-                    onClick={() => actions.moveNode(node.id, "down")}
-                    aria-label="Descendre"
-                    className="rounded-full px-2 py-1 text-xs font-semibold text-foreground/50 hover:text-brand disabled:opacity-30"
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRenaming({ id: node.id, name: node.name })}
-                    aria-label="Renommer le dossier"
-                    className="rounded-full p-2 text-foreground/50 hover:bg-brand-soft hover:text-brand"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => askDelete(node)}
-                    aria-label="Supprimer le dossier"
-                    className="rounded-full p-2 text-foreground/50 hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </>
-              )}
+              <button
+                type="button"
+                onClick={() => setCurrentId(node.id)}
+                className="min-w-0 flex-1 text-start"
+              >
+                <p className="truncate font-semibold">{node.name}</p>
+                <p className="text-xs text-foreground/55">
+                  {LEVEL_LABELS[node.level]} · {subCount} sous-dossier(s) · {count} produit(s)
+                  {!node.image_url && " · sans image"}
+                </p>
+              </button>
+              <button
+                type="button"
+                disabled={index === 0}
+                onClick={() => actions.moveNode(node.id, "up")}
+                aria-label="Monter"
+                className="rounded-full px-2 py-1 text-xs font-semibold text-foreground/50 hover:text-brand disabled:opacity-30"
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                disabled={index === folders.length - 1}
+                onClick={() => actions.moveNode(node.id, "down")}
+                aria-label="Descendre"
+                className="rounded-full px-2 py-1 text-xs font-semibold text-foreground/50 hover:text-brand disabled:opacity-30"
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                onClick={() => setRenaming(node)}
+                aria-label="Modifier le dossier"
+                className="rounded-full p-2 text-foreground/50 hover:bg-brand-soft hover:text-brand"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => askDelete(node)}
+                aria-label="Supprimer le dossier"
+                className="rounded-full p-2 text-foreground/50 hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
           );
         })}

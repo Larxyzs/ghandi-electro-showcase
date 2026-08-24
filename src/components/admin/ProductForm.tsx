@@ -11,6 +11,7 @@ export type ProductDraft = {
   stock: number;
   price: string;
   description: string;
+  featured: boolean;
   imageData?: string | null | undefined;
   imageName?: string | null | undefined;
   imageUrl?: string | null | undefined;
@@ -43,6 +44,7 @@ export function ProductForm({
     stock: product?.stock ?? 0,
     price: product?.price === null || product?.price === undefined ? "" : String(product.price),
     description: product?.description ?? "",
+    featured: product?.featured ?? false,
   });
   const [preview, setPreview] = useState<string | null>(product?.image_url ?? null);
   const [imageMode, setImageMode] = useState<"upload" | "url">(
@@ -192,6 +194,21 @@ export function ProductForm({
           />
         </label>
       </div>
+
+      <label className="mt-4 flex items-center gap-3 rounded-2xl border border-border bg-background px-4 py-3 text-sm font-medium">
+        <input
+          type="checkbox"
+          checked={draft.featured}
+          onChange={(e) => set("featured", e.target.checked)}
+          className="h-4 w-4 accent-[var(--brand)]"
+        />
+        <span>
+          En vedette
+          <span className="ms-1.5 text-xs font-normal text-foreground/55">
+            (affiché dans « Modèles en vedette » sur l'accueil)
+          </span>
+        </span>
+      </label>
 
       <label className="mt-4 block text-sm font-medium">
         Description / caractéristiques

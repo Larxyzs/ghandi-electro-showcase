@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
-import { ChevronRight, Folder, Home, Layers, PackageSearch, Tag } from "lucide-react";
+import { ChevronRight, Home, PackageSearch, SlidersHorizontal } from "lucide-react";
 import { SiteLayout } from "@/components/SiteLayout";
 import { Reveal } from "@/components/Reveal";
 import { ProductCard } from "@/components/ProductCard";
+import { CatalogTile } from "@/components/CatalogTile";
 import {
   childrenOf,
   findChildBySlug,
@@ -10,10 +11,6 @@ import {
   type CatalogNode,
   type SiteData,
 } from "@/lib/catalog-types";
-
-import { Box } from "lucide-react";
-
-const LEVEL_ICON = { 1: Folder, 2: Layers, 3: Tag, 4: Box } as const;
 
 export const Route = createFileRoute("/produits/$")({
   head: () => ({
@@ -61,7 +58,9 @@ function BrowsePage() {
 
   const current = trail.at(-1) ?? null;
   const folders = missing ? [] : childrenOf(data.nodes, current?.id ?? null);
-  const products = current && current.level >= 3 ? productsIn(data.nodes, data.products, current.id) : [];
+  /** Models live directly in this node; sub-formats are browsed as their own tiles. */
+  const products =
+    current && current.level >= 3 ? data.products.filter((p) => p.node_id === current.id) : [];
   const pathTo = (index: number) => trail.slice(0, index + 1).map((n) => n.slug).join("/");
 
   return (
@@ -86,8 +85,14 @@ function BrowsePage() {
           ))}
         </nav>
 
-        <Reveal className="mt-6">
+        <Reveal className="mt-6 flex flex-wrap items-end justify-between gap-4">
           <h1 className="text-3xl font-bold sm:text-4xl">{current?.name ?? "Catalogue"}</h1>
+          <Link
+            to="/produits"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground/70 hover:border-brand hover:text-brand"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" /> Recherche &amp; filtres
+          </Link>
         </Reveal>
 
         {missing && (
@@ -100,32 +105,20 @@ function BrowsePage() {
         )}
 
         {folders.length > 0 && (
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {folders.map((node, index) => {
-              const Icon = LEVEL_ICON[node.level];
-              const count = productsIn(data.nodes, data.products, node.id).length;
-              return (
-                <Reveal key={node.id} delay={(index % 3) * 100}>
-                  <Link
-                    to="/produits/$"
-                    params={{ _splat: [...trail.map((n) => n.slug), node.slug].join("/") }}
-                    className="flex h-full items-center gap-4 rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-card)] transition-all hover:-translate-y-1.5 hover:border-brand/40"
-                  >
-                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand-soft text-brand-deep">
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate font-semibold">{node.name}</span>
-                      <span className="block text-xs text-foreground/55">{count} produit(s)</span>
-                    </span>
-                  </Link>
-                </Reveal>
-              );
-            })}
+          <div className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
+            {folders.map((node, index) => (
+              <Reveal key={node.id} delay={(index % 4) * 90}>
+                <CatalogTile
+                  node={node}
+                  splat={[...trail.map((n) => n.slug), node.slug].join("/")}
+                  count={productsIn(data.nodes, data.products, node.id).length}
+                />
+              </Reveal>
+            ))}
           </div>
         )}
 
-        {current && current.level >= 3 && (
+        {current && current.level >= 3 && (products.length > 0 || folders.length === 0) && (
           <div className="mt-12">
             {products.length === 0 ? (
               <div className="flex flex-col items-center gap-4 rounded-[2rem] border border-dashed border-border bg-brand-soft/40 px-8 py-20 text-center">
