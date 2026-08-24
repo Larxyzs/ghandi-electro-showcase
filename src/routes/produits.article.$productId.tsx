@@ -116,7 +116,7 @@ function ProductDetail() {
               )}
               <div className="rounded-2xl border border-border bg-card p-5">
                 <dt className="text-xs tracking-wide text-foreground/55 uppercase">
-                  {t("product.availability")}
+                  {t("product.stock")}
                 </dt>
                 <dd className="mt-1 font-semibold">
                   {inStock ? t("product.inStock") : t("product.outOfStock")}
