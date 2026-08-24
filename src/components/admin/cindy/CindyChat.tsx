@@ -5,7 +5,9 @@ import {
   BadgeCheck,
   Check,
   ChevronDown,
+  Circle,
   ExternalLink,
+
   Globe,
   ImageIcon,
   Database,
@@ -17,10 +19,12 @@ import {
 } from "lucide-react";
 import type {
   CindyActivityKind,
+  CindyBulkItem,
   CindyEvent,
   CindySource,
   ResearchedProduct,
 } from "@/lib/cindy-types";
+
 import { cn } from "@/lib/utils";
 
 type Bubble = { id: number; role: "admin" | "cindy"; text: string };
@@ -112,14 +116,29 @@ function SourceCard({ source }: { source: CindySource }) {
   );
 }
 
+/** Extract multiple product references from a free-form instruction. */
+export function parseReferences(raw: string): string[] {
+  return raw
+    .split(/[\n;,]+/)
+    .map((line) =>
+      line
+        .replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "")
+        .replace(/^\s*(cr[eé]e|cr[eé]er|ajoute|ajouter|create|add)\b.*?:/i, "")
+        .trim(),
+    )
+    .filter((line) => line.length >= 4 && /\d/.test(line) && !line.endsWith(":"));
+}
+
 export function CindyChat({
   initialQuery,
   onResult,
   onEvents,
+  onBulk,
 }: {
   initialQuery?: string;
   onResult: (product: ResearchedProduct) => void;
   onEvents?: (events: CindyEvent[], query: string) => void;
+  onBulk?: (items: CindyBulkItem[]) => void;
 }) {
   const [input, setInput] = useState(initialQuery ?? "");
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
@@ -130,6 +149,7 @@ export function CindyChat({
   const [error, setError] = useState<string | null>(null);
   const [openActivity, setOpenActivity] = useState(true);
   const [cachedHit, setCachedHit] = useState<string | null>(null);
+  const [bulkItems, setBulkItems] = useState<CindyBulkItem[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const counter = useRef(0);
 
@@ -138,25 +158,33 @@ export function CindyChat({
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [bubbles, activities, sources, checks]);
+  }, [bubbles, activities, sources, checks, bulkItems]);
 
-  const run = async (query: string, force = false) => {
+  const run = async (query: string, force = false, refs?: string[]) => {
     setRunning(true);
     setCachedHit(null);
     setError(null);
     setActivities([]);
     setSources([]);
     setChecks([]);
-    push("admin", query);
+    setBulkItems([]);
+    push("admin", refs && refs.length > 1 ? refs.join("\n") : query);
+    if (refs && refs.length > 1)
+      push(
+        "cindy",
+        `Je traite ${refs.length} références l'une après l'autre : mémoire d'abord, sinon une seule recherche officielle par produit.`,
+      );
     const collected: CindyEvent[] = [];
+    const bulk: CindyBulkItem[] = [];
 
     try {
       const res = await fetch("/api/admin/cindy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, force }),
+        body: JSON.stringify({ query, force, refs: refs ?? [] }),
       });
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -195,12 +223,30 @@ export function CindyChat({
             if (event.cached) setCachedHit(query);
             onResult(event.product);
             break;
+          case "bulk_item": {
+            const item = event.item;
+            const existing = bulk.findIndex((b) => b.index === item.index);
+            if (existing >= 0) bulk[existing] = { ...bulk[existing], ...item };
+            else bulk.push(item);
+            setBulkItems([...bulk].sort((a, b) => a.index - b.index));
+            break;
+          }
+          case "bulk_summary":
+            push(
+              "cindy",
+              `${event.ok} produit${event.ok > 1 ? "s" : ""} prêt${event.ok > 1 ? "s" : ""}${
+                event.failed > 0 ? ` · ⚠ ${event.failed} à revoir` : ""
+              }. Vérifiez la liste avant création.`,
+            );
+            onBulk?.([...bulk].sort((a, b) => a.index - b.index));
+            break;
           case "error":
             setError(event.message);
             break;
           default:
             break;
         }
+
       };
 
       for (;;) {
@@ -241,6 +287,11 @@ export function CindyChat({
     const force = /(à|a) nouveau|nouveau la recherche|refai|refaire|re-?cherche.? de nouveau|re-?research|force/i.test(
       raw,
     );
+    const refs = parseReferences(raw);
+    if (refs.length > 1) {
+      void run(refs[0]!, force, refs);
+      return;
+    }
     const query = raw
       .replace(/\b(recherche|rechercher|refais|refaire|cherche|find|research)\b/gi, " ")
       .replace(/\b((à|a) nouveau|de nouveau|encore|stp|s'il te pla(î|i)t|pour moi)\b/gi, " ")
@@ -248,6 +299,7 @@ export function CindyChat({
       .trim();
     void run(query.length >= 2 ? query : raw, force);
   };
+
 
   return (
     <div className="flex h-[min(78vh,760px)] flex-col overflow-hidden rounded-3xl border border-border bg-background">
@@ -375,6 +427,37 @@ export function CindyChat({
           </div>
         )}
 
+        {bulkItems.length > 0 && (
+          <div className="ms-11 rounded-3xl border border-border bg-card p-4">
+            <p className="text-xs font-semibold tracking-wide text-foreground/60 uppercase">
+              Traitement groupé · {bulkItems.filter((i) => i.status === "done").length}/
+              {bulkItems.length}
+            </p>
+            <ul className="mt-3 space-y-1.5">
+              {bulkItems.map((item) => (
+                <li key={item.index} className="flex items-center gap-2 text-sm">
+                  {item.status === "done" ? (
+                    <Check className="h-3.5 w-3.5 text-brand" />
+                  ) : item.status === "running" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" />
+                  ) : item.status === "error" ? (
+                    <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                  ) : (
+                    <Circle className="h-3 w-3 text-foreground/30" />
+                  )}
+                  <span className={item.status === "pending" ? "text-foreground/45" : ""}>
+                    {item.ref}
+                  </span>
+                  {item.cached && <Database className="h-3 w-3 text-brand" />}
+                  {item.message && (
+                    <span className="truncate text-xs text-destructive">{item.message}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {error && (
           <div className="ms-11 flex items-start gap-2 rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {error}
@@ -383,15 +466,23 @@ export function CindyChat({
       </div>
 
       <form onSubmit={submit} className="border-t border-border p-4">
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 focus-within:border-brand">
-          <Search className="h-4 w-4 text-foreground/40" />
-          <input
+        <div className="flex items-end gap-2 rounded-3xl border border-border bg-card px-4 py-2 focus-within:border-brand">
+          <Search className="mb-2 h-4 w-4 shrink-0 text-foreground/40" />
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ex. : Find Samsung RB34T672EWW"
-            className="flex-1 bg-transparent py-1.5 text-sm outline-none"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submit(e);
+              }
+            }}
+            rows={input.includes("\n") ? 4 : 1}
+            placeholder="Une référence, ou plusieurs (une par ligne) pour une création groupée"
+            className="flex-1 resize-none bg-transparent py-2 text-sm outline-none"
             disabled={running}
           />
+
           <button
             type="submit"
             disabled={running || input.trim().length < 2}

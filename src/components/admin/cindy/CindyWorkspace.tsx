@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Clock, Database, History, Loader2, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { CindyChat, CindyAvatar } from "./CindyChat";
 import { CindyReview, type CindyImportPayload } from "./CindyReview";
-import type { CindyEvent, ResearchedProduct } from "@/lib/cindy-types";
+import { CindyBulkReview } from "./CindyBulkReview";
+import type { CindyBulkItem, CindyEvent, ResearchedProduct } from "@/lib/cindy-types";
 import type { SiteData } from "@/lib/catalog-types";
 import { cn } from "@/lib/utils";
+
 
 export type CindyActions = {
   listSessions: () => Promise<
@@ -50,6 +52,9 @@ export function CindyWorkspace({
 }) {
   const [chatKey, setChatKey] = useState(0);
   const [result, setResult] = useState<ResearchedProduct | null>(null);
+  const [bulk, setBulk] = useState<CindyBulkItem[] | null>(null);
+  const [retryQuery, setRetryQuery] = useState<string | null>(null);
+
   const [sessions, setSessions] = useState<Awaited<ReturnType<CindyActions["listSessions"]>>>([]);
   const [history, setHistory] = useState<Awaited<ReturnType<CindyActions["listActions"]>>>([]);
   const [memory, setMemory] = useState<Awaited<ReturnType<CindyActions["listMemory"]>>>([]);
@@ -86,7 +91,26 @@ export function CindyWorkspace({
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
       <div className="space-y-6">
-        {result ? (
+        {bulk ? (
+          <CindyBulkReview
+            items={bulk}
+            data={data}
+            {...(defaultNodeId ? { defaultNodeId } : {})}
+            onCancel={() => {
+              setBulk(null);
+              setChatKey((k) => k + 1);
+              void refresh();
+            }}
+            onImport={async (payload) => {
+              await actions.importProduct(payload);
+            }}
+            onRetry={(refs) => {
+              setBulk(null);
+              setRetryQuery(refs.join("\n"));
+              setChatKey((k) => k + 1);
+            }}
+          />
+        ) : result ? (
           <CindyReview
             product={result}
             data={data}
@@ -102,11 +126,13 @@ export function CindyWorkspace({
         ) : (
           <CindyChat
             key={chatKey}
-            {...(initialQuery ? { initialQuery } : {})}
+            {...(retryQuery ?? initialQuery ? { initialQuery: retryQuery ?? initialQuery } : {})}
             onResult={setResult}
+            onBulk={setBulk}
             onEvents={onEvents}
           />
         )}
+
 
         {replay && (
           <div className="rounded-3xl border border-border bg-card p-5">
@@ -162,7 +188,10 @@ export function CindyWorkspace({
           onClick={() => {
             setResult(null);
             setReplay(null);
+            setBulk(null);
+            setRetryQuery(null);
             setChatKey((k) => k + 1);
+
           }}
           className="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-primary-foreground"
           style={{ background: "var(--gradient-brand)" }}

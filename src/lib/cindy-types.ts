@@ -26,6 +26,16 @@ export type ResearchedProduct = {
   notes: string;
 };
 
+/** One line of a bulk (multi-reference) research run. */
+export type CindyBulkItem = {
+  index: number;
+  ref: string;
+  status: "pending" | "running" | "done" | "error";
+  cached?: boolean;
+  product?: ResearchedProduct;
+  message?: string;
+};
+
 export type CindyEvent =
   | { type: "message"; text: string }
   | {
@@ -39,8 +49,11 @@ export type CindyEvent =
   | { type: "source"; source: CindySource }
   | { type: "checklist"; label: string; done: boolean }
   | { type: "result"; product: ResearchedProduct; cached?: boolean }
+  | { type: "bulk_item"; item: CindyBulkItem }
+  | { type: "bulk_summary"; total: number; ok: number; failed: number }
   | { type: "error"; message: string }
   | { type: "done" };
+
 
 export type CindySessionSummary = {
   id: string;
