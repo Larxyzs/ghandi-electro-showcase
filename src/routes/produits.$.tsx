@@ -11,7 +11,9 @@ import {
   type SiteData,
 } from "@/lib/catalog-types";
 
-const LEVEL_ICON = { 1: Folder, 2: Layers, 3: Tag } as const;
+import { Box } from "lucide-react";
+
+const LEVEL_ICON = { 1: Folder, 2: Layers, 3: Tag, 4: Box } as const;
 
 export const Route = createFileRoute("/produits/$")({
   head: () => ({
@@ -123,7 +125,7 @@ function BrowsePage() {
           </div>
         )}
 
-        {current?.level === 3 && (
+        {current && current.level >= 3 && (
           <div className="mt-12">
             {products.length === 0 ? (
               <div className="flex flex-col items-center gap-4 rounded-[2rem] border border-dashed border-border bg-brand-soft/40 px-8 py-20 text-center">
