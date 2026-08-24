@@ -221,12 +221,30 @@ export function CindyChat({
             if (event.cached) setCachedHit(query);
             onResult(event.product);
             break;
+          case "bulk_item": {
+            const item = event.item;
+            const existing = bulk.findIndex((b) => b.index === item.index);
+            if (existing >= 0) bulk[existing] = { ...bulk[existing], ...item };
+            else bulk.push(item);
+            setBulkItems([...bulk].sort((a, b) => a.index - b.index));
+            break;
+          }
+          case "bulk_summary":
+            push(
+              "cindy",
+              `${event.ok} produit${event.ok > 1 ? "s" : ""} prêt${event.ok > 1 ? "s" : ""}${
+                event.failed > 0 ? ` · ⚠ ${event.failed} à revoir` : ""
+              }. Vérifiez la liste avant création.`,
+            );
+            onBulk?.([...bulk].sort((a, b) => a.index - b.index));
+            break;
           case "error":
             setError(event.message);
             break;
           default:
             break;
         }
+
       };
 
       for (;;) {
