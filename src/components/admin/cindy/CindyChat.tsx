@@ -112,14 +112,29 @@ function SourceCard({ source }: { source: CindySource }) {
   );
 }
 
+/** Extract multiple product references from a free-form instruction. */
+export function parseReferences(raw: string): string[] {
+  return raw
+    .split(/[\n;,]+/)
+    .map((line) =>
+      line
+        .replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "")
+        .replace(/^\s*(cr[eé]e|cr[eé]er|ajoute|ajouter|create|add)\b.*?:/i, "")
+        .trim(),
+    )
+    .filter((line) => line.length >= 4 && /\d/.test(line) && !line.endsWith(":"));
+}
+
 export function CindyChat({
   initialQuery,
   onResult,
   onEvents,
+  onBulk,
 }: {
   initialQuery?: string;
   onResult: (product: ResearchedProduct) => void;
   onEvents?: (events: CindyEvent[], query: string) => void;
+  onBulk?: (items: CindyBulkItem[]) => void;
 }) {
   const [input, setInput] = useState(initialQuery ?? "");
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
@@ -130,6 +145,7 @@ export function CindyChat({
   const [error, setError] = useState<string | null>(null);
   const [openActivity, setOpenActivity] = useState(true);
   const [cachedHit, setCachedHit] = useState<string | null>(null);
+  const [bulkItems, setBulkItems] = useState<CindyBulkItem[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const counter = useRef(0);
 
@@ -138,25 +154,33 @@ export function CindyChat({
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [bubbles, activities, sources, checks]);
+  }, [bubbles, activities, sources, checks, bulkItems]);
 
-  const run = async (query: string, force = false) => {
+  const run = async (query: string, force = false, refs?: string[]) => {
     setRunning(true);
     setCachedHit(null);
     setError(null);
     setActivities([]);
     setSources([]);
     setChecks([]);
-    push("admin", query);
+    setBulkItems([]);
+    push("admin", refs && refs.length > 1 ? refs.join("\n") : query);
+    if (refs && refs.length > 1)
+      push(
+        "cindy",
+        `Je traite ${refs.length} références l'une après l'autre : mémoire d'abord, sinon une seule recherche officielle par produit.`,
+      );
     const collected: CindyEvent[] = [];
+    const bulk: CindyBulkItem[] = [];
 
     try {
       const res = await fetch("/api/admin/cindy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, force }),
+        body: JSON.stringify({ query, force, refs: refs ?? [] }),
       });
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
