@@ -36,6 +36,8 @@ export type CatalogActions = {
   createNode: (parentId: string | null, name: string, image: ImageDraft) => Promise<void>;
   renameNode: (id: string, name: string, image: ImageDraft) => Promise<void>;
   moveNode: (id: string, direction: "up" | "down") => Promise<void>;
+  reparentNode: (id: string, parentId: string | null) => Promise<void>;
+  moveProductToNode: (id: string, nodeId: string) => Promise<void>;
   deleteNode: (id: string) => Promise<void>;
   nodeImpact: (id: string) => Promise<{ folders: number; products: number }>;
   saveProduct: (draft: ProductDraft & { node_id: string }) => Promise<void>;
@@ -63,6 +65,11 @@ export function CatalogExplorer({
   const [editing, setEditing] = useState<{ product?: Product } | null>(null);
   const [quick, setQuick] = useState(false);
   const [formatChoice, setFormatChoice] = useState<Record<string, "keep" | "none">>({});
+  const [drag, setDrag] = useState<
+    { kind: "folder"; id: string; level: NodeLevel } | { kind: "product"; id: string } | null
+  >(null);
+  const [dropTarget, setDropTarget] = useState<string | "root" | null>(null);
+  const [dragError, setDragError] = useState<string | null>(null);
   const [pending, setPending] = useState<{ node: CatalogNode; folders: number; products: number } | null>(
     null,
   );
@@ -97,6 +104,48 @@ export function CatalogExplorer({
     [data.products, current, isLeaf],
   );
 
+  const canDropOn = (targetId: string | null, targetLevel: 0 | NodeLevel) => {
+    if (!drag) return false;
+    if (drag.kind === "product") return targetId !== null && targetLevel >= 3;
+    if (drag.id === targetId) return false;
+    if (targetId && pathOf(data.nodes, targetId).some((n) => n.id === drag.id)) return false;
+    const depth = (rootId: string): number => {
+      const kids = childrenOf(data.nodes, rootId);
+      return kids.length === 0 ? 1 : 1 + Math.max(...kids.map((k) => depth(k.id)));
+    };
+    return targetLevel + depth(drag.id) <= 4;
+  };
+
+  const handleDrop = async (targetId: string | null, targetLevel: 0 | NodeLevel) => {
+    const item = drag;
+    setDropTarget(null);
+    setDrag(null);
+    if (!item || !canDropOn(targetId, targetLevel)) return;
+    setDragError(null);
+    try {
+      if (item.kind === "product") {
+        if (targetId) await actions.moveProductToNode(item.id, targetId);
+      } else {
+        await actions.reparentNode(item.id, targetId);
+      }
+    } catch {
+      setDragError("Déplacement impossible vers cet emplacement.");
+    }
+  };
+
+  const dropProps = (targetId: string | null, targetLevel: 0 | NodeLevel) => ({
+    onDragOver: (e: React.DragEvent) => {
+      if (!canDropOn(targetId, targetLevel)) return;
+      e.preventDefault();
+      setDropTarget(targetId ?? "root");
+    },
+    onDragLeave: () => setDropTarget((prev) => (prev === (targetId ?? "root") ? null : prev)),
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      void handleDrop(targetId, targetLevel);
+    },
+  });
+
   const askDelete = async (node: CatalogNode) => {
     const impact = await actions.nodeImpact(node.id);
     setPending({ node, ...impact });
@@ -109,9 +158,11 @@ export function CatalogExplorer({
         <button
           type="button"
           onClick={() => setCurrentId(null)}
+          {...dropProps(null, 0)}
           className={cn(
             "inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-semibold",
             currentId === null ? "bg-brand-soft text-brand-deep" : "hover:text-brand",
+            dropTarget === "root" && "ring-2 ring-brand",
           )}
         >
           <Home className="h-3.5 w-3.5" /> Catalogue
@@ -122,9 +173,11 @@ export function CatalogExplorer({
             <button
               type="button"
               onClick={() => setCurrentId(node.id)}
+              {...dropProps(node.id, node.level)}
               className={cn(
                 "rounded-full px-3 py-1 font-semibold",
                 currentId === node.id ? "bg-brand-soft text-brand-deep" : "hover:text-brand",
+                dropTarget === node.id && "ring-2 ring-brand",
               )}
             >
               {node.name}
@@ -133,6 +186,18 @@ export function CatalogExplorer({
         ))}
         {busy && <Loader2 className="ms-auto h-4 w-4 animate-spin text-brand" />}
       </nav>
+
+      {drag && (
+        <p className="rounded-2xl border border-brand/40 bg-brand-soft/50 px-5 py-3 text-sm font-medium text-brand-deep">
+          Glissez sur un dossier (ou un fil d\u2019Ariane ci-dessus) pour d\u00e9placer
+          {drag.kind === "product" ? " cet article." : " ce dossier."}
+        </p>
+      )}
+      {dragError && (
+        <p className="rounded-2xl border border-destructive/40 bg-destructive/10 px-5 py-3 text-sm text-destructive">
+          {dragError}
+        </p>
+      )}
 
       {current && formatDecision === "ask" && (
         <div className="rounded-3xl border border-brand/30 bg-brand-soft/40 p-5">
@@ -259,7 +324,18 @@ export function CatalogExplorer({
           return (
             <div
               key={node.id}
-              className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4"
+              draggable
+              onDragStart={() => setDrag({ kind: "folder", id: node.id, level: node.level })}
+              onDragEnd={() => {
+                setDrag(null);
+                setDropTarget(null);
+              }}
+              {...dropProps(node.id, node.level)}
+              className={cn(
+                "flex cursor-grab items-center gap-3 rounded-2xl border border-border bg-card p-4 active:cursor-grabbing",
+                dropTarget === node.id && canDropOn(node.id, node.level) && "ring-2 ring-brand",
+                drag?.kind === "folder" && drag.id === node.id && "opacity-50",
+              )}
             >
               <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-brand-soft text-brand-deep">
                 {node.image_url ? (
@@ -339,7 +415,16 @@ export function CatalogExplorer({
             ) : (
               <div
                 key={product.id}
-                className="flex items-center gap-4 rounded-2xl border border-border p-4"
+                draggable
+                onDragStart={() => setDrag({ kind: "product", id: product.id })}
+                onDragEnd={() => {
+                  setDrag(null);
+                  setDropTarget(null);
+                }}
+                className={cn(
+                  "flex cursor-grab items-center gap-4 rounded-2xl border border-border p-4 active:cursor-grabbing",
+                  drag?.kind === "product" && drag.id === product.id && "opacity-50",
+                )}
               >
                 <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-brand-soft/60">
                   {product.image_url ? (
