@@ -10,7 +10,7 @@ export type ProductDraft = {
   serial_number: string;
   stock: number;
   price: string;
-  description: string;
+  characteristics: string;
   featured: boolean;
   imageData?: string | null | undefined;
   imageName?: string | null | undefined;
@@ -43,7 +43,7 @@ export function ProductForm({
     serial_number: product?.serial_number ?? "",
     stock: product?.stock ?? 0,
     price: product?.price === null || product?.price === undefined ? "" : String(product.price),
-    description: product?.description ?? "",
+    characteristics: product?.characteristics ?? "",
     featured: product?.featured ?? false,
   });
   const [preview, setPreview] = useState<string | null>(product?.image_url ?? null);
@@ -211,12 +211,12 @@ export function ProductForm({
       </label>
 
       <label className="mt-4 block text-sm font-medium">
-        Description / caractéristiques
+        Caractéristiques
         <textarea
           rows={4}
           className={`mt-1.5 ${field}`}
-          value={draft.description}
-          onChange={(e) => set("description", e.target.value)}
+          value={draft.characteristics}
+          onChange={(e) => set("characteristics", e.target.value)}
         />
       </label>
 

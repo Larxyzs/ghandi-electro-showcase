@@ -85,6 +85,75 @@ export type Database = {
           },
         ]
       }
+      cindy_actions: {
+        Row: {
+          action: string
+          admin_username: string
+          after_state: Json | null
+          before_state: Json | null
+          created_at: string
+          entity: string
+          entity_id: string | null
+          id: string
+          label: string
+          undone_at: string | null
+        }
+        Insert: {
+          action: string
+          admin_username: string
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          entity: string
+          entity_id?: string | null
+          id?: string
+          label: string
+          undone_at?: string | null
+        }
+        Update: {
+          action?: string
+          admin_username?: string
+          after_state?: Json | null
+          before_state?: Json | null
+          created_at?: string
+          entity?: string
+          entity_id?: string | null
+          id?: string
+          label?: string
+          undone_at?: string | null
+        }
+        Relationships: []
+      }
+      cindy_sessions: {
+        Row: {
+          admin_username: string
+          created_at: string
+          id: string
+          messages: Json
+          mode: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          admin_username: string
+          created_at?: string
+          id?: string
+          messages?: Json
+          mode?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_username?: string
+          created_at?: string
+          id?: string
+          messages?: Json
+          mode?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       popular_searches: {
         Row: {
           created_at: string
@@ -109,46 +178,61 @@ export type Database = {
       products: {
         Row: {
           brand: string
+          characteristics: string
           created_at: string
-          description: string
           featured: boolean
+          gallery: Json
           id: string
           image_url: string | null
+          marketing_sections: Json
           name: string
           node_id: string
           price: number | null
           serial_number: string
           sort_order: number
+          source_name: string | null
+          source_url: string | null
+          specifications: Json
           stock: number
           updated_at: string
         }
         Insert: {
           brand?: string
+          characteristics?: string
           created_at?: string
-          description?: string
           featured?: boolean
+          gallery?: Json
           id?: string
           image_url?: string | null
+          marketing_sections?: Json
           name: string
           node_id: string
           price?: number | null
           serial_number?: string
           sort_order?: number
+          source_name?: string | null
+          source_url?: string | null
+          specifications?: Json
           stock?: number
           updated_at?: string
         }
         Update: {
           brand?: string
+          characteristics?: string
           created_at?: string
-          description?: string
           featured?: boolean
+          gallery?: Json
           id?: string
           image_url?: string | null
+          marketing_sections?: Json
           name?: string
           node_id?: string
           price?: number | null
           serial_number?: string
           sort_order?: number
+          source_name?: string | null
+          source_url?: string | null
+          specifications?: Json
           stock?: number
           updated_at?: string
         }
@@ -167,6 +251,7 @@ export type Database = {
           id: string
           primary_color: string
           secondary_color: string
+          site_mode: string
           text_color: string
           updated_at: string
         }
@@ -174,6 +259,7 @@ export type Database = {
           id?: string
           primary_color?: string
           secondary_color?: string
+          site_mode?: string
           text_color?: string
           updated_at?: string
         }
@@ -181,6 +267,7 @@ export type Database = {
           id?: string
           primary_color?: string
           secondary_color?: string
+          site_mode?: string
           text_color?: string
           updated_at?: string
         }

@@ -1,3 +1,4 @@
+import type { Json } from "@/integrations/supabase/types";
 import { useSession } from "@tanstack/react-start/server";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { fetchSiteData, type SiteData } from "./catalog.server";
@@ -368,13 +369,27 @@ export type ProductInput = {
   serial_number: string;
   stock: number;
   price: number | null;
-  description: string;
+  /** Product characteristics (formerly "description"). */
+  characteristics: string;
+  specifications?: { label: string; value: string }[];
+  gallery?: string[];
+  marketing_sections?: Json[];
+  source_url?: string | null;
+  source_name?: string | null;
   featured?: boolean;
   imageData?: string | null;
   imageName?: string | null;
   imageUrl?: string | null;
   removeImage?: boolean;
 };
+
+export async function uploadImageFromDataUrl(
+  db: Awaited<ReturnType<typeof requireAdmin>>,
+  imageData: string,
+  imageName: string,
+) {
+  return storeImage(db, imageData, imageName);
+}
 
 async function storeImage(
   db: Awaited<ReturnType<typeof requireAdmin>>,
@@ -417,8 +432,13 @@ export async function saveProduct(input: ProductInput) {
     serial_number: input.serial_number.trim(),
     stock: Math.max(0, Math.floor(input.stock)),
     price: input.price,
-    description: input.description,
+    characteristics: input.characteristics,
     featured: Boolean(input.featured),
+    ...(input.specifications ? { specifications: input.specifications as Json } : {}),
+    ...(input.gallery ? { gallery: input.gallery } : {}),
+    ...(input.marketing_sections ? { marketing_sections: input.marketing_sections as Json } : {}),
+    ...(input.source_url !== undefined ? { source_url: input.source_url } : {}),
+    ...(input.source_name !== undefined ? { source_name: input.source_name } : {}),
   };
 
   if (input.id) {
@@ -463,7 +483,7 @@ export async function saveSettings(input: {
 }) {
   const db = await requireAdmin();
   const hex = /^#[0-9a-fA-F]{6}$/;
-  for (const value of Object.values(input)) {
+  for (const value of [input.primary_color, input.secondary_color, input.text_color]) {
     if (!hex.test(value)) throw new Error("INVALID_COLOR");
   }
   const { error } = await db
@@ -554,5 +574,170 @@ export async function setProductFeatured(id: string, featured: boolean) {
   const db = await requireAdmin();
   const { error } = await db.from("products").update({ featured }).eq("id", id);
   if (error) throw new Error(error.message);
+  return { ok: true as const };
+}
+
+
+/* ---------- Site mode (public site availability) ---------- */
+
+export type SiteMode = "online" | "maintenance" | "coming_soon" | "closed";
+
+const SITE_MODES: SiteMode[] = ["online", "maintenance", "coming_soon", "closed"];
+
+export async function getSiteMode(): Promise<SiteMode> {
+  const db = await requireAdmin();
+  const { data } = await db
+    .from("site_settings")
+    .select("site_mode")
+    .eq("id", "default")
+    .maybeSingle();
+  return ((data?.site_mode ?? "online") as SiteMode);
+}
+
+export async function setSiteMode(mode: SiteMode) {
+  const db = await requireAdmin();
+  if (!SITE_MODES.includes(mode)) throw new Error("INVALID_MODE");
+  const previous = await getSiteMode();
+  const { error } = await db.from("site_settings").update({ site_mode: mode }).eq("id", "default");
+  if (error) throw new Error(error.message);
+  return { ok: true as const, previous, mode };
+}
+
+/** Shared admin guard for Cindy's controlled actions. */
+export async function adminDb() {
+  return requireAdmin();
+}
+
+/* ---------- Cindy: research sessions & action history ---------- */
+
+export type CindySessionRow = {
+  id: string;
+  title: string;
+  query: string;
+  events: Json[];
+  created_at: string;
+  updated_at: string;
+};
+
+export async function listCindySessions() {
+  const db = await requireAdmin();
+  const me = await currentAdmin();
+  const { data, error } = await db
+    .from("cindy_sessions")
+    .select("id, title, messages, created_at, updated_at")
+    .eq("admin_username", me!.username)
+    .order("updated_at", { ascending: false })
+    .limit(30);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => {
+    const payload = (row.messages ?? {}) as { query?: string; events?: Json[] };
+    return {
+      id: row.id,
+      title: row.title,
+      query: payload.query ?? "",
+      events: Array.isArray(payload.events) ? payload.events : [],
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    } satisfies CindySessionRow;
+  });
+}
+
+export async function saveCindySession(input: {
+  id?: string | null;
+  title: string;
+  query: string;
+  events: Json;
+}) {
+  const db = await requireAdmin();
+  const me = await currentAdmin();
+  const payload = { query: input.query, events: input.events } as unknown as Json;
+  if (input.id) {
+    const { error } = await db
+      .from("cindy_sessions")
+      .update({ title: input.title, messages: payload })
+      .eq("id", input.id)
+      .eq("admin_username", me!.username);
+    if (error) throw new Error(error.message);
+    return { id: input.id };
+  }
+  const { data, error } = await db
+    .from("cindy_sessions")
+    .insert({ admin_username: me!.username, title: input.title, messages: payload })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  return { id: data.id };
+}
+
+export async function deleteCindySession(id: string) {
+  const db = await requireAdmin();
+  const me = await currentAdmin();
+  const { error } = await db
+    .from("cindy_sessions")
+    .delete()
+    .eq("id", id)
+    .eq("admin_username", me!.username);
+  if (error) throw new Error(error.message);
+  return { ok: true as const };
+}
+
+export async function recordAction(input: {
+  action: string;
+  entity: string;
+  entity_id?: string | null;
+  label: string;
+  before_state?: Json | null;
+  after_state?: Json | null;
+}) {
+  const db = await requireAdmin();
+  const me = await currentAdmin();
+  const { error } = await db.from("cindy_actions").insert({
+    admin_username: me!.username,
+    action: input.action,
+    entity: input.entity,
+    entity_id: input.entity_id ?? null,
+    label: input.label,
+    before_state: input.before_state ?? null,
+    after_state: input.after_state ?? null,
+  });
+  if (error) throw new Error(error.message);
+  return { ok: true as const };
+}
+
+export async function listActions() {
+  const db = await requireAdmin();
+  const { data, error } = await db
+    .from("cindy_actions")
+    .select("id, admin_username, action, entity, entity_id, label, undone_at, created_at")
+    .order("created_at", { ascending: false })
+    .limit(40);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/** Reverts a logged action when it is reversible (product creation, site mode change). */
+export async function undoAction(id: string) {
+  const db = await requireAdmin();
+  const { data: action, error } = await db
+    .from("cindy_actions")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!action) throw new Error("NOT_FOUND");
+  if (action.undone_at) throw new Error("ALREADY_UNDONE");
+
+  if (action.action === "product_create" && action.entity_id) {
+    await db.from("products").delete().eq("id", action.entity_id);
+  } else if (action.action === "site_mode" && action.before_state) {
+    const before = action.before_state as { site_mode?: string };
+    if (before.site_mode) {
+      await db.from("site_settings").update({ site_mode: before.site_mode }).eq("id", "default");
+    }
+  } else {
+    throw new Error("NOT_REVERSIBLE");
+  }
+
+  await db.from("cindy_actions").update({ undone_at: new Date().toISOString() }).eq("id", id);
   return { ok: true as const };
 }

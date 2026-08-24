@@ -7,6 +7,7 @@ import {
   Palette,
   ExternalLink,
   Search,
+  Sparkles,
   Users,
 } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
@@ -14,6 +15,8 @@ import type { SiteData, SiteSettings } from "@/lib/catalog-types";
 import { CatalogExplorer, type CatalogActions } from "@/components/admin/CatalogExplorer";
 import { StaffPanel } from "@/components/admin/StaffPanel";
 import { PopularSearchesPanel } from "@/components/admin/PopularSearchesPanel";
+import { CindyWorkspace, type CindyActions } from "@/components/admin/cindy/CindyWorkspace";
+import { SITE_MODE_LABELS, type SiteMode } from "@/lib/catalog-types";
 import type { AdminRole, StaffAccount } from "@/lib/admin-types";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +27,9 @@ export function AdminDashboard({
   username,
   staffActions,
   catalogActions,
+  cindyActions,
   searchActions,
+  onSetSiteMode,
   onLogout,
   onSaveSettings,
 }: {
@@ -39,6 +44,8 @@ export function AdminDashboard({
     remove: (id: string) => Promise<void>;
   };
   catalogActions: CatalogActions;
+  cindyActions: CindyActions;
+  onSetSiteMode: (mode: SiteMode) => Promise<void>;
   searchActions: {
     add: (term: string) => Promise<void>;
     remove: (id: string) => Promise<void>;
@@ -47,7 +54,9 @@ export function AdminDashboard({
   onLogout: () => void;
   onSaveSettings: (settings: SiteSettings) => Promise<void>;
 }) {
-  const [tab, setTab] = useState<"inventory" | "design" | "searches" | "staff">("inventory");
+  const [tab, setTab] = useState<"inventory" | "cindy" | "design" | "searches" | "staff">(
+    "inventory",
+  );
   const [settings, setSettings] = useState<SiteSettings>(data.settings);
   const [saved, setSaved] = useState(false);
 
@@ -90,6 +99,7 @@ export function AdminDashboard({
           {(
             [
               { id: "inventory", label: "Inventaire", icon: Package },
+              { id: "cindy", label: "Cindy AI", icon: Sparkles },
               { id: "design", label: "Apparence", icon: Palette },
               { id: "searches", label: "Recherches populaires", icon: Search },
               ...(role === "super"
@@ -114,7 +124,12 @@ export function AdminDashboard({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-5xl px-5 py-10">
+      <main
+        className={cn(
+          "mx-auto w-full px-5 py-10",
+          tab === "cindy" ? "max-w-6xl" : "max-w-5xl",
+        )}
+      >
         {tab === "staff" && role === "super" ? (
           <StaffPanel
             load={staffActions.list}
@@ -124,8 +139,36 @@ export function AdminDashboard({
           />
         ) : tab === "searches" ? (
           <PopularSearchesPanel terms={data.popularSearches} actions={searchActions} />
+        ) : tab === "cindy" ? (
+          <CindyWorkspace data={data} actions={cindyActions} />
         ) : tab === "inventory" ? (
-          <CatalogExplorer data={data} busy={busy} actions={catalogActions} />
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-brand/25 bg-brand-soft/30 p-5">
+              <div className="flex items-start gap-3">
+                <span
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl text-primary-foreground"
+                  style={{ background: "var(--gradient-brand)" }}
+                >
+                  <Sparkles className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold">Ajouter un produit avec Cindy</p>
+                  <p className="text-xs text-foreground/60">
+                    Donnez une référence, Cindy recherche les informations officielles pour vous.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTab("cindy")}
+                className="rounded-full px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+                style={{ background: "var(--gradient-brand)" }}
+              >
+                Rechercher avec Cindy
+              </button>
+            </div>
+            <CatalogExplorer data={data} busy={busy} actions={catalogActions} />
+          </div>
         ) : (
           <form
             onSubmit={async (e) => {
@@ -136,6 +179,33 @@ export function AdminDashboard({
             }}
             className="max-w-xl rounded-3xl border border-border bg-card p-7"
           >
+            <div className="mb-8 rounded-2xl border border-border bg-brand-soft/25 p-5">
+              <h2 className="text-lg font-semibold">Disponibilité du site</h2>
+              <p className="mt-1 text-sm text-foreground/60">
+                Contrôle ce que voient les visiteurs du site public.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {(Object.keys(SITE_MODE_LABELS) as SiteMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => {
+                      setSettings((prev) => ({ ...prev, site_mode: mode }));
+                      void onSetSiteMode(mode);
+                    }}
+                    className={cn(
+                      "rounded-full border px-4 py-2 text-sm font-semibold transition",
+                      settings.site_mode === mode
+                        ? "border-brand bg-brand text-primary-foreground"
+                        : "border-border hover:border-brand hover:text-brand",
+                    )}
+                  >
+                    {SITE_MODE_LABELS[mode]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <h2 className="text-lg font-semibold">Couleurs du site</h2>
             <p className="mt-1 text-sm text-foreground/60">
               Les modifications s'appliquent immédiatement à tout le site.
@@ -177,11 +247,12 @@ export function AdminDashboard({
               <button
                 type="button"
                 onClick={() =>
-                  setSettings({
+                  setSettings((prev) => ({
+                    ...prev,
                     primary_color: "#ffffff",
                     secondary_color: "#1266e8",
                     text_color: "#0f172a",
-                  })
+                  }))
                 }
                 className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold"
               >

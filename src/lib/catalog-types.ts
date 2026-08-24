@@ -21,6 +21,19 @@ export type CatalogNode = {
   image_url: string | null;
 };
 
+export type ProductSpec = { label: string; value: string };
+
+/** Reusable premium marketing blocks rendered on the public product page. */
+export type MarketingSection =
+  | { type: "full_image"; image: string; title?: string; body?: string }
+  | { type: "image_text"; image: string; title: string; body: string; reverse?: boolean }
+  | { type: "feature"; title: string; body: string }
+  | { type: "two_images"; images: string[]; title?: string }
+  | { type: "three_images"; images: string[]; title?: string }
+  | { type: "overlay"; image: string; title: string; body: string }
+  | { type: "video"; url: string; title?: string }
+  | { type: "specs"; title?: string };
+
 export type Product = {
   id: string;
   node_id: string;
@@ -31,15 +44,31 @@ export type Product = {
   price: number | null;
   image_path: string | null;
   image_url: string | null;
-  description: string;
+  /** Product characteristics (formerly "description"). */
+  characteristics: string;
+  specifications: ProductSpec[];
+  gallery: string[];
+  marketing_sections: MarketingSection[];
+  source_url: string | null;
+  source_name: string | null;
   sort_order: number;
   featured: boolean;
+};
+
+export type SiteMode = "online" | "maintenance" | "coming_soon" | "closed";
+
+export const SITE_MODE_LABELS: Record<SiteMode, string> = {
+  online: "En ligne",
+  maintenance: "Maintenance",
+  coming_soon: "Bientôt disponible",
+  closed: "Fermé",
 };
 
 export type SiteSettings = {
   primary_color: string;
   secondary_color: string;
   text_color: string;
+  site_mode: SiteMode;
 };
 
 export type PopularSearch = { id: string; term: string; sort_order: number };
@@ -111,6 +140,7 @@ export function searchProducts(nodes: CatalogNode[], products: Product[], query:
         product.name,
         product.brand,
         product.serial_number,
+        product.characteristics,
         ...pathOf(nodes, product.node_id).map((n) => n.name),
       ].join(" "),
     );
@@ -127,4 +157,5 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   primary_color: "#ffffff",
   secondary_color: "#1266e8",
   text_color: "#0f172a",
+  site_mode: "online",
 };

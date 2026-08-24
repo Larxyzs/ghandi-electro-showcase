@@ -14,6 +14,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { getSiteData } from "../lib/catalog.functions";
 import { DEFAULT_SETTINGS } from "../lib/catalog-types";
 import { SiteTheme } from "../components/SiteTheme";
+import { SiteModeGate } from "../components/SiteModeGate";
 import { ScrollProgress } from "../components/ScrollProgress";
 import { I18nProvider } from "../lib/i18n";
 
@@ -147,8 +148,10 @@ function RootComponent() {
       <I18nProvider>
         <SiteTheme settings={data?.settings ?? DEFAULT_SETTINGS} />
         <ScrollProgress />
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
+        <SiteModeGate mode={data?.settings?.site_mode ?? "online"}>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+        </SiteModeGate>
       </I18nProvider>
     </QueryClientProvider>
   );

@@ -1,0 +1,381 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  AlertCircle,
+  ArrowUp,
+  BadgeCheck,
+  Check,
+  ChevronDown,
+  ExternalLink,
+  Globe,
+  ImageIcon,
+  Loader2,
+  Search,
+  Sparkles,
+  Wand2,
+} from "lucide-react";
+import type {
+  CindyActivityKind,
+  CindyEvent,
+  CindySource,
+  ResearchedProduct,
+} from "@/lib/cindy-types";
+import { cn } from "@/lib/utils";
+
+type Bubble = { id: number; role: "admin" | "cindy"; text: string };
+type Activity = {
+  id: string;
+  kind: CindyActivityKind;
+  label: string;
+  detail?: string;
+  status: "running" | "done" | "error";
+};
+type Check = { label: string; done: boolean };
+
+const KIND_ICON: Record<CindyActivityKind, typeof Search> = {
+  search: Search,
+  open: Globe,
+  read: Sparkles,
+  images: ImageIcon,
+  extract: Wand2,
+  compare: Sparkles,
+};
+
+export function CindyAvatar({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center rounded-2xl text-[oklch(1_0_0)] shadow-[var(--shadow-soft)]",
+        className ?? "h-9 w-9",
+      )}
+      style={{ background: "var(--gradient-brand)" }}
+      aria-hidden="true"
+    >
+      <Sparkles className="h-4 w-4" />
+    </span>
+  );
+}
+
+function ActivityCard({ activity }: { activity: Activity }) {
+  const Icon = KIND_ICON[activity.kind];
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-border bg-card px-4 py-3">
+      <span className="mt-0.5 rounded-xl bg-brand-soft p-2 text-brand">
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold">{activity.label}</p>
+        {activity.detail && (
+          <p className="mt-0.5 truncate text-xs text-foreground/60">{activity.detail}</p>
+        )}
+      </div>
+      <span className="mt-1 text-xs">
+        {activity.status === "running" ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" />
+        ) : activity.status === "done" ? (
+          <Check className="h-3.5 w-3.5 text-brand" />
+        ) : (
+          <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+        )}
+      </span>
+    </div>
+  );
+}
+
+function SourceCard({ source }: { source: CindySource }) {
+  return (
+    <a
+      href={source.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group flex items-start gap-3 rounded-2xl border border-border bg-card px-4 py-3 transition hover:border-brand"
+    >
+      <span className="mt-0.5 rounded-xl bg-brand-soft p-2 text-brand">
+        {source.official ? <BadgeCheck className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2">
+          <span className="truncate text-sm font-semibold">{source.title}</span>
+          {source.official && (
+            <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold tracking-wide text-brand uppercase">
+              Officiel
+            </span>
+          )}
+        </span>
+        <span className="mt-0.5 block truncate text-xs text-foreground/55">{source.domain}</span>
+        <span className="mt-0.5 block text-xs text-foreground/45">{source.status}</span>
+      </span>
+      <ExternalLink className="mt-1 h-3.5 w-3.5 text-foreground/35 transition group-hover:text-brand" />
+    </a>
+  );
+}
+
+export function CindyChat({
+  initialQuery,
+  onResult,
+  onEvents,
+}: {
+  initialQuery?: string;
+  onResult: (product: ResearchedProduct) => void;
+  onEvents?: (events: CindyEvent[], query: string) => void;
+}) {
+  const [input, setInput] = useState(initialQuery ?? "");
+  const [bubbles, setBubbles] = useState<Bubble[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [sources, setSources] = useState<CindySource[]>([]);
+  const [checks, setChecks] = useState<Check[]>([]);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [openActivity, setOpenActivity] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const counter = useRef(0);
+
+  const push = (role: Bubble["role"], text: string) =>
+    setBubbles((prev) => [...prev, { id: ++counter.current, role, text }]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [bubbles, activities, sources, checks]);
+
+  const run = async (query: string) => {
+    setRunning(true);
+    setError(null);
+    setActivities([]);
+    setSources([]);
+    setChecks([]);
+    push("admin", query);
+    const collected: CindyEvent[] = [];
+
+    try {
+      const res = await fetch("/api/admin/cindy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      const apply = (event: CindyEvent) => {
+        collected.push(event);
+        switch (event.type) {
+          case "message":
+            push("cindy", event.text);
+            break;
+          case "activity":
+            setActivities((prev) => {
+              const next = prev.filter((a) => a.id !== event.id);
+              return [
+                ...next,
+                {
+                  id: event.id,
+                  kind: event.kind,
+                  label: event.label,
+                  ...(event.detail ? { detail: event.detail } : {}),
+                  status: event.status,
+                },
+              ];
+            });
+            break;
+          case "source":
+            setSources((prev) =>
+              prev.some((s) => s.url === event.source.url) ? prev : [...prev, event.source],
+            );
+            break;
+          case "checklist":
+            setChecks((prev) => [...prev, { label: event.label, done: event.done }]);
+            break;
+          case "result":
+            onResult(event.product);
+            break;
+          case "error":
+            setError(event.message);
+            break;
+          default:
+            break;
+        }
+      };
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith("data:")) continue;
+          try {
+            apply(JSON.parse(line.slice(5).trim()) as CindyEvent);
+          } catch {
+            /* ignore malformed chunk */
+          }
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Recherche impossible");
+    } finally {
+      setRunning(false);
+      onEvents?.(collected, query);
+    }
+  };
+
+  const suggestions = useMemo(
+    () => ["Samsung RB34T672EWW", "LG GC-B459", "Bosch KGN39VLEB", "TCL 55C645"],
+    [],
+  );
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const query = input.trim();
+    if (!query || running) return;
+    setInput("");
+    void run(query);
+  };
+
+  return (
+    <div className="flex h-[min(78vh,760px)] flex-col overflow-hidden rounded-3xl border border-border bg-background">
+      <header className="flex items-center gap-3 border-b border-border px-5 py-4">
+        <CindyAvatar />
+        <div>
+          <p className="font-display text-sm font-semibold">Cindy</p>
+          <p className="text-xs text-foreground/55">
+            {running ? "Recherche en cours…" : "Assistante de recherche produit"}
+          </p>
+        </div>
+      </header>
+
+      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-5 py-6">
+        {bubbles.length === 0 && (
+          <div className="mx-auto max-w-md py-10 text-center">
+            <CindyAvatar className="mx-auto h-12 w-12" />
+            <h3 className="font-display mt-4 text-lg font-semibold">Bonjour 👋</h3>
+            <p className="mt-2 text-sm leading-relaxed text-foreground/60">
+              Donnez-moi une référence d'appareil et je rassemble les informations officielles du
+              produit : caractéristiques, spécifications, images et sources.
+            </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              {suggestions.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => void run(s)}
+                  className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold transition hover:border-brand hover:text-brand"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {bubbles.map((bubble) => (
+          <div
+            key={bubble.id}
+            className={cn("flex gap-3", bubble.role === "admin" ? "justify-end" : "")}
+          >
+            {bubble.role === "cindy" && <CindyAvatar className="h-8 w-8" />}
+            <div
+              className={cn(
+                "max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                bubble.role === "admin"
+                  ? "bg-brand text-primary-foreground"
+                  : "border border-border bg-card",
+              )}
+            >
+              {bubble.text}
+            </div>
+          </div>
+        ))}
+
+        {activities.length > 0 && (
+          <div className="ms-11 rounded-3xl border border-border bg-brand-soft/25 p-4">
+            <button
+              type="button"
+              onClick={() => setOpenActivity((v) => !v)}
+              className="flex w-full items-center justify-between gap-3"
+            >
+              <span className="text-xs font-semibold tracking-wide text-foreground/60 uppercase">
+                Activité de recherche
+              </span>
+              <ChevronDown
+                className={cn("h-4 w-4 transition", openActivity ? "rotate-180" : "")}
+              />
+            </button>
+            {openActivity && (
+              <div className="mt-3 space-y-2">
+                {activities.map((activity) => (
+                  <ActivityCard key={activity.id} activity={activity} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {sources.length > 0 && (
+          <div className="ms-11 space-y-2">
+            <p className="text-xs font-semibold tracking-wide text-foreground/60 uppercase">
+              Sources
+            </p>
+            {sources.map((source) => (
+              <SourceCard key={source.url} source={source} />
+            ))}
+          </div>
+        )}
+
+        {checks.length > 0 && (
+          <div className="ms-11 rounded-3xl border border-border bg-card p-4">
+            <p className="text-xs font-semibold tracking-wide text-foreground/60 uppercase">
+              Informations extraites
+            </p>
+            <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">
+              {checks.map((check, i) => (
+                <li key={`${check.label}-${i}`} className="flex items-center gap-2 text-sm">
+                  {check.done ? (
+                    <Check className="h-3.5 w-3.5 text-brand" />
+                  ) : (
+                    <AlertCircle className="h-3.5 w-3.5 text-foreground/35" />
+                  )}
+                  <span className={check.done ? "" : "text-foreground/45"}>{check.label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {error && (
+          <div className="ms-11 flex items-start gap-2 rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {error}
+          </div>
+        )}
+      </div>
+
+      <form onSubmit={submit} className="border-t border-border p-4">
+        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 focus-within:border-brand">
+          <Search className="h-4 w-4 text-foreground/40" />
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ex. : Find Samsung RB34T672EWW"
+            className="flex-1 bg-transparent py-1.5 text-sm outline-none"
+            disabled={running}
+          />
+          <button
+            type="submit"
+            disabled={running || input.trim().length < 2}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-primary-foreground disabled:opacity-40"
+            style={{ background: "var(--gradient-brand)" }}
+            aria-label="Lancer la recherche"
+          >
+            {running ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ArrowUp className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}

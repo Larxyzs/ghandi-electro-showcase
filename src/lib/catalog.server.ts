@@ -1,9 +1,24 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { DEFAULT_SETTINGS, type SiteData } from "./catalog-types";
+import {
+  DEFAULT_SETTINGS,
+  type MarketingSection,
+  type ProductSpec,
+  type SiteData,
+  type SiteMode,
+} from "./catalog-types";
 
 export { DEFAULT_SETTINGS };
-export type { CatalogNode, Product, SiteSettings, SiteData, PopularSearch } from "./catalog-types";
+export type {
+  CatalogNode,
+  Product,
+  SiteSettings,
+  SiteData,
+  SiteMode,
+  PopularSearch,
+  ProductSpec,
+  MarketingSection,
+} from "./catalog-types";
 
 function publicClient() {
   const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
@@ -41,7 +56,7 @@ export async function fetchSiteData(): Promise<SiteData> {
   const [settingsRes, nodesRes, productsRes, searchesRes] = await Promise.all([
     supabase
       .from("site_settings")
-      .select("primary_color, secondary_color, text_color")
+      .select("primary_color, secondary_color, text_color, site_mode")
       .eq("id", "default")
       .maybeSingle(),
     supabase
@@ -52,7 +67,7 @@ export async function fetchSiteData(): Promise<SiteData> {
     supabase
       .from("products")
       .select(
-        "id, node_id, name, brand, serial_number, stock, price, image_url, description, sort_order, featured",
+        "id, node_id, name, brand, serial_number, stock, price, image_url, characteristics, specifications, gallery, marketing_sections, source_url, source_name, sort_order, featured",
       )
       .order("sort_order")
       .order("created_at"),
@@ -74,7 +89,9 @@ export async function fetchSiteData(): Promise<SiteData> {
     value ? (value.startsWith("http") ? value : (signed[value] ?? null)) : null;
 
   return {
-    settings: settingsRes.data ?? DEFAULT_SETTINGS,
+    settings: settingsRes.data
+      ? { ...settingsRes.data, site_mode: (settingsRes.data.site_mode ?? "online") as SiteMode }
+      : DEFAULT_SETTINGS,
     nodes: rawNodes.map((n) => ({
       ...n,
       level: n.level as 1 | 2 | 3 | 4,
@@ -86,6 +103,11 @@ export async function fetchSiteData(): Promise<SiteData> {
       price: p.price === null ? null : Number(p.price),
       image_path: p.image_url ?? null,
       image_url: resolve(p.image_url),
+      specifications: Array.isArray(p.specifications) ? (p.specifications as ProductSpec[]) : [],
+      gallery: Array.isArray(p.gallery) ? (p.gallery as string[]) : [],
+      marketing_sections: Array.isArray(p.marketing_sections)
+        ? (p.marketing_sections as MarketingSection[])
+        : [],
     })),
     popularSearches: searchesRes.data ?? [],
   };
