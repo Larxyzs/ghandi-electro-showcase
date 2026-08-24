@@ -1,5 +1,22 @@
 import { useRef, useState } from "react";
-import { ImagePlus, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ImagePlus, Loader2, Sparkles, Trash2 } from "lucide-react";
+
+type ImageVerdict = {
+  verdict: "good" | "warn" | "bad";
+  summary: string;
+  issues: string[];
+  advice: string;
+};
+
+/** Reads intrinsic pixel size so Cindy can judge resolution and scale. */
+function measure(src: string): Promise<{ width: number; height: number } | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
 
 export type ImageDraft = {
   imageData?: string | null;
@@ -28,7 +45,52 @@ export function ImagePicker({
   const [url, setUrl] = useState(startsHttp ? (initialPath as string) : "");
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [verdict, setVerdict] = useState<ImageVerdict | null>(null);
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const checkToken = useRef(0);
 
+  /** Asks Cindy to confirm the image is a clean, well-scaled product shot. */
+  const checkImage = async (source: string) => {
+    const token = ++checkToken.current;
+    setChecking(true);
+    setVerdict(null);
+    setCheckError(null);
+    try {
+      const size = await measure(source);
+      const res = await fetch("/api/admin/check-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(source.startsWith("data:") ? { imageData: source } : { imageUrl: source }),
+          ...(size ?? {}),
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as (ImageVerdict & { error?: string }) | null;
+      if (token !== checkToken.current) return;
+      if (!res.ok || !data || data.error) {
+        setCheckError(data?.error ?? "Vérification de l'image impossible.");
+        return;
+      }
+      setVerdict({
+        verdict: data.verdict,
+        summary: data.summary,
+        issues: data.issues ?? [],
+        advice: data.advice ?? "",
+      });
+    } catch {
+      if (token === checkToken.current) setCheckError("Vérification de l'image impossible.");
+    } finally {
+      if (token === checkToken.current) setChecking(false);
+    }
+  };
+
+  const clearCheck = () => {
+    checkToken.current++;
+    setChecking(false);
+    setVerdict(null);
+    setCheckError(null);
+  };
 
   const field =
     "w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/25";
@@ -44,6 +106,7 @@ export function ImagePicker({
       setPreview(result);
       onChange({ imageData: result, imageName: file.name, imageUrl: null, removeImage: false });
       onError?.(null);
+      void checkImage(result);
     };
     reader.readAsDataURL(file);
   };
@@ -142,6 +205,7 @@ export function ImagePicker({
                 onClick={() => {
                   setPreview(null);
                   setUrl("");
+                  clearCheck();
                   onChange({ imageData: null, imageName: null, imageUrl: null, removeImage: true });
                 }}
                 className="inline-flex items-center gap-1.5 rounded-full border border-destructive/30 px-4 py-2 text-sm font-semibold text-destructive"
@@ -162,6 +226,7 @@ export function ImagePicker({
                 const value = e.target.value;
                 setUrl(value);
                 setPreview(value.trim() ? value.trim() : null);
+                clearCheck();
                 onChange({
                   imageData: null,
                   imageName: null,
@@ -169,10 +234,69 @@ export function ImagePicker({
                   removeImage: !value.trim(),
                 });
               }}
+              onBlur={() => {
+                const value = url.trim();
+                if (/^https?:\/\//.test(value)) void checkImage(value);
+              }}
             />
           </label>
         )}
       </div>
+
+      {preview && (
+        <div className="mt-3 space-y-2">
+          {checking && (
+            <p className="flex items-center gap-2 text-xs font-semibold text-foreground/60">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" /> Cindy vérifie l'image
+              (netteté, cadrage, échelle)…
+            </p>
+          )}
+
+          {!checking && verdict && (
+            <div
+              className={`rounded-xl border p-3 text-xs ${
+                verdict.verdict === "good"
+                  ? "border-brand/30 bg-brand-soft/40 text-brand-deep"
+                  : "border-destructive/30 bg-destructive/5 text-destructive"
+              }`}
+            >
+              <p className="flex items-center gap-2 font-semibold">
+                {verdict.verdict === "good" ? (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                ) : (
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                )}
+                {verdict.summary}
+              </p>
+              {verdict.issues.length > 0 && (
+                <ul className="mt-1.5 space-y-1 ps-5 list-disc">
+                  {verdict.issues.map((issue) => (
+                    <li key={issue}>{issue}</li>
+                  ))}
+                </ul>
+              )}
+              {verdict.advice && <p className="mt-1.5 opacity-80">{verdict.advice}</p>}
+            </div>
+          )}
+
+          {!checking && checkError && (
+            <p className="text-xs font-semibold text-foreground/55">{checkError}</p>
+          )}
+
+          {!checking && (
+            <button
+              type="button"
+              onClick={() => {
+                const source = preview;
+                if (source) void checkImage(source);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-semibold text-foreground/70 hover:border-brand hover:text-brand"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> {verdict || checkError ? "Revérifier" : "Vérifier avec Cindy"}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

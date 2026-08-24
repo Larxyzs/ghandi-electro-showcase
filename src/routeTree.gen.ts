@@ -15,6 +15,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ProduitsIndexRouteImport } from './routes/produits.index'
 import { Route as ProduitsSplatRouteImport } from './routes/produits.$'
+import { Route as ApiAdminCheckImageRouteImport } from './routes/api/admin/check-image'
 import { Route as ApiAdminCindyRouteImport } from './routes/api/admin/cindy'
 import { Route as ApiAdminCindyAgentRouteImport } from './routes/api/admin/cindy-agent'
 import { Route as ProduitsArticleProductIdRouteImport } from './routes/produits.article.$productId'
@@ -49,6 +50,11 @@ const ProduitsSplatRoute = ProduitsSplatRouteImport.update({
   path: '/produits/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminCheckImageRoute = ApiAdminCheckImageRouteImport.update({
+  id: '/api/admin/check-image',
+  path: '/api/admin/check-image',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminCindyRoute = ApiAdminCindyRouteImport.update({
   id: '/api/admin/cindy',
   path: '/api/admin/cindy',
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/produits/$': typeof ProduitsSplatRoute
   '/produits/': typeof ProduitsIndexRoute
+  '/api/admin/check-image': typeof ApiAdminCheckImageRoute
   '/api/admin/cindy': typeof ApiAdminCindyRoute
   '/api/admin/cindy-agent': typeof ApiAdminCindyAgentRoute
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/produits/$': typeof ProduitsSplatRoute
   '/produits': typeof ProduitsIndexRoute
+  '/api/admin/check-image': typeof ApiAdminCheckImageRoute
   '/api/admin/cindy': typeof ApiAdminCindyRoute
   '/api/admin/cindy-agent': typeof ApiAdminCindyAgentRoute
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/produits/$': typeof ProduitsSplatRoute
   '/produits/': typeof ProduitsIndexRoute
+  '/api/admin/check-image': typeof ApiAdminCheckImageRoute
   '/api/admin/cindy': typeof ApiAdminCindyRoute
   '/api/admin/cindy-agent': typeof ApiAdminCindyAgentRoute
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/produits/$'
     | '/produits/'
+    | '/api/admin/check-image'
     | '/api/admin/cindy'
     | '/api/admin/cindy-agent'
     | '/produits/article/$productId'
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/produits/$'
     | '/produits'
+    | '/api/admin/check-image'
     | '/api/admin/cindy'
     | '/api/admin/cindy-agent'
     | '/produits/article/$productId'
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/produits/$'
     | '/produits/'
+    | '/api/admin/check-image'
     | '/api/admin/cindy'
     | '/api/admin/cindy-agent'
     | '/produits/article/$productId'
@@ -143,6 +155,7 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   ProduitsSplatRoute: typeof ProduitsSplatRoute
   ProduitsIndexRoute: typeof ProduitsIndexRoute
+  ApiAdminCheckImageRoute: typeof ApiAdminCheckImageRoute
   ApiAdminCindyRoute: typeof ApiAdminCindyRoute
   ApiAdminCindyAgentRoute: typeof ApiAdminCindyAgentRoute
   ProduitsArticleProductIdRoute: typeof ProduitsArticleProductIdRoute
@@ -192,6 +205,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProduitsSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/check-image': {
+      id: '/api/admin/check-image'
+      path: '/api/admin/check-image'
+      fullPath: '/api/admin/check-image'
+      preLoaderRoute: typeof ApiAdminCheckImageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/cindy': {
       id: '/api/admin/cindy'
       path: '/api/admin/cindy'
@@ -223,6 +243,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   ProduitsSplatRoute: ProduitsSplatRoute,
   ProduitsIndexRoute: ProduitsIndexRoute,
+  ApiAdminCheckImageRoute: ApiAdminCheckImageRoute,
   ApiAdminCindyRoute: ApiAdminCindyRoute,
   ApiAdminCindyAgentRoute: ApiAdminCindyAgentRoute,
   ProduitsArticleProductIdRoute: ProduitsArticleProductIdRoute,
