@@ -61,6 +61,7 @@ export function CatalogExplorer({
   const [renaming, setRenaming] = useState<CatalogNode | null>(null);
   const [editing, setEditing] = useState<{ product?: Product } | null>(null);
   const [quick, setQuick] = useState(false);
+  const [noFormat, setNoFormat] = useState<Record<string, boolean>>({});
   const [pending, setPending] = useState<{ node: CatalogNode; folders: number; products: number } | null>(
     null,
   );
@@ -73,12 +74,18 @@ export function CatalogExplorer({
   const folders = useMemo(() => childrenOf(data.nodes, currentId), [data.nodes, currentId]);
   const childLevel = ((current?.level ?? 0) + 1) as NodeLevel;
   const level = (current?.level ?? 0) as 0 | NodeLevel;
-  const canCreateFolder = level < 4;
   const isLeaf = current ? canHoldProducts(current.level) : false;
+  /** At Produit (3) the admin decides whether this product uses Formats at all. */
+  const formatDecision = current && level === 3 ? (noFormat[current.id] ? "none" : folders.length > 0 ? "keep" : "ask") : null;
+  const formatsOff = formatDecision === "none";
+  const canCreateFolder = level < 4 && !formatsOff;
   /** Levels still to create: required down to Produit (3) + the optional Format (4). */
   const missingLevels = useMemo(
-    () => Array.from({ length: Math.max(0, 4 - level) }, (_, i) => (level + i + 1) as NodeLevel),
-    [level],
+    () =>
+      Array.from({ length: Math.max(0, 4 - level) }, (_, i) => (level + i + 1) as NodeLevel).filter(
+        (l) => !(formatsOff && l === 4),
+      ),
+    [level, formatsOff],
   );
   const optionalLevels = useMemo<NodeLevel[]>(() => [4], []);
   const products = useMemo(
@@ -90,6 +97,7 @@ export function CatalogExplorer({
     const impact = await actions.nodeImpact(node.id);
     setPending({ node, ...impact });
   };
+
 
   return (
     <div className="space-y-6">
