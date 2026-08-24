@@ -378,6 +378,7 @@ function buildTools(): ToolDef[] {
           (event: CindyEvent) => emit(event as CindyAgentEvent),
           { force: args["force"] === true },
         );
+        if (!product) throw new Error("Aucune donnée trouvée pour cette référence.");
         return summarize(product);
       },
     },
@@ -437,6 +438,7 @@ function buildTools(): ToolDef[] {
             }
 
             const researched = await researchProduct(ref, (event) => emit(event as CindyAgentEvent));
+            if (!researched) throw new Error("Aucune donnée trouvée");
             const folderPath =
               commonFolder ||
               [researched.brand || brandHint || "Divers", "Modèles", researched.model || ref]
