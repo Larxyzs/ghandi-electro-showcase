@@ -86,10 +86,14 @@ export function ProductForm({
           setError("Le nom est obligatoire.");
           return;
         }
+        if (folders.some((name) => !name.trim())) {
+          setError("Renseignez tous les dossiers à créer.");
+          return;
+        }
         setBusy(true);
         setError(null);
         try {
-          await onSave({ ...draft, node_id: nodeId });
+          await onSave({ ...draft, node_id: nodeId, folders: folders.map((n) => n.trim()) });
         } catch (err) {
           setError(err instanceof Error ? err.message : "Enregistrement impossible.");
         } finally {
