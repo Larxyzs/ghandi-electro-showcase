@@ -209,7 +209,29 @@ export async function adminData(): Promise<SiteData> {
   return fetchSiteData();
 }
 
-export async function createNode(parentId: string | null, name: string) {
+export type ImageInput = {
+  imageData?: string | null;
+  imageName?: string | null;
+  imageUrl?: string | null;
+  removeImage?: boolean;
+};
+
+/** Returns the value to store: a path, an https url, null (clear) or undefined (keep). */
+async function resolveImage(
+  db: Awaited<ReturnType<typeof requireAdmin>>,
+  input: ImageInput,
+): Promise<string | null | undefined> {
+  if (input.imageData && input.imageName) return storeImage(db, input.imageData, input.imageName);
+  if (input.imageUrl) {
+    const url = input.imageUrl.trim();
+    if (!/^https:\/\/[^\s]+$/i.test(url)) throw new Error("INVALID_IMAGE_URL");
+    return url;
+  }
+  if (input.removeImage) return null;
+  return undefined;
+}
+
+export async function createNode(parentId: string | null, name: string, image?: ImageInput) {
   const db = await requireAdmin();
   let level = 1;
   if (parentId) {
@@ -229,29 +251,45 @@ export async function createNode(parentId: string | null, name: string) {
   const sort_order = (existing ?? []).reduce((max, row) => Math.max(max, row.sort_order), -1) + 1;
 
   const slug = await uniqueSlug(db, parentId, name);
+  const imagePath = image ? await resolveImage(db, image) : undefined;
   const { data, error } = await db
     .from("catalog_nodes")
-    .insert({ parent_id: parentId, name: name.trim(), slug, level, sort_order })
+    .insert({
+      parent_id: parentId,
+      name: name.trim(),
+      slug,
+      level,
+      sort_order,
+      image_url: imagePath ?? null,
+    })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
   return { id: data.id };
 }
 
-export async function renameNode(id: string, name: string) {
+export async function renameNode(id: string, name: string, image?: ImageInput) {
   const db = await requireAdmin();
   const { data: node } = await db
     .from("catalog_nodes")
-    .select("id, parent_id")
+    .select("id, parent_id, image_url")
     .eq("id", id)
     .maybeSingle();
   if (!node) throw new Error("NOT_FOUND");
   const slug = await uniqueSlug(db, node.parent_id, name, id);
+  const imagePath = image ? await resolveImage(db, image) : undefined;
   const { error } = await db
     .from("catalog_nodes")
-    .update({ name: name.trim(), slug })
+    .update(
+      imagePath === undefined
+        ? { name: name.trim(), slug }
+        : { name: name.trim(), slug, image_url: imagePath },
+    )
     .eq("id", id);
   if (error) throw new Error(error.message);
+  if (imagePath !== undefined && node.image_url && !node.image_url.startsWith("http")) {
+    await db.storage.from("product-images").remove([node.image_url]);
+  }
   return { ok: true as const };
 }
 
@@ -312,7 +350,8 @@ export async function deleteNode(id: string) {
   const db = await requireAdmin();
   const ids = await descendantIds(db, id);
   const { data: products } = await db.from("products").select("image_url").in("node_id", ids);
-  const paths = (products ?? [])
+  const { data: nodeRows } = await db.from("catalog_nodes").select("image_url").in("id", ids);
+  const paths = [...(products ?? []), ...(nodeRows ?? [])]
     .map((p) => p.image_url)
     .filter((p): p is string => Boolean(p) && !p!.startsWith("http"));
   if (paths.length) await db.storage.from("product-images").remove(paths);
@@ -330,6 +369,7 @@ export type ProductInput = {
   stock: number;
   price: number | null;
   description: string;
+  featured?: boolean;
   imageData?: string | null;
   imageName?: string | null;
   imageUrl?: string | null;
@@ -378,6 +418,7 @@ export async function saveProduct(input: ProductInput) {
     stock: Math.max(0, Math.floor(input.stock)),
     price: input.price,
     description: input.description,
+    featured: Boolean(input.featured),
   };
 
   if (input.id) {
@@ -470,4 +511,48 @@ export async function quickCreateChain(input: {
 
   const product = await saveProduct({ ...input.product, node_id: parentId });
   return { nodeId: parentId, productId: product.id };
+}
+
+
+/* ---------- Recherches populaires (curated by admins) ---------- */
+
+export async function addPopularSearch(term: string) {
+  const db = await requireAdmin();
+  const value = term.trim().slice(0, 60);
+  if (!value) throw new Error("EMPTY_TERM");
+  const { data: existing } = await db.from("popular_searches").select("sort_order");
+  const sort_order = (existing ?? []).reduce((max, r) => Math.max(max, r.sort_order), -1) + 1;
+  const { error } = await db.from("popular_searches").insert({ term: value, sort_order });
+  if (error) throw new Error(error.message);
+  return { ok: true as const };
+}
+
+export async function deletePopularSearch(id: string) {
+  const db = await requireAdmin();
+  const { error } = await db.from("popular_searches").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  return { ok: true as const };
+}
+
+export async function movePopularSearch(id: string, direction: "up" | "down") {
+  const db = await requireAdmin();
+  const { data } = await db.from("popular_searches").select("id, sort_order").order("sort_order");
+  const ordered = (data ?? []).slice();
+  const index = ordered.findIndex((r) => r.id === id);
+  const target = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || target < 0 || target >= ordered.length) return { ok: true as const };
+  const a = ordered[index]!;
+  ordered[index] = ordered[target]!;
+  ordered[target] = a;
+  for (const [position, row] of ordered.entries()) {
+    await db.from("popular_searches").update({ sort_order: position }).eq("id", row.id);
+  }
+  return { ok: true as const };
+}
+
+export async function setProductFeatured(id: string, featured: boolean) {
+  const db = await requireAdmin();
+  const { error } = await db.from("products").update({ featured }).eq("id", id);
+  if (error) throw new Error(error.message);
+  return { ok: true as const };
 }

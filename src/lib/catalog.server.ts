@@ -3,7 +3,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { DEFAULT_SETTINGS, type SiteData } from "./catalog-types";
 
 export { DEFAULT_SETTINGS };
-export type { CatalogNode, Product, SiteSettings, SiteData } from "./catalog-types";
+export type { CatalogNode, Product, SiteSettings, SiteData, PopularSearch } from "./catalog-types";
 
 function publicClient() {
   const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
