@@ -15,7 +15,8 @@ import { BRAND_NAMES } from "@/lib/brands";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/produits/")({
-  validateSearch: (search: Record<string, unknown>) => ({ q: typeof search["q"] === "string" ? search["q"] : "" }),
+  validateSearch: (search: Record<string, unknown>): { q?: string } =>
+    typeof search["q"] === "string" && search["q"] !== "" ? { q: search["q"] } : {},
   head: () => ({
     meta: [
       { title: "Produits | Ghandi Home Electro" },
@@ -44,7 +45,7 @@ export const Route = createFileRoute("/produits/")({
 function ProductsPage() {
   const { t } = useI18n();
   const data = useLoaderData({ from: "__root__" }) as SiteData;
-  const { q } = Route.useSearch();
+  const { q = "" } = Route.useSearch();
   const navigate = Route.useNavigate();
 
   const [category, setCategory] = useState("all");
