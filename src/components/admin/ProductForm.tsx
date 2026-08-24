@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { ImagePlus, Loader2, Trash2, X } from "lucide-react";
 import { LEVEL_LABELS, type NodeLevel, type Product } from "@/lib/catalog-types";
 import { BRAND_NAMES } from "@/lib/brands";
+import { ImagePicker } from "@/components/admin/ImagePicker";
 
 export type ProductDraft = {
   id?: string | undefined;
@@ -105,7 +106,7 @@ export function ProductForm({
         }
         const levels = folderLevels ?? [];
         const isOptional = (level: NodeLevel) => (optionalLevels ?? []).includes(level);
-        if (levels.some((level, i) => !isOptional(level) && !(folders[i] ?? "").trim())) {
+        if (levels.some((level, i) => !isOptional(level) && !(folders[i]?.name ?? "").trim())) {
           setError("Renseignez tous les dossiers obligatoires à créer.");
           return;
         }
@@ -115,7 +116,9 @@ export function ProductForm({
           await onSave({
             ...draft,
             node_id: nodeId,
-            folders: folders.map((n) => n.trim()).filter(Boolean),
+            folders: folders
+              .map((f) => ({ ...f, name: f.name.trim() }))
+              .filter((f) => f.name.length > 0),
           });
         } catch (err) {
           setError(err instanceof Error ? err.message : "Enregistrement impossible.");
