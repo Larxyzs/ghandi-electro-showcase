@@ -36,7 +36,7 @@ export const Route = createFileRoute("/api/admin/cindy")({
 
         const humanError = (message: string) =>
           message === "SEARCH_NOT_CONFIGURED"
-            ? "La recherche web n'est pas configurée (SearXNG)."
+            ? "La recherche web n'est pas configurée (clé Tavily manquante)."
             : message === "AI_NOT_CONFIGURED"
               ? "L'assistant IA n'est pas configuré."
               : message === "AI_RATE_LIMITED"
