@@ -42,9 +42,12 @@ export function ProductForm({
   /** Subset of folderLevels that may be left empty (e.g. the optional Format). */
   optionalLevels?: NodeLevel[];
   onCancel: () => void;
-  onSave: (draft: ProductDraft & { node_id: string; folders: string[] }) => Promise<void>;
+  onSave: (draft: ProductDraft & { node_id: string; folders: FolderDraft[] }) => Promise<void>;
 }) {
-  const [folders, setFolders] = useState<string[]>(() => (folderLevels ?? []).map(() => ""));
+  const [folders, setFolders] = useState<FolderDraft[]>(() =>
+    (folderLevels ?? []).map(() => ({ name: "" })),
+  );
+
   const [draft, setDraft] = useState<ProductDraft>({
     id: product?.id,
     name: product?.name ?? "",
