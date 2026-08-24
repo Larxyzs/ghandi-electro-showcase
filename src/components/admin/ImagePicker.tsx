@@ -226,6 +226,7 @@ export function ImagePicker({
                 const value = e.target.value;
                 setUrl(value);
                 setPreview(value.trim() ? value.trim() : null);
+                clearCheck();
                 onChange({
                   imageData: null,
                   imageName: null,
@@ -233,10 +234,69 @@ export function ImagePicker({
                   removeImage: !value.trim(),
                 });
               }}
+              onBlur={() => {
+                const value = url.trim();
+                if (/^https?:\/\//.test(value)) void checkImage(value);
+              }}
             />
           </label>
         )}
       </div>
+
+      {preview && (
+        <div className="mt-3 space-y-2">
+          {checking && (
+            <p className="flex items-center gap-2 text-xs font-semibold text-foreground/60">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" /> Cindy vérifie l'image
+              (netteté, cadrage, échelle)…
+            </p>
+          )}
+
+          {!checking && verdict && (
+            <div
+              className={`rounded-xl border p-3 text-xs ${
+                verdict.verdict === "good"
+                  ? "border-brand/30 bg-brand-soft/40 text-brand-deep"
+                  : "border-destructive/30 bg-destructive/5 text-destructive"
+              }`}
+            >
+              <p className="flex items-center gap-2 font-semibold">
+                {verdict.verdict === "good" ? (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                ) : (
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                )}
+                {verdict.summary}
+              </p>
+              {verdict.issues.length > 0 && (
+                <ul className="mt-1.5 space-y-1 ps-5 list-disc">
+                  {verdict.issues.map((issue) => (
+                    <li key={issue}>{issue}</li>
+                  ))}
+                </ul>
+              )}
+              {verdict.advice && <p className="mt-1.5 opacity-80">{verdict.advice}</p>}
+            </div>
+          )}
+
+          {!checking && checkError && (
+            <p className="text-xs font-semibold text-foreground/55">{checkError}</p>
+          )}
+
+          {!checking && (
+            <button
+              type="button"
+              onClick={() => {
+                const source = preview;
+                if (source) void checkImage(source);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-semibold text-foreground/70 hover:border-brand hover:text-brand"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> {verdict || checkError ? "Revérifier" : "Vérifier avec Cindy"}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
