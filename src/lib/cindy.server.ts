@@ -49,22 +49,23 @@ function guessBrand(query: string) {
 
 export type SearchHit = { url: string; title: string; content: string };
 
-/** Self-hosted SearXNG is the only search layer. One request = one "search". */
+/** Tavily is the only search layer. One request = one "search". */
 async function searxSearch(query: string, opts: { max?: number } = {}): Promise<SearchHit[]> {
-  const base = (process.env["SEARXNG_URL"] ?? "").trim().replace(/\/+$/, "");
-  if (!base) throw new Error("SEARCH_NOT_CONFIGURED");
-  const url = new URL(`${base}/search`);
-  url.searchParams.set("q", query);
-  url.searchParams.set("format", "json");
-  url.searchParams.set("language", "fr");
-  url.searchParams.set("safesearch", "0");
-  url.searchParams.set("categories", "general");
+  const key = (process.env["TAVILY_API_KEY"] ?? "").trim();
+  if (!key) throw new Error("SEARCH_NOT_CONFIGURED");
 
-  const headers: Record<string, string> = { Accept: "application/json" };
-  const token = (process.env["SEARXNG_TOKEN"] ?? "").trim();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const res = await fetch(url.toString(), { headers });
+  const res = await fetch("https://api.tavily.com/search", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({
+      query,
+      search_depth: "basic",
+      max_results: Math.min(opts.max ?? 10, 20),
+    }),
+  });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`SEARCH_FAILED: ${res.status} ${text.slice(0, 160)}`);
@@ -82,6 +83,7 @@ async function searxSearch(query: string, opts: { max?: number } = {}): Promise<
   }
   return hits;
 }
+
 
 /** Reads a page directly (no search credit) and returns its text plus image URLs. */
 async function readPage(url: string): Promise<{ text: string; images: string[] }> {
