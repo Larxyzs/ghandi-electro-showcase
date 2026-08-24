@@ -126,7 +126,7 @@ export type AdminProductInput = {
   characteristics: string;
   specifications?: { label: string; value: string }[];
   gallery?: string[];
-  marketing_sections?: unknown[];
+  marketing_sections?: import("@/integrations/supabase/types").Json[];
   source_url?: string | null;
   source_name?: string | null;
   featured?: boolean;
