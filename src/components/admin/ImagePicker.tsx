@@ -205,6 +205,7 @@ export function ImagePicker({
                 onClick={() => {
                   setPreview(null);
                   setUrl("");
+                  clearCheck();
                   onChange({ imageData: null, imageName: null, imageUrl: null, removeImage: true });
                 }}
                 className="inline-flex items-center gap-1.5 rounded-full border border-destructive/30 px-4 py-2 text-sm font-semibold text-destructive"
