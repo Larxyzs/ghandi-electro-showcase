@@ -8,7 +8,9 @@ import {
   ExternalLink,
   Globe,
   ImageIcon,
+  Database,
   Loader2,
+  RefreshCw,
   Search,
   Sparkles,
   Wand2,
@@ -38,6 +40,7 @@ const KIND_ICON: Record<CindyActivityKind, typeof Search> = {
   images: ImageIcon,
   extract: Wand2,
   compare: Sparkles,
+  cache: Database,
 };
 
 export function CindyAvatar({ className }: { className?: string }) {
@@ -126,6 +129,7 @@ export function CindyChat({
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openActivity, setOpenActivity] = useState(true);
+  const [cachedHit, setCachedHit] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const counter = useRef(0);
 
@@ -136,8 +140,9 @@ export function CindyChat({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [bubbles, activities, sources, checks]);
 
-  const run = async (query: string) => {
+  const run = async (query: string, force = false) => {
     setRunning(true);
+    setCachedHit(null);
     setError(null);
     setActivities([]);
     setSources([]);
@@ -149,7 +154,7 @@ export function CindyChat({
       const res = await fetch("/api/admin/cindy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, force }),
       });
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
 
@@ -187,6 +192,7 @@ export function CindyChat({
             setChecks((prev) => [...prev, { label: event.label, done: event.done }]);
             break;
           case "result":
+            if (event.cached) setCachedHit(query);
             onResult(event.product);
             break;
           case "error":
@@ -228,10 +234,19 @@ export function CindyChat({
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    const query = input.trim();
-    if (!query || running) return;
+    const raw = input.trim();
+    if (!raw || running) return;
     setInput("");
-    void run(query);
+    // "recherche à nouveau", "refais la recherche", "re-research"… force a fresh pass.
+    const force = /(à|a) nouveau|nouveau la recherche|refai|refaire|re-?cherche.? de nouveau|re-?research|force/i.test(
+      raw,
+    );
+    const query = raw
+      .replace(/\b(recherche|rechercher|refais|refaire|cherche|find|research)\b/gi, " ")
+      .replace(/\b((à|a) nouveau|de nouveau|encore|stp|s'il te pla(î|i)t|pour moi)\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    void run(query.length >= 2 ? query : raw, force);
   };
 
   return (
@@ -341,6 +356,22 @@ export function CindyChat({
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {cachedHit && (
+          <div className="ms-11 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand/30 bg-brand-soft/40 px-4 py-3">
+            <span className="flex items-center gap-2 text-sm">
+              <Database className="h-4 w-4 text-brand" />
+              Fiche réutilisée depuis la mémoire de Cindy — aucune recherche web.
+            </span>
+            <button
+              type="button"
+              onClick={() => void run(cachedHit, true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-brand/40 px-3 py-1.5 text-xs font-semibold text-brand transition hover:bg-brand hover:text-primary-foreground"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Rechercher à nouveau
+            </button>
           </div>
         )}
 
