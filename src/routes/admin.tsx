@@ -190,7 +190,7 @@ function AdminPage() {
         moveNode: (id, direction) => run(() => moveNode({ data: { id, direction } })),
         deleteNode: (id) => run(() => deleteNode({ data: { id } })),
         nodeImpact: async (id) => await nodeImpact({ data: { id } }),
-        quickCreate: (fromId, folders, draft: ProductDraft) =>
+        quickCreate: (fromId, folders: FolderDraft[], draft: ProductDraft) =>
           run(() =>
             quickCreate({
               data: {
