@@ -166,7 +166,13 @@ export function ProductStory({ product }: { product: Product }) {
               </Reveal>
             );
           case "specs":
-            return <SpecTable key={key} specs={specs} title={section.title} />;
+            return (
+              <SpecTable
+                key={key}
+                specs={specs}
+                {...(section.title ? { title: section.title } : {})}
+              />
+            );
           default:
             return null;
         }

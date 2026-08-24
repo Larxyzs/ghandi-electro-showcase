@@ -177,11 +177,12 @@ export function AdminDashboard({
               <button
                 type="button"
                 onClick={() =>
-                  setSettings({
+                  setSettings((prev) => ({
+                    ...prev,
                     primary_color: "#ffffff",
                     secondary_color: "#1266e8",
                     text_color: "#0f172a",
-                  })
+                  }))
                 }
                 className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold"
               >

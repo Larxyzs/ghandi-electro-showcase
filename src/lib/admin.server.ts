@@ -1,3 +1,4 @@
+import type { Json } from "@/integrations/supabase/types";
 import { useSession } from "@tanstack/react-start/server";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { fetchSiteData, type SiteData } from "./catalog.server";
@@ -372,7 +373,7 @@ export type ProductInput = {
   characteristics: string;
   specifications?: { label: string; value: string }[];
   gallery?: string[];
-  marketing_sections?: unknown[];
+  marketing_sections?: Json[];
   source_url?: string | null;
   source_name?: string | null;
   featured?: boolean;
@@ -433,9 +434,9 @@ export async function saveProduct(input: ProductInput) {
     price: input.price,
     characteristics: input.characteristics,
     featured: Boolean(input.featured),
-    ...(input.specifications ? { specifications: input.specifications } : {}),
+    ...(input.specifications ? { specifications: input.specifications as Json } : {}),
     ...(input.gallery ? { gallery: input.gallery } : {}),
-    ...(input.marketing_sections ? { marketing_sections: input.marketing_sections } : {}),
+    ...(input.marketing_sections ? { marketing_sections: input.marketing_sections as Json } : {}),
     ...(input.source_url !== undefined ? { source_url: input.source_url } : {}),
     ...(input.source_name !== undefined ? { source_name: input.source_name } : {}),
   };

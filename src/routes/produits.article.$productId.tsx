@@ -1,6 +1,7 @@
 import { createFileRoute, Link, notFound, useLoaderData } from "@tanstack/react-router";
 import { ArrowLeft, PackageSearch, Phone } from "lucide-react";
 import { SiteLayout } from "@/components/SiteLayout";
+import { ProductStory } from "@/components/ProductStory";
 import { Reveal } from "@/components/Reveal";
 import { ZoomImage } from "@/components/ZoomImage";
 import { useI18n } from "@/lib/i18n";
@@ -121,14 +122,33 @@ function ProductDetail() {
               </div>
             </dl>
 
-            {product.description && (
+            {product.characteristics && (
               <div className="mt-8">
                 <h2 className="text-sm font-semibold tracking-wide text-foreground/55 uppercase">
-                  {t("product.description")}
+                  {t("product.characteristics")}
                 </h2>
                 <p className="mt-3 leading-relaxed whitespace-pre-line text-foreground/75">
-                  {product.description}
+                  {product.characteristics}
                 </p>
+              </div>
+            )}
+
+            {(product.specifications ?? []).length > 0 && (
+              <div className="mt-8 rounded-2xl border border-border bg-card p-5">
+                <h2 className="text-sm font-semibold tracking-wide text-foreground/55 uppercase">
+                  Spécifications
+                </h2>
+                <dl className="mt-3 grid gap-x-8 sm:grid-cols-2">
+                  {(product.specifications ?? []).slice(0, 8).map((spec, i) => (
+                    <div
+                      key={`${spec.label}-${i}`}
+                      className="flex items-baseline justify-between gap-4 border-b border-border/70 py-2 text-sm"
+                    >
+                      <dt className="text-foreground/60">{spec.label}</dt>
+                      <dd className="text-end font-medium">{spec.value}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
             )}
 
@@ -154,6 +174,8 @@ function ProductDetail() {
           </Reveal>
         </div>
       </section>
+
+      <ProductStory product={product} />
     </SiteLayout>
   );
 }
