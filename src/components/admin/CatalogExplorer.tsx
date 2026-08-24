@@ -70,8 +70,14 @@ export function CatalogExplorer({
   const trail = useMemo(() => pathOf(data.nodes, currentId), [data.nodes, currentId]);
   const folders = useMemo(() => childrenOf(data.nodes, currentId), [data.nodes, currentId]);
   const childLevel = ((current?.level ?? 0) + 1) as NodeLevel;
-  const canCreateFolder = (current?.level ?? 0) < 3;
-  const isLeaf = current?.level === 3;
+  const level = (current?.level ?? 0) as 0 | NodeLevel;
+  const canCreateFolder = level < 4;
+  const isLeaf = level >= 3;
+  const missingLevels = useMemo(
+    () =>
+      Array.from({ length: Math.max(0, 3 - level) }, (_, i) => (level + i + 1) as NodeLevel),
+    [level],
+  );
   const products = useMemo(
     () => (isLeaf && current ? data.products.filter((p) => p.node_id === current.id) : []),
     [data.products, current, isLeaf],
