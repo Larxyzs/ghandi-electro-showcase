@@ -60,26 +60,35 @@ export const adminDeleteStaff = createServerFn({ method: "POST" })
     return deleteStaff(data.id);
   });
 
+export type AdminImageInput = {
+  imageData?: string | null;
+  imageName?: string | null;
+  imageUrl?: string | null;
+  removeImage?: boolean;
+};
+
 export const adminCreateNode = createServerFn({ method: "POST" })
-  .inputValidator((data: { parentId: string | null; name: string }) => ({
+  .inputValidator((data: { parentId: string | null; name: string; image?: AdminImageInput }) => ({
     parentId: data.parentId ? String(data.parentId) : null,
     name: String(data.name ?? "").slice(0, 80),
+    image: data.image ?? undefined,
   }))
   .handler(async ({ data }) => {
     const { createNode } = await import("./admin.server");
     if (!data.name.trim()) throw new Error("EMPTY_NAME");
-    return createNode(data.parentId, data.name);
+    return createNode(data.parentId, data.name, data.image);
   });
 
 export const adminRenameNode = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string; name: string }) => ({
+  .inputValidator((data: { id: string; name: string; image?: AdminImageInput }) => ({
     id: String(data.id),
     name: String(data.name ?? "").slice(0, 80),
+    image: data.image ?? undefined,
   }))
   .handler(async ({ data }) => {
     const { renameNode } = await import("./admin.server");
     if (!data.name.trim()) throw new Error("EMPTY_NAME");
-    return renameNode(data.id, data.name);
+    return renameNode(data.id, data.name, data.image);
   });
 
 export const adminMoveNode = createServerFn({ method: "POST" })
@@ -115,6 +124,7 @@ export type AdminProductInput = {
   stock: number;
   price: number | null;
   description: string;
+  featured?: boolean;
   imageData?: string | null;
   imageName?: string | null;
   imageUrl?: string | null;
@@ -182,4 +192,39 @@ export const adminQuickCreate = createServerFn({ method: "POST" })
         price: data.product.price ?? null,
       },
     });
+  });
+
+
+export const adminSetFeatured = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string; featured: boolean }) => ({
+    id: String(data.id),
+    featured: Boolean(data.featured),
+  }))
+  .handler(async ({ data }) => {
+    const { setProductFeatured } = await import("./admin.server");
+    return setProductFeatured(data.id, data.featured);
+  });
+
+export const adminAddPopularSearch = createServerFn({ method: "POST" })
+  .inputValidator((data: { term: string }) => ({ term: String(data.term ?? "").slice(0, 60) }))
+  .handler(async ({ data }) => {
+    const { addPopularSearch } = await import("./admin.server");
+    return addPopularSearch(data.term);
+  });
+
+export const adminDeletePopularSearch = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => ({ id: String(data.id) }))
+  .handler(async ({ data }) => {
+    const { deletePopularSearch } = await import("./admin.server");
+    return deletePopularSearch(data.id);
+  });
+
+export const adminMovePopularSearch = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string; direction: "up" | "down" }) => ({
+    id: String(data.id),
+    direction: data.direction === "up" ? ("up" as const) : ("down" as const),
+  }))
+  .handler(async ({ data }) => {
+    const { movePopularSearch } = await import("./admin.server");
+    return movePopularSearch(data.id, data.direction);
   });
