@@ -192,50 +192,89 @@ async function extractWithAI(input: {
     )
     .join("\n\n");
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const system =
+    "Tu es Cindy, assistante de recherche produit pour un magasin d'électroménager marocain. " +
+    "Tu extrais UNIQUEMENT des informations présentes dans les sources fournies. " +
+    "N'invente jamais une donnée: si une information est absente, ne la mets pas. " +
+    "N'inclus JAMAIS de prix, de stock ou d'information commerciale. " +
+    "Réponds en JSON. Rédige en français. Les 'characteristics' sont une liste courte à puces (une par ligne, préfixée par '- '). " +
+    "Les 'specifications' sont des paires label/valeur techniques (capacité, dimensions, classe énergétique, consommation, niveau sonore, etc.). " +
+    "Les 'marketing_sections' sont 2 à 5 blocs de présentation premium basés sur les vraies fonctionnalités du produit; " +
+    "utilise uniquement les URLs d'images fournies. Termine toujours par un bloc de type 'specs'.";
+
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
+      "Lovable-API-Key": key,
       "X-Lovable-AIG-SDK": "fetch",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        {
-          role: "system",
-          content:
-            "Tu es Cindy, assistante de recherche produit pour un magasin d'électroménager marocain. " +
-            "Tu extrais UNIQUEMENT des informations présentes dans les sources fournies. " +
-            "N'invente jamais une donnée: si une information est absente, ne la mets pas. " +
-            "N'inclus JAMAIS de prix, de stock ou d'information commerciale. " +
-            "Rédige en français. Les 'characteristics' sont une liste courte à puces (une par ligne, préfixée par '- '). " +
-            "Les 'specifications' sont des paires label/valeur techniques (capacité, dimensions, classe énergétique, consommation, niveau sonore, etc.). " +
-            "Les 'marketing_sections' sont 2 à 5 blocs de présentation premium basés sur les vraies fonctionnalités du produit; " +
-            "utilise uniquement les URLs d'images fournies. Termine toujours par un bloc de type 'specs'.",
-        },
+      model: "openai/gpt-5.6-sol",
+      stream: true,
+      store: false,
+      instructions: system,
+      input: [
         {
           role: "user",
-          content: `Référence demandée par l'admin: "${input.query}"\n\nImages disponibles (URLs réelles):\n${input.images.slice(0, 8).join("\n") || "(aucune)"}\n\n${corpus}`,
+          content: [
+            {
+              type: "input_text",
+              text: `Référence demandée par l'admin: "${input.query}"\n\nImages disponibles (URLs réelles):\n${input.images.slice(0, 8).join("\n") || "(aucune)"}\n\n${corpus}`,
+            },
+          ],
         },
       ],
-      response_format: {
-        type: "json_schema",
-        json_schema: { name: "product", strict: true, schema: EXTRACTION_SCHEMA },
+      text: {
+        format: {
+          type: "json_schema",
+          name: "product",
+          strict: true,
+          schema: EXTRACTION_SCHEMA,
+        },
       },
     }),
   });
 
-  if (!res.ok) {
-    const text = await res.text();
+  if (!res.ok || !res.body) {
+    const text = await res.text().catch(() => "");
     if (res.status === 429) throw new Error("AI_RATE_LIMITED");
     if (res.status === 402) throw new Error("AI_CREDITS");
     throw new Error(`AI_FAILED: ${res.status} ${text.slice(0, 200)}`);
   }
 
-  const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  const content = json.choices?.[0]?.message?.content;
-  if (!content) throw new Error("AI_EMPTY");
+  // Streaming is required on this endpoint; we only need the final text.
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let content = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+    for (const part of parts) {
+      const line = part.split("\n").find((l) => l.startsWith("data:"));
+      if (!line) continue;
+      const payload = line.slice(5).trim();
+      if (!payload || payload === "[DONE]") continue;
+      try {
+        const event = JSON.parse(payload) as {
+          type?: string;
+          delta?: string;
+          response?: { output_text?: string };
+        };
+        if (event.type === "response.output_text.delta" && event.delta) content += event.delta;
+        else if (event.type === "response.completed" && event.response?.output_text)
+          content = event.response.output_text;
+      } catch {
+        /* ignore malformed chunk */
+      }
+    }
+  }
+
+  if (!content.trim()) throw new Error("AI_EMPTY");
   const parsed = JSON.parse(content) as {
     brand: string;
     name: string;
