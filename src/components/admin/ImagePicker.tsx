@@ -1,5 +1,22 @@
 import { useRef, useState } from "react";
-import { ImagePlus, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ImagePlus, Loader2, Sparkles, Trash2 } from "lucide-react";
+
+type ImageVerdict = {
+  verdict: "good" | "warn" | "bad";
+  summary: string;
+  issues: string[];
+  advice: string;
+};
+
+/** Reads intrinsic pixel size so Cindy can judge resolution and scale. */
+function measure(src: string): Promise<{ width: number; height: number } | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
 
 export type ImageDraft = {
   imageData?: string | null;
