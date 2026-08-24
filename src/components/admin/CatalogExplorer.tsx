@@ -61,6 +61,7 @@ export function CatalogExplorer({
   const [renaming, setRenaming] = useState<CatalogNode | null>(null);
   const [editing, setEditing] = useState<{ product?: Product } | null>(null);
   const [quick, setQuick] = useState(false);
+  const [formatChoice, setFormatChoice] = useState<Record<string, "keep" | "none">>({});
   const [pending, setPending] = useState<{ node: CatalogNode; folders: number; products: number } | null>(
     null,
   );
@@ -73,13 +74,22 @@ export function CatalogExplorer({
   const folders = useMemo(() => childrenOf(data.nodes, currentId), [data.nodes, currentId]);
   const childLevel = ((current?.level ?? 0) + 1) as NodeLevel;
   const level = (current?.level ?? 0) as 0 | NodeLevel;
-  const canCreateFolder = level < 4;
   const isLeaf = current ? canHoldProducts(current.level) : false;
+  /** At Produit (3) the admin decides whether this product uses Formats at all. */
+  const formatDecision: "keep" | "none" | "ask" | null =
+    current && level === 3
+      ? (formatChoice[current.id] ?? (folders.length > 0 ? "keep" : "ask"))
+      : null;
+  const canCreateFolder = level < 4 && formatDecision !== "none" && formatDecision !== "ask";
   /** Levels still to create: required down to Produit (3) + the optional Format (4). */
   const missingLevels = useMemo(
-    () => Array.from({ length: Math.max(0, 4 - level) }, (_, i) => (level + i + 1) as NodeLevel),
-    [level],
+    () =>
+      Array.from({ length: Math.max(0, 4 - level) }, (_, i) => (level + i + 1) as NodeLevel).filter(
+        (l) => !(l === 4 && level === 3 && formatDecision !== "keep"),
+      ),
+    [level, formatDecision],
   );
+
   const optionalLevels = useMemo<NodeLevel[]>(() => [4], []);
   const products = useMemo(
     () => (isLeaf && current ? data.products.filter((p) => p.node_id === current.id) : []),
@@ -90,6 +100,7 @@ export function CatalogExplorer({
     const impact = await actions.nodeImpact(node.id);
     setPending({ node, ...impact });
   };
+
 
   return (
     <div className="space-y-6">
@@ -121,6 +132,54 @@ export function CatalogExplorer({
         ))}
         {busy && <Loader2 className="ms-auto h-4 w-4 animate-spin text-brand" />}
       </nav>
+
+      {current && formatDecision === "ask" && (
+        <div className="rounded-3xl border border-brand/30 bg-brand-soft/40 p-5">
+          <h4 className="font-semibold">Formats pour « {current.name} » ?</h4>
+          <p className="mt-1.5 text-sm text-foreground/70">
+            Le niveau Format est optionnel. Gardez-le si ce produit se décline en formats (ex.
+            600L, Side by Side), ou supprimez-le pour ajouter les modèles directement ici.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => setFormatChoice((prev) => ({ ...prev, [current.id]: "keep" }))}
+              className="rounded-full px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+              style={{ background: "var(--gradient-brand)" }}
+            >
+              Garder les formats
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormatChoice((prev) => ({ ...prev, [current.id]: "none" }))}
+              className="rounded-full border border-border bg-card px-5 py-2.5 text-sm font-semibold"
+            >
+              Supprimer le format · aller aux modèles
+            </button>
+          </div>
+        </div>
+      )}
+
+      {current && formatDecision === "none" && (
+        <p className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card px-5 py-3 text-sm text-foreground/70">
+          Sans format : les modèles sont ajoutés directement dans « {current.name} ».
+          <button
+            type="button"
+            onClick={() =>
+              setFormatChoice((prev) => {
+                const next = { ...prev };
+                delete next[current.id];
+                return next;
+              })
+            }
+            className="font-semibold text-brand hover:underline"
+          >
+            Rétablir les formats
+          </button>
+        </p>
+      )}
+
+
 
       {canCreateFolder &&
         (creating ? (
