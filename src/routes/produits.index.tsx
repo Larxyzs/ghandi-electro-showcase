@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
-import { fallback, zodValidator } from "@tanstack/zod-adapter";
-import { z } from "zod";
 import { ChevronRight, PackageSearch, Search, X } from "lucide-react";
 import { SiteLayout } from "@/components/SiteLayout";
 import { Reveal } from "@/components/Reveal";
@@ -16,12 +14,8 @@ import {
 import { BRAND_NAMES } from "@/lib/brands";
 import { cn } from "@/lib/utils";
 
-const searchSchema = z.object({
-  q: fallback(z.string(), "").default(""),
-});
-
 export const Route = createFileRoute("/produits/")({
-  validateSearch: zodValidator(searchSchema),
+  validateSearch: (search: Record<string, unknown>) => ({ q: typeof search["q"] === "string" ? search["q"] : "" }),
   head: () => ({
     meta: [
       { title: "Produits | Ghandi Home Electro" },
