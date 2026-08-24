@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { ImagePlus, Loader2, Trash2, X } from "lucide-react";
-import type { Product } from "@/lib/catalog-types";
+import { LEVEL_LABELS, type NodeLevel, type Product } from "@/lib/catalog-types";
 import { BRAND_NAMES } from "@/lib/brands";
 
 export type ProductDraft = {
