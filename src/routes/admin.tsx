@@ -23,6 +23,13 @@ import {
   adminDeletePopularSearch,
   adminMovePopularSearch,
   adminUpdateStaffPassword,
+  adminListCindySessions,
+  adminSaveCindySession,
+  adminDeleteCindySession,
+  adminListActions,
+  adminUndoAction,
+  adminRecordAction,
+  adminSetSiteMode,
 } from "@/lib/admin.functions";
 import { AdminLogin } from "@/components/admin/AdminLogin";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
@@ -65,6 +72,13 @@ function AdminPage() {
   const addSearch = useServerFn(adminAddPopularSearch);
   const removeSearch = useServerFn(adminDeletePopularSearch);
   const moveSearch = useServerFn(adminMovePopularSearch);
+  const listCindySessions = useServerFn(adminListCindySessions);
+  const saveCindySession = useServerFn(adminSaveCindySession);
+  const deleteCindySession = useServerFn(adminDeleteCindySession);
+  const listActionsFn = useServerFn(adminListActions);
+  const undoActionFn = useServerFn(adminUndoAction);
+  const recordActionFn = useServerFn(adminRecordAction);
+  const setSiteModeFn = useServerFn(adminSetSiteMode);
 
   const [phase, setPhase] = useState<"loading" | "locked" | "ready">("loading");
   const [data, setData] = useState<SiteData | null>(null);
@@ -215,6 +229,79 @@ function AdminPage() {
               },
             }),
           ),
+      }}
+      cindyActions={{
+        listSessions: async () =>
+          (await listCindySessions()).map((s) => ({
+            id: s.id,
+            title: s.title,
+            query: s.query,
+            events: s.events as unknown[],
+            updated_at: s.updated_at,
+          })),
+        saveSession: async (input) => {
+          await saveCindySession({ data: { ...input, events: input.events } });
+        },
+        deleteSession: async (id) => {
+          await deleteCindySession({ data: { id } });
+        },
+        listActions: async () =>
+          (await listActionsFn()).map((a) => ({
+            id: a.id,
+            action: a.action,
+            label: a.label,
+            undone_at: a.undone_at,
+            created_at: a.created_at,
+          })),
+        undoAction: (id) => run(() => undoActionFn({ data: { id } })),
+        importProduct: async (payload) => {
+          await run(async () => {
+            const saved = await saveProduct({
+              data: {
+                node_id: payload.node_id,
+                name: payload.name,
+                brand: payload.brand,
+                serial_number: payload.serial_number,
+                stock: payload.stock,
+                price: payload.price,
+                characteristics: payload.characteristics,
+                specifications: payload.specifications,
+                gallery: payload.gallery,
+                marketing_sections: payload.marketing_sections as never,
+                source_url: payload.source_url,
+                source_name: payload.source_name,
+                featured: false,
+                imageUrl: payload.imageUrl,
+                imageData: null,
+                imageName: null,
+                removeImage: false,
+              },
+            });
+            await recordActionFn({
+              data: {
+                action: "product_create",
+                entity: "product",
+                entity_id: (saved as { id?: string })?.id ?? null,
+                label: `Produit créé par Cindy : ${payload.name}`,
+                after_state: { name: payload.name },
+              },
+            });
+          });
+        },
+      }}
+      onSetSiteMode={async (mode) => {
+        await run(async () => {
+          const res = await setSiteModeFn({ data: { mode } });
+          await recordActionFn({
+            data: {
+              action: "site_mode",
+              entity: "site_settings",
+              label: `Mode du site : ${mode}`,
+              before_state: { site_mode: res.previous },
+              after_state: { site_mode: mode },
+            },
+          });
+        });
       }}
       onSaveSettings={(settings: SiteSettings) => run(() => saveSettings({ data: settings }))}
     />
