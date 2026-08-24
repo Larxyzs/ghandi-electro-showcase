@@ -27,6 +27,8 @@ import {
   adminSaveCindySession,
   adminDeleteCindySession,
   adminListActions,
+  adminListResearchMemory,
+  adminForgetResearchMemory,
   adminUndoAction,
   adminRecordAction,
   adminSetSiteMode,
@@ -76,6 +78,8 @@ function AdminPage() {
   const saveCindySession = useServerFn(adminSaveCindySession);
   const deleteCindySession = useServerFn(adminDeleteCindySession);
   const listActionsFn = useServerFn(adminListActions);
+  const listResearchMemoryFn = useServerFn(adminListResearchMemory);
+  const forgetResearchMemoryFn = useServerFn(adminForgetResearchMemory);
   const undoActionFn = useServerFn(adminUndoAction);
   const recordActionFn = useServerFn(adminRecordAction);
   const setSiteModeFn = useServerFn(adminSetSiteMode);
