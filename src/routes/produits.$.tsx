@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
-import { ChevronRight, Folder, Home, Layers, PackageSearch, Tag } from "lucide-react";
+import { ChevronRight, Home, PackageSearch } from "lucide-react";
 import { SiteLayout } from "@/components/SiteLayout";
 import { Reveal } from "@/components/Reveal";
 import { ProductCard } from "@/components/ProductCard";
+import { CatalogTile } from "@/components/CatalogTile";
 import {
   childrenOf,
   findChildBySlug,
@@ -10,10 +11,6 @@ import {
   type CatalogNode,
   type SiteData,
 } from "@/lib/catalog-types";
-
-import { Box } from "lucide-react";
-
-const LEVEL_ICON = { 1: Folder, 2: Layers, 3: Tag, 4: Box } as const;
 
 export const Route = createFileRoute("/produits/$")({
   head: () => ({
@@ -100,28 +97,16 @@ function BrowsePage() {
         )}
 
         {folders.length > 0 && (
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {folders.map((node, index) => {
-              const Icon = LEVEL_ICON[node.level];
-              const count = productsIn(data.nodes, data.products, node.id).length;
-              return (
-                <Reveal key={node.id} delay={(index % 3) * 100}>
-                  <Link
-                    to="/produits/$"
-                    params={{ _splat: [...trail.map((n) => n.slug), node.slug].join("/") }}
-                    className="flex h-full items-center gap-4 rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-card)] transition-all hover:-translate-y-1.5 hover:border-brand/40"
-                  >
-                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand-soft text-brand-deep">
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate font-semibold">{node.name}</span>
-                      <span className="block text-xs text-foreground/55">{count} produit(s)</span>
-                    </span>
-                  </Link>
-                </Reveal>
-              );
-            })}
+          <div className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4">
+            {folders.map((node, index) => (
+              <Reveal key={node.id} delay={(index % 4) * 90}>
+                <CatalogTile
+                  node={node}
+                  splat={[...trail.map((n) => n.slug), node.slug].join("/")}
+                  count={productsIn(data.nodes, data.products, node.id).length}
+                />
+              </Reveal>
+            ))}
           </div>
         )}
 
