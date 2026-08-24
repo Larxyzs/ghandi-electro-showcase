@@ -9,7 +9,7 @@ function Group({ hidden }: { hidden?: boolean }) {
           src={brand.logo}
           alt={hidden ? "" : brand.name}
           loading="lazy"
-          className="h-[50px] w-auto shrink-0 object-contain"
+          className="h-[50px] w-auto shrink-0 object-contain opacity-70 grayscale transition-all duration-500 hover:scale-110 hover:opacity-100 hover:grayscale-0"
         />
       ))}
     </div>
