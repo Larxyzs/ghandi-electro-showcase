@@ -25,7 +25,7 @@ import {
   type Product,
   type SiteData,
 } from "@/lib/catalog-types";
-import { ProductForm, type ProductDraft } from "@/components/admin/ProductForm";
+import { ProductForm, type FolderDraft, type ProductDraft } from "@/components/admin/ProductForm";
 import { NodeForm } from "@/components/admin/NodeForm";
 import type { ImageDraft } from "@/components/admin/ImagePicker";
 import { cn } from "@/lib/utils";
