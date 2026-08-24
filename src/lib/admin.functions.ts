@@ -243,3 +243,66 @@ export const adminSetSiteMode = createServerFn({ method: "POST" })
     const { setSiteMode } = await import("./admin.server");
     return setSiteMode(data.mode as "online" | "maintenance" | "coming_soon" | "closed");
   });
+
+/* ---------- Cindy sessions & action history ---------- */
+
+export const adminListCindySessions = createServerFn({ method: "POST" }).handler(async () => {
+  const { listCindySessions } = await import("./admin.server");
+  return listCindySessions();
+});
+
+export const adminSaveCindySession = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: { id?: string | null; title: string; query: string; events: unknown[] }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { saveCindySession } = await import("./admin.server");
+    return saveCindySession({
+      id: data.id ?? null,
+      title: data.title,
+      query: data.query,
+      events: data.events as never,
+    });
+  });
+
+export const adminDeleteCindySession = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => data)
+  .handler(async ({ data }) => {
+    const { deleteCindySession } = await import("./admin.server");
+    return deleteCindySession(data.id);
+  });
+
+export const adminListActions = createServerFn({ method: "POST" }).handler(async () => {
+  const { listActions } = await import("./admin.server");
+  return listActions();
+});
+
+export const adminUndoAction = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => data)
+  .handler(async ({ data }) => {
+    const { undoAction } = await import("./admin.server");
+    return undoAction(data.id);
+  });
+
+export const adminRecordAction = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      action: string;
+      entity: string;
+      entity_id?: string | null;
+      label: string;
+      before_state?: unknown;
+      after_state?: unknown;
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { recordAction } = await import("./admin.server");
+    return recordAction({
+      action: data.action,
+      entity: data.entity,
+      entity_id: data.entity_id ?? null,
+      label: data.label,
+      before_state: (data.before_state ?? null) as never,
+      after_state: (data.after_state ?? null) as never,
+    });
+  });

@@ -607,3 +607,137 @@ export async function setSiteMode(mode: SiteMode) {
 export async function adminDb() {
   return requireAdmin();
 }
+
+/* ---------- Cindy: research sessions & action history ---------- */
+
+export type CindySessionRow = {
+  id: string;
+  title: string;
+  query: string;
+  events: unknown[];
+  created_at: string;
+  updated_at: string;
+};
+
+export async function listCindySessions() {
+  const db = await requireAdmin();
+  const me = await currentAdmin();
+  const { data, error } = await db
+    .from("cindy_sessions")
+    .select("id, title, messages, created_at, updated_at")
+    .eq("admin_username", me!.username)
+    .order("updated_at", { ascending: false })
+    .limit(30);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => {
+    const payload = (row.messages ?? {}) as { query?: string; events?: unknown[] };
+    return {
+      id: row.id,
+      title: row.title,
+      query: payload.query ?? "",
+      events: Array.isArray(payload.events) ? payload.events : [],
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    } satisfies CindySessionRow;
+  });
+}
+
+export async function saveCindySession(input: {
+  id?: string | null;
+  title: string;
+  query: string;
+  events: Json;
+}) {
+  const db = await requireAdmin();
+  const me = await currentAdmin();
+  const payload = { query: input.query, events: input.events } as unknown as Json;
+  if (input.id) {
+    const { error } = await db
+      .from("cindy_sessions")
+      .update({ title: input.title, messages: payload })
+      .eq("id", input.id)
+      .eq("admin_username", me!.username);
+    if (error) throw new Error(error.message);
+    return { id: input.id };
+  }
+  const { data, error } = await db
+    .from("cindy_sessions")
+    .insert({ admin_username: me!.username, title: input.title, messages: payload })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  return { id: data.id };
+}
+
+export async function deleteCindySession(id: string) {
+  const db = await requireAdmin();
+  const me = await currentAdmin();
+  const { error } = await db
+    .from("cindy_sessions")
+    .delete()
+    .eq("id", id)
+    .eq("admin_username", me!.username);
+  if (error) throw new Error(error.message);
+  return { ok: true as const };
+}
+
+export async function recordAction(input: {
+  action: string;
+  entity: string;
+  entity_id?: string | null;
+  label: string;
+  before_state?: Json | null;
+  after_state?: Json | null;
+}) {
+  const db = await requireAdmin();
+  const me = await currentAdmin();
+  const { error } = await db.from("cindy_actions").insert({
+    admin_username: me!.username,
+    action: input.action,
+    entity: input.entity,
+    entity_id: input.entity_id ?? null,
+    label: input.label,
+    before_state: input.before_state ?? null,
+    after_state: input.after_state ?? null,
+  });
+  if (error) throw new Error(error.message);
+  return { ok: true as const };
+}
+
+export async function listActions() {
+  const db = await requireAdmin();
+  const { data, error } = await db
+    .from("cindy_actions")
+    .select("id, admin_username, action, entity, entity_id, label, undone_at, created_at")
+    .order("created_at", { ascending: false })
+    .limit(40);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/** Reverts a logged action when it is reversible (product creation, site mode change). */
+export async function undoAction(id: string) {
+  const db = await requireAdmin();
+  const { data: action, error } = await db
+    .from("cindy_actions")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!action) throw new Error("NOT_FOUND");
+  if (action.undone_at) throw new Error("ALREADY_UNDONE");
+
+  if (action.action === "product_create" && action.entity_id) {
+    await db.from("products").delete().eq("id", action.entity_id);
+  } else if (action.action === "site_mode" && action.before_state) {
+    const before = action.before_state as { site_mode?: string };
+    if (before.site_mode) {
+      await db.from("site_settings").update({ site_mode: before.site_mode }).eq("id", "default");
+    }
+  } else {
+    throw new Error("NOT_REVERSIBLE");
+  }
+
+  await db.from("cindy_actions").update({ undone_at: new Date().toISOString() }).eq("id", id);
+  return { ok: true as const };
+}
