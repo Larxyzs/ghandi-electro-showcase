@@ -47,39 +47,102 @@ function guessBrand(query: string) {
   return "";
 }
 
-type TavilyResult = { url: string; title: string; content: string; raw_content?: string | null };
+export type SearchHit = { url: string; title: string; content: string };
 
-async function tavilySearch(
-  query: string,
-  opts: { images?: boolean; domains?: string[]; depth?: "basic" | "advanced"; max?: number } = {},
-) {
-  const key = process.env["TAVILY_API_KEY"];
-  if (!key) throw new Error("SEARCH_NOT_CONFIGURED");
-  const res = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      query,
-      search_depth: opts.depth ?? "advanced",
-      max_results: opts.max ?? 6,
-      include_raw_content: true,
-      include_images: Boolean(opts.images),
-      include_image_descriptions: false,
-      ...(opts.domains && opts.domains.length ? { include_domains: opts.domains } : {}),
-    }),
-  });
+/** Self-hosted SearXNG is the only search layer. One request = one "search". */
+async function searxSearch(query: string, opts: { max?: number } = {}): Promise<SearchHit[]> {
+  const base = (process.env["SEARXNG_URL"] ?? "").trim().replace(/\/+$/, "");
+  if (!base) throw new Error("SEARCH_NOT_CONFIGURED");
+  const url = new URL(`${base}/search`);
+  url.searchParams.set("q", query);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("language", "fr");
+  url.searchParams.set("safesearch", "0");
+  url.searchParams.set("categories", "general");
+
+  const headers: Record<string, string> = { Accept: "application/json" };
+  const token = (process.env["SEARXNG_TOKEN"] ?? "").trim();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(url.toString(), { headers });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`SEARCH_FAILED: ${res.status} ${text.slice(0, 200)}`);
+    const text = await res.text().catch(() => "");
+    throw new Error(`SEARCH_FAILED: ${res.status} ${text.slice(0, 160)}`);
   }
   const json = (await res.json()) as {
-    results?: TavilyResult[];
-    images?: (string | { url: string })[];
+    results?: { url?: string; title?: string; content?: string }[];
   };
-  return {
-    results: json.results ?? [],
-    images: (json.images ?? []).map((i) => (typeof i === "string" ? i : i.url)).filter(Boolean),
+  const hits: SearchHit[] = [];
+  const seen = new Set<string>();
+  for (const r of json.results ?? []) {
+    if (!r.url || !/^https?:\/\//.test(r.url) || seen.has(r.url)) continue;
+    seen.add(r.url);
+    hits.push({ url: r.url, title: r.title ?? domainOf(r.url), content: r.content ?? "" });
+    if (hits.length >= (opts.max ?? 10)) break;
+  }
+  return hits;
+}
+
+/** Reads a page directly (no search credit) and returns its text plus image URLs. */
+async function readPage(url: string): Promise<{ text: string; images: string[] }> {
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
+      "Accept-Language": "fr,en;q=0.8",
+    },
+  });
+  if (!res.ok) throw new Error(`PAGE_FAILED: ${res.status}`);
+  const html = await res.text();
+
+  const images: string[] = [];
+  const push = (raw: string) => {
+    try {
+      const abs = new URL(raw.trim(), url).toString();
+      if (!/^https?:\/\//.test(abs)) return;
+      if (/\.(svg|gif)(\?|$)/i.test(abs)) return;
+      if (/sprite|logo|icon|placeholder|pixel|tracking/i.test(abs)) return;
+      if (!images.includes(abs)) images.push(abs);
+    } catch {
+      /* ignore malformed image url */
+    }
   };
+  for (const m of html.matchAll(
+    /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/gi,
+  ))
+    push(m[1] ?? "");
+  for (const m of html.matchAll(/<img[^>]+(?:data-src|data-original|src)=["']([^"']+)["']/gi))
+    push(m[1] ?? "");
+  for (const m of html.matchAll(/<source[^>]+srcset=["']([^"']+)["']/gi)) {
+    const first = (m[1] ?? "").split(",")[0]?.trim().split(/\s+/)[0];
+    if (first) push(first);
+  }
+
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/[ \t\u00a0]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return { text, images: images.slice(0, 24) };
+}
+
+/** Stable cache key: brand/model characters only, so casing and spacing never miss. */
+export function cacheKeyOf(query: string) {
+  return query
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
 }
 
 const EXTRACTION_SCHEMA = {
