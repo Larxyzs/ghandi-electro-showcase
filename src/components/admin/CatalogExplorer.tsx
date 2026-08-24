@@ -133,6 +133,54 @@ export function CatalogExplorer({
         {busy && <Loader2 className="ms-auto h-4 w-4 animate-spin text-brand" />}
       </nav>
 
+      {current && formatDecision === "ask" && (
+        <div className="rounded-3xl border border-brand/30 bg-brand-soft/40 p-5">
+          <h4 className="font-semibold">Formats pour « {current.name} » ?</h4>
+          <p className="mt-1.5 text-sm text-foreground/70">
+            Le niveau Format est optionnel. Gardez-le si ce produit se décline en formats (ex.
+            600L, Side by Side), ou supprimez-le pour ajouter les modèles directement ici.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => setFormatChoice((prev) => ({ ...prev, [current.id]: "keep" }))}
+              className="rounded-full px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+              style={{ background: "var(--gradient-brand)" }}
+            >
+              Garder les formats
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormatChoice((prev) => ({ ...prev, [current.id]: "none" }))}
+              className="rounded-full border border-border bg-card px-5 py-2.5 text-sm font-semibold"
+            >
+              Supprimer le format · aller aux modèles
+            </button>
+          </div>
+        </div>
+      )}
+
+      {current && formatDecision === "none" && (
+        <p className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card px-5 py-3 text-sm text-foreground/70">
+          Sans format : les modèles sont ajoutés directement dans « {current.name} ».
+          <button
+            type="button"
+            onClick={() =>
+              setFormatChoice((prev) => {
+                const next = { ...prev };
+                delete next[current.id];
+                return next;
+              })
+            }
+            className="font-semibold text-brand hover:underline"
+          >
+            Rétablir les formats
+          </button>
+        </p>
+      )}
+
+
+
       {canCreateFolder &&
         (creating ? (
           <NodeForm
