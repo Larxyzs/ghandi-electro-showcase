@@ -52,6 +52,9 @@ export function CindyWorkspace({
 }) {
   const [chatKey, setChatKey] = useState(0);
   const [result, setResult] = useState<ResearchedProduct | null>(null);
+  const [bulk, setBulk] = useState<CindyBulkItem[] | null>(null);
+  const [retryQuery, setRetryQuery] = useState<string | null>(null);
+
   const [sessions, setSessions] = useState<Awaited<ReturnType<CindyActions["listSessions"]>>>([]);
   const [history, setHistory] = useState<Awaited<ReturnType<CindyActions["listActions"]>>>([]);
   const [memory, setMemory] = useState<Awaited<ReturnType<CindyActions["listMemory"]>>>([]);
