@@ -274,6 +274,7 @@ function AdminPage() {
             searches_used: m.searches_used,
             updated_at: m.updated_at,
           })),
+        refreshSite: () => refresh(),
         forgetMemory: async (id) => {
           await forgetResearchMemoryFn({ data: { id } });
         },
