@@ -368,13 +368,27 @@ export type ProductInput = {
   serial_number: string;
   stock: number;
   price: number | null;
-  description: string;
+  /** Product characteristics (formerly "description"). */
+  characteristics: string;
+  specifications?: { label: string; value: string }[];
+  gallery?: string[];
+  marketing_sections?: unknown[];
+  source_url?: string | null;
+  source_name?: string | null;
   featured?: boolean;
   imageData?: string | null;
   imageName?: string | null;
   imageUrl?: string | null;
   removeImage?: boolean;
 };
+
+export async function uploadImageFromDataUrl(
+  db: Awaited<ReturnType<typeof requireAdmin>>,
+  imageData: string,
+  imageName: string,
+) {
+  return storeImage(db, imageData, imageName);
+}
 
 async function storeImage(
   db: Awaited<ReturnType<typeof requireAdmin>>,
@@ -417,8 +431,13 @@ export async function saveProduct(input: ProductInput) {
     serial_number: input.serial_number.trim(),
     stock: Math.max(0, Math.floor(input.stock)),
     price: input.price,
-    description: input.description,
+    characteristics: input.characteristics,
     featured: Boolean(input.featured),
+    ...(input.specifications ? { specifications: input.specifications } : {}),
+    ...(input.gallery ? { gallery: input.gallery } : {}),
+    ...(input.marketing_sections ? { marketing_sections: input.marketing_sections } : {}),
+    ...(input.source_url !== undefined ? { source_url: input.source_url } : {}),
+    ...(input.source_name !== undefined ? { source_name: input.source_name } : {}),
   };
 
   if (input.id) {
@@ -463,7 +482,7 @@ export async function saveSettings(input: {
 }) {
   const db = await requireAdmin();
   const hex = /^#[0-9a-fA-F]{6}$/;
-  for (const value of Object.values(input)) {
+  for (const value of [input.primary_color, input.secondary_color, input.text_color]) {
     if (!hex.test(value)) throw new Error("INVALID_COLOR");
   }
   const { error } = await db
@@ -555,4 +574,35 @@ export async function setProductFeatured(id: string, featured: boolean) {
   const { error } = await db.from("products").update({ featured }).eq("id", id);
   if (error) throw new Error(error.message);
   return { ok: true as const };
+}
+
+
+/* ---------- Site mode (public site availability) ---------- */
+
+export type SiteMode = "online" | "maintenance" | "coming_soon" | "closed";
+
+const SITE_MODES: SiteMode[] = ["online", "maintenance", "coming_soon", "closed"];
+
+export async function getSiteMode(): Promise<SiteMode> {
+  const db = await requireAdmin();
+  const { data } = await db
+    .from("site_settings")
+    .select("site_mode")
+    .eq("id", "default")
+    .maybeSingle();
+  return ((data?.site_mode ?? "online") as SiteMode);
+}
+
+export async function setSiteMode(mode: SiteMode) {
+  const db = await requireAdmin();
+  if (!SITE_MODES.includes(mode)) throw new Error("INVALID_MODE");
+  const previous = await getSiteMode();
+  const { error } = await db.from("site_settings").update({ site_mode: mode }).eq("id", "default");
+  if (error) throw new Error(error.message);
+  return { ok: true as const, previous, mode };
+}
+
+/** Shared admin guard for Cindy's controlled actions. */
+export async function adminDb() {
+  return requireAdmin();
 }
