@@ -58,6 +58,7 @@ export function CatalogExplorer({
   const [newName, setNewName] = useState("");
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const [editing, setEditing] = useState<{ product?: Product } | null>(null);
+  const [quick, setQuick] = useState(false);
   const [pending, setPending] = useState<{ node: CatalogNode; folders: number; products: number } | null>(
     null,
   );
