@@ -41,9 +41,10 @@ export type CatalogActions = {
   saveProduct: (draft: ProductDraft & { node_id: string }) => Promise<void>;
   quickCreate: (
     fromId: string | null,
-    folders: string[],
+    folders: FolderDraft[],
     draft: ProductDraft,
   ) => Promise<void>;
+
   deleteProduct: (id: string) => Promise<void>;
 };
 
