@@ -20,14 +20,18 @@ export type ProductDraft = {
 export function ProductForm({
   product,
   nodeId,
+  folderLevels,
   onCancel,
   onSave,
 }: {
   product?: Product;
   nodeId: string;
+  /** Quick-jump: folder levels to create on the fly before saving the product. */
+  folderLevels?: NodeLevel[];
   onCancel: () => void;
-  onSave: (draft: ProductDraft & { node_id: string }) => Promise<void>;
+  onSave: (draft: ProductDraft & { node_id: string; folders: string[] }) => Promise<void>;
 }) {
+  const [folders, setFolders] = useState<string[]>(() => (folderLevels ?? []).map(() => ""));
   const [draft, setDraft] = useState<ProductDraft>({
     id: product?.id,
     name: product?.name ?? "",
