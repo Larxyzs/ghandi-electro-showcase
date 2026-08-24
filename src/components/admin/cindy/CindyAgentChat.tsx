@@ -140,7 +140,7 @@ export function CindyAgentChat({
       {
         role: "assistant",
         content: answer.trim() || (failure ? "" : "C'est fait."),
-        activities: steps.length ? [...steps] : undefined,
+        ...(steps.length ? { activities: [...steps] } : {}),
         ...(failure ? { error: failure } : {}),
       },
     ]);
