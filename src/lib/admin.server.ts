@@ -501,7 +501,7 @@ export async function saveSettings(input: {
  */
 export async function quickCreateChain(input: {
   fromId: string | null;
-  folders: string[];
+  folders: (string | ({ name: string } & ImageInput))[];
   product: Omit<ProductInput, "node_id" | "id">;
 }) {
   const db = await requireAdmin();
@@ -517,16 +517,20 @@ export async function quickCreateChain(input: {
     level = from.level;
   }
 
-  const names = input.folders.map((n) => n.trim()).filter(Boolean);
-  if (names.length !== input.folders.length) throw new Error("EMPTY_NAME");
-  if (level + names.length > 4) throw new Error("MAX_DEPTH");
-  if (level + names.length < 3) throw new Error("MISSING_LEVELS");
+  const entries = input.folders.map((folder) =>
+    typeof folder === "string" ? { name: folder.trim() } : { ...folder, name: folder.name.trim() },
+  );
+  if (entries.some((entry) => !entry.name)) throw new Error("EMPTY_NAME");
+  if (level + entries.length > 4) throw new Error("MAX_DEPTH");
+  if (level + entries.length < 3) throw new Error("MISSING_LEVELS");
 
   let parentId = input.fromId;
-  for (const name of names) {
-    const created = await createNode(parentId, name);
+  for (const entry of entries) {
+    const { name, ...image } = entry;
+    const created = await createNode(parentId, name, image);
     parentId = created.id;
   }
+
   if (!parentId) throw new Error("NO_FOLDER");
 
   const product = await saveProduct({ ...input.product, node_id: parentId });
