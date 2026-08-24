@@ -76,9 +76,13 @@ export function CatalogExplorer({
   const level = (current?.level ?? 0) as 0 | NodeLevel;
   const isLeaf = current ? canHoldProducts(current.level) : false;
   /** At Produit (3) the admin decides whether this product uses Formats at all. */
-  const formatDecision = current && level === 3 ? (noFormat[current.id] ? "none" : folders.length > 0 ? "keep" : "ask") : null;
+  const formatDecision: "keep" | "none" | "ask" | null =
+    current && level === 3
+      ? (formatChoice[current.id] ?? (folders.length > 0 ? "keep" : "ask"))
+      : null;
   const formatsOff = formatDecision === "none";
   const canCreateFolder = level < 4 && !formatsOff;
+
   /** Levels still to create: required down to Produit (3) + the optional Format (4). */
   const missingLevels = useMemo(
     () =>
