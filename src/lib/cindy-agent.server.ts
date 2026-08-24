@@ -705,6 +705,10 @@ export async function runCindyAgent(input: {
         result = { error: error instanceof Error ? error.message : "Erreur inconnue" };
       }
 
+      if (!failed && name !== "get_site_overview" && name !== "research_product") {
+        input.emit({ type: "changed" });
+      }
+
       input.emit({
         type: "activity",
         id: activityId,
