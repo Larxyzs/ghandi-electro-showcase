@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
-import { ChevronRight, Home, PackageSearch } from "lucide-react";
+import { ChevronRight, Home, PackageSearch, SlidersHorizontal } from "lucide-react";
 import { SiteLayout } from "@/components/SiteLayout";
 import { Reveal } from "@/components/Reveal";
 import { ProductCard } from "@/components/ProductCard";
@@ -58,7 +58,9 @@ function BrowsePage() {
 
   const current = trail.at(-1) ?? null;
   const folders = missing ? [] : childrenOf(data.nodes, current?.id ?? null);
-  const products = current && current.level >= 3 ? productsIn(data.nodes, data.products, current.id) : [];
+  /** Models live directly in this node; sub-formats are browsed as their own tiles. */
+  const products =
+    current && current.level >= 3 ? data.products.filter((p) => p.node_id === current.id) : [];
   const pathTo = (index: number) => trail.slice(0, index + 1).map((n) => n.slug).join("/");
 
   return (
@@ -83,8 +85,14 @@ function BrowsePage() {
           ))}
         </nav>
 
-        <Reveal className="mt-6">
+        <Reveal className="mt-6 flex flex-wrap items-end justify-between gap-4">
           <h1 className="text-3xl font-bold sm:text-4xl">{current?.name ?? "Catalogue"}</h1>
+          <Link
+            to="/produits"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground/70 hover:border-brand hover:text-brand"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" /> Recherche &amp; filtres
+          </Link>
         </Reveal>
 
         {missing && (
@@ -110,7 +118,7 @@ function BrowsePage() {
           </div>
         )}
 
-        {current && current.level >= 3 && (
+        {current && current.level >= 3 && (products.length > 0 || folders.length === 0) && (
           <div className="mt-12">
             {products.length === 0 ? (
               <div className="flex flex-col items-center gap-4 rounded-[2rem] border border-dashed border-border bg-brand-soft/40 px-8 py-20 text-center">
