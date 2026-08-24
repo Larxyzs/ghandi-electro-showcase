@@ -219,7 +219,7 @@ export async function createNode(parentId: string | null, name: string) {
       .eq("id", parentId)
       .maybeSingle();
     if (!parent) throw new Error("PARENT_NOT_FOUND");
-    if (parent.level >= 3) throw new Error("MAX_DEPTH");
+    if (parent.level >= 4) throw new Error("MAX_DEPTH");
     level = parent.level + 1;
   }
 
