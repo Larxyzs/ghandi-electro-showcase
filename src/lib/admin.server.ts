@@ -14,8 +14,10 @@ function sessionConfig() {
     maxAge: 60 * 60 * 24 * 60,
     cookie: {
       httpOnly: true,
-      secure: process.env["NODE_ENV"] === "production",
-      sameSite: "lax" as const,
+      // The preview runs inside an iframe (third-party context), so the cookie
+      // must be SameSite=None + Secure to be sent back with server-fn requests.
+      secure: true,
+      sameSite: "none" as const,
       path: "/",
     },
   };
