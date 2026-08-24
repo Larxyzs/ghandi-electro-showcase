@@ -19,6 +19,9 @@ import {
   adminQuickCreate,
   adminSaveSettings,
   adminStatus,
+  adminAddPopularSearch,
+  adminDeletePopularSearch,
+  adminMovePopularSearch,
   adminUpdateStaffPassword,
 } from "@/lib/admin.functions";
 import { AdminLogin } from "@/components/admin/AdminLogin";
@@ -59,6 +62,9 @@ function AdminPage() {
   const createStaff = useServerFn(adminCreateStaff);
   const updateStaffPassword = useServerFn(adminUpdateStaffPassword);
   const deleteStaff = useServerFn(adminDeleteStaff);
+  const addSearch = useServerFn(adminAddPopularSearch);
+  const removeSearch = useServerFn(adminDeletePopularSearch);
+  const moveSearch = useServerFn(adminMovePopularSearch);
 
   const [phase, setPhase] = useState<"loading" | "locked" | "ready">("loading");
   const [data, setData] = useState<SiteData | null>(null);
@@ -148,6 +154,11 @@ function AdminPage() {
           await deleteStaff({ data: { id } });
         },
       }}
+      searchActions={{
+        add: (term) => run(() => addSearch({ data: { term } })),
+        remove: (id) => run(() => removeSearch({ data: { id } })),
+        move: (id, direction) => run(() => moveSearch({ data: { id, direction } })),
+      }}
       onLogout={async () => {
         await logout();
         setData(null);
@@ -155,8 +166,9 @@ function AdminPage() {
         setPhase("locked");
       }}
       catalogActions={{
-        createNode: (parentId, name) => run(() => createNode({ data: { parentId, name } })),
-        renameNode: (id, name) => run(() => renameNode({ data: { id, name } })),
+        createNode: (parentId, name, image) =>
+          run(() => createNode({ data: { parentId, name, image } })),
+        renameNode: (id, name, image) => run(() => renameNode({ data: { id, name, image } })),
         moveNode: (id, direction) => run(() => moveNode({ data: { id, direction } })),
         deleteNode: (id) => run(() => deleteNode({ data: { id } })),
         nodeImpact: async (id) => await nodeImpact({ data: { id } }),
@@ -173,6 +185,7 @@ function AdminPage() {
                   stock: draft.stock,
                   price: draft.price === "" ? null : Number(draft.price),
                   description: draft.description,
+                  featured: draft.featured,
                   imageData: draft.imageData ?? null,
                   imageName: draft.imageName ?? null,
                   imageUrl: draft.imageUrl ?? null,
@@ -194,6 +207,7 @@ function AdminPage() {
                 stock: draft.stock,
                 price: draft.price === "" ? null : Number(draft.price),
                 description: draft.description,
+                featured: draft.featured,
                 imageData: draft.imageData ?? null,
                 imageName: draft.imageName ?? null,
                 imageUrl: draft.imageUrl ?? null,

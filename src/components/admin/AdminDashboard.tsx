@@ -6,12 +6,14 @@ import {
   Package,
   Palette,
   ExternalLink,
+  Search,
   Users,
 } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
 import type { SiteData, SiteSettings } from "@/lib/catalog-types";
 import { CatalogExplorer, type CatalogActions } from "@/components/admin/CatalogExplorer";
 import { StaffPanel } from "@/components/admin/StaffPanel";
+import { PopularSearchesPanel } from "@/components/admin/PopularSearchesPanel";
 import type { AdminRole, StaffAccount } from "@/lib/admin-types";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +24,7 @@ export function AdminDashboard({
   username,
   staffActions,
   catalogActions,
+  searchActions,
   onLogout,
   onSaveSettings,
 }: {
@@ -36,10 +39,15 @@ export function AdminDashboard({
     remove: (id: string) => Promise<void>;
   };
   catalogActions: CatalogActions;
+  searchActions: {
+    add: (term: string) => Promise<void>;
+    remove: (id: string) => Promise<void>;
+    move: (id: string, direction: "up" | "down") => Promise<void>;
+  };
   onLogout: () => void;
   onSaveSettings: (settings: SiteSettings) => Promise<void>;
 }) {
-  const [tab, setTab] = useState<"inventory" | "design" | "staff">("inventory");
+  const [tab, setTab] = useState<"inventory" | "design" | "searches" | "staff">("inventory");
   const [settings, setSettings] = useState<SiteSettings>(data.settings);
   const [saved, setSaved] = useState(false);
 
@@ -83,6 +91,7 @@ export function AdminDashboard({
             [
               { id: "inventory", label: "Inventaire", icon: Package },
               { id: "design", label: "Apparence", icon: Palette },
+              { id: "searches", label: "Recherches populaires", icon: Search },
               ...(role === "super"
                 ? ([{ id: "staff", label: "Gestion des admins", icon: Users }] as const)
                 : []),
@@ -113,6 +122,8 @@ export function AdminDashboard({
             onResetPassword={staffActions.resetPassword}
             onDelete={staffActions.remove}
           />
+        ) : tab === "searches" ? (
+          <PopularSearchesPanel terms={data.popularSearches} actions={searchActions} />
         ) : tab === "inventory" ? (
           <CatalogExplorer data={data} busy={busy} actions={catalogActions} />
         ) : (
