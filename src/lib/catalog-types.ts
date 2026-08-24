@@ -45,8 +45,9 @@ export type SiteData = {
 
 export const LEVEL_LABELS: Record<NodeLevel, string> = {
   1: "Catégorie",
-  2: "Type d'appareil",
-  3: "Modèle",
+  2: "Type de produit",
+  3: "Produit",
+  4: "Format",
 };
 
 export function childrenOf(nodes: CatalogNode[], parentId: string | null) {
