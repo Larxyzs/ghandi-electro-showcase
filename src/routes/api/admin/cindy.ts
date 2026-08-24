@@ -10,9 +10,11 @@ export const Route = createFileRoute("/api/admin/cindy")({
         if (!admin) return new Response("Unauthorized", { status: 401 });
 
         let query = "";
+        let force = false;
         try {
-          const body = (await request.json()) as { query?: string };
+          const body = (await request.json()) as { query?: string; force?: boolean };
           query = String(body.query ?? "").trim();
+          force = Boolean(body.force);
         } catch {
           return new Response("Bad request", { status: 400 });
         }
@@ -27,14 +29,14 @@ export const Route = createFileRoute("/api/admin/cindy")({
               controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
             };
             try {
-              await researchProduct(query, send);
+              await researchProduct(query, send, { force });
             } catch (error) {
               const message = error instanceof Error ? error.message : "RESEARCH_FAILED";
               send({
                 type: "error",
                 message:
                   message === "SEARCH_NOT_CONFIGURED"
-                    ? "La recherche web n'est pas configurée."
+                    ? "La recherche web n'est pas configurée (SearXNG)."
                     : message === "AI_NOT_CONFIGURED"
                       ? "L'assistant IA n'est pas configuré."
                       : message === "AI_RATE_LIMITED"

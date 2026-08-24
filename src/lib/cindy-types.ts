@@ -1,6 +1,6 @@
 import type { MarketingSection, ProductSpec } from "./catalog-types";
 
-export type CindyActivityKind = "search" | "open" | "read" | "images" | "extract" | "compare";
+export type CindyActivityKind = "search" | "open" | "read" | "images" | "extract" | "compare" | "cache";
 
 export type CindyActivityStatus = "running" | "done" | "error";
 
@@ -38,7 +38,7 @@ export type CindyEvent =
     }
   | { type: "source"; source: CindySource }
   | { type: "checklist"; label: string; done: boolean }
-  | { type: "result"; product: ResearchedProduct }
+  | { type: "result"; product: ResearchedProduct; cached?: boolean }
   | { type: "error"; message: string }
   | { type: "done" };
 
@@ -61,4 +61,5 @@ export const ACTIVITY_LABELS: Record<CindyActivityKind, string> = {
   images: "Images",
   extract: "Extraction",
   compare: "Comparaison",
+  cache: "Mémoire",
 };
