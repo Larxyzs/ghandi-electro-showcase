@@ -61,7 +61,7 @@ function BrowsePage() {
 
   const current = trail.at(-1) ?? null;
   const folders = missing ? [] : childrenOf(data.nodes, current?.id ?? null);
-  const products = current && current.level === 3 ? productsIn(data.nodes, data.products, current.id) : [];
+  const products = current && current.level >= 3 ? productsIn(data.nodes, data.products, current.id) : [];
   const pathTo = (index: number) => trail.slice(0, index + 1).map((n) => n.slug).join("/");
 
   return (
