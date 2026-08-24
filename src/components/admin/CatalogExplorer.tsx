@@ -80,17 +80,16 @@ export function CatalogExplorer({
     current && level === 3
       ? (formatChoice[current.id] ?? (folders.length > 0 ? "keep" : "ask"))
       : null;
-  const formatsOff = formatDecision === "none";
-  const canCreateFolder = level < 4 && !formatsOff;
-
+  const canCreateFolder = level < 4 && formatDecision !== "none" && formatDecision !== "ask";
   /** Levels still to create: required down to Produit (3) + the optional Format (4). */
   const missingLevels = useMemo(
     () =>
       Array.from({ length: Math.max(0, 4 - level) }, (_, i) => (level + i + 1) as NodeLevel).filter(
-        (l) => !(formatsOff && l === 4),
+        (l) => !(l === 4 && level === 3 && formatDecision !== "keep"),
       ),
-    [level, formatsOff],
+    [level, formatDecision],
   );
+
   const optionalLevels = useMemo<NodeLevel[]>(() => [4], []);
   const products = useMemo(
     () => (isLeaf && current ? data.products.filter((p) => p.node_id === current.id) : []),
