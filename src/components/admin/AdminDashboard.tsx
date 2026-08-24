@@ -142,7 +142,33 @@ export function AdminDashboard({
         ) : tab === "cindy" ? (
           <CindyWorkspace data={data} actions={cindyActions} />
         ) : tab === "inventory" ? (
-          <CatalogExplorer data={data} busy={busy} actions={catalogActions} />
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-brand/25 bg-brand-soft/30 p-5">
+              <div className="flex items-start gap-3">
+                <span
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl text-primary-foreground"
+                  style={{ background: "var(--gradient-brand)" }}
+                >
+                  <Sparkles className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold">Ajouter un produit avec Cindy</p>
+                  <p className="text-xs text-foreground/60">
+                    Donnez une référence, Cindy recherche les informations officielles pour vous.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTab("cindy")}
+                className="rounded-full px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+                style={{ background: "var(--gradient-brand)" }}
+              >
+                Rechercher avec Cindy
+              </button>
+            </div>
+            <CatalogExplorer data={data} busy={busy} actions={catalogActions} />
+          </div>
         ) : (
           <form
             onSubmit={async (e) => {
