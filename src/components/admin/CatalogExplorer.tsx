@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  Box,
   ChevronRight,
   Folder,
   FolderPlus,
@@ -11,9 +12,11 @@ import {
   Plus,
   Tag,
   Trash2,
+  Zap,
 } from "lucide-react";
 import {
   LEVEL_LABELS,
+  canHoldProducts,
   childrenOf,
   pathOf,
   productsIn,
@@ -25,7 +28,7 @@ import {
 import { ProductForm, type ProductDraft } from "@/components/admin/ProductForm";
 import { cn } from "@/lib/utils";
 
-const LEVEL_ICON: Record<NodeLevel, typeof Folder> = { 1: Folder, 2: Layers, 3: Tag };
+const LEVEL_ICON: Record<NodeLevel, typeof Folder> = { 1: Folder, 2: Layers, 3: Tag, 4: Box };
 
 export type CatalogActions = {
   createNode: (parentId: string | null, name: string) => Promise<void>;
@@ -34,6 +37,11 @@ export type CatalogActions = {
   deleteNode: (id: string) => Promise<void>;
   nodeImpact: (id: string) => Promise<{ folders: number; products: number }>;
   saveProduct: (draft: ProductDraft & { node_id: string }) => Promise<void>;
+  quickCreate: (
+    fromId: string | null,
+    folders: string[],
+    draft: ProductDraft,
+  ) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
 };
 
