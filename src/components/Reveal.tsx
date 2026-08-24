@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type ElementType, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-type Variant = "up" | "left" | "right" | "zoom";
+type Variant = "up" | "left" | "right" | "zoom" | "blur";
 
 const VARIANTS: Record<Variant, string> = {
   up: "reveal",
   left: "reveal-left",
   right: "reveal-right",
   zoom: "reveal-zoom",
+  blur: "reveal-blur",
 };
 
 export function Reveal({
@@ -38,7 +39,7 @@ export function Reveal({
           }
         }
       },
-      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" },
+      { threshold: 0.08, rootMargin: "0px 0px -8% 0px" },
     );
     observer.observe(el);
     return () => observer.disconnect();
