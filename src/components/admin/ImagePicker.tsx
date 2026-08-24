@@ -27,6 +27,8 @@ export function ImagePicker({
   const [mode, setMode] = useState<"upload" | "url">(startsHttp ? "url" : "upload");
   const [url, setUrl] = useState(startsHttp ? (initialPath as string) : "");
   const fileRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+
 
   const field =
     "w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/25";
