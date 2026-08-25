@@ -349,3 +349,74 @@ export const adminForgetResearchMemory = createServerFn({ method: "POST" })
     const { forgetResearchMemory } = await import("./admin.server");
     return forgetResearchMemory(data.id);
   });
+
+
+/* ---------- Google sign-in & authorized emails ---------- */
+
+export const adminGoogleLogin = createServerFn({ method: "POST" })
+  .inputValidator((data: { accessToken: string }) => ({
+    accessToken: String(data.accessToken ?? "").slice(0, 4000),
+  }))
+  .handler(async ({ data }) => {
+    const { loginWithGoogle } = await import("./admin.server");
+    return loginWithGoogle(data.accessToken);
+  });
+
+export const adminListEmails = createServerFn({ method: "GET" }).handler(async () => {
+  const { listAdminEmails } = await import("./admin.server");
+  return listAdminEmails();
+});
+
+export const adminAddEmail = createServerFn({ method: "POST" })
+  .inputValidator((data: { email: string; role: "super" | "staff" }) => ({
+    email: String(data.email ?? "").slice(0, 160),
+    role: data.role === "super" ? ("super" as const) : ("staff" as const),
+  }))
+  .handler(async ({ data }) => {
+    const { addAdminEmail } = await import("./admin.server");
+    return addAdminEmail(data.email, data.role);
+  });
+
+export const adminDeleteEmail = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => ({ id: String(data.id) }))
+  .handler(async ({ data }) => {
+    const { deleteAdminEmail } = await import("./admin.server");
+    return deleteAdminEmail(data.id);
+  });
+
+/* ---------- Cindy research API settings ---------- */
+
+export const adminGetSearchSettings = createServerFn({ method: "GET" }).handler(async () => {
+  const { getSearchSettings } = await import("./admin.server");
+  return getSearchSettings();
+});
+
+export const adminSaveSearchSettings = createServerFn({ method: "POST" })
+  .inputValidator((data: { provider: string; key: string | null; test?: boolean }) => ({
+    provider: String(data.provider) as "tavily" | "serper" | "brave",
+    key: data.key ? String(data.key).slice(0, 300) : null,
+    test: Boolean(data.test),
+  }))
+  .handler(async ({ data }) => {
+    const { saveSearchSettings } = await import("./admin.server");
+    return saveSearchSettings(data);
+  });
+
+/* ---------- Image maintenance ---------- */
+
+export const adminListImages = createServerFn({ method: "GET" }).handler(async () => {
+  const { listAllImages } = await import("./admin.server");
+  return listAllImages();
+});
+
+export const adminReplaceImage = createServerFn({ method: "POST" })
+  .inputValidator((data: { kind: "product" | "node"; id: string; imageData: string; imageName: string }) => ({
+    kind: data.kind === "node" ? ("node" as const) : ("product" as const),
+    id: String(data.id),
+    imageData: String(data.imageData ?? ""),
+    imageName: String(data.imageName ?? "image.jpg"),
+  }))
+  .handler(async ({ data }) => {
+    const { replaceImage } = await import("./admin.server");
+    return replaceImage(data);
+  });
