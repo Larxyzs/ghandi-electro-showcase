@@ -49,40 +49,112 @@ function guessBrand(query: string) {
 
 export type SearchHit = { url: string; title: string; content: string };
 
-/** Tavily is the only search layer. One request = one "search". */
-async function searxSearch(query: string, opts: { max?: number } = {}): Promise<SearchHit[]> {
-  const key = (process.env["TAVILY_API_KEY"] ?? "").trim();
-  if (!key) throw new Error("SEARCH_NOT_CONFIGURED");
+export type SearchProvider = "tavily" | "serper" | "brave";
 
-  const res = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({
-      query,
-      search_depth: "basic",
-      max_results: Math.min(opts.max ?? 10, 20),
-    }),
-  });
+/** Provider + key are admin-configurable (site_settings), with env fallback. */
+async function searchConfig(): Promise<{ provider: SearchProvider; key: string }> {
+  let provider: SearchProvider = "tavily";
+  let key = "";
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("site_settings")
+      .select("search_provider, search_api_key")
+      .eq("id", "default")
+      .maybeSingle();
+    const stored = (data?.search_provider ?? "tavily") as SearchProvider;
+    if (stored === "serper" || stored === "brave" || stored === "tavily") provider = stored;
+    key = (data?.search_api_key ?? "").trim();
+  } catch {
+    /* fall back to env */
+  }
+  if (!key) key = (process.env["TAVILY_API_KEY"] ?? "").trim();
+  return { provider, key };
+}
+
+/** One request = one "search". Provider is swappable from the admin panel. */
+async function searxSearch(query: string, opts: { max?: number } = {}): Promise<SearchHit[]> {
+  const { provider, key } = await searchConfig();
+  if (!key) throw new Error("SEARCH_NOT_CONFIGURED");
+  const max = Math.min(opts.max ?? 10, 20);
+
+  let res: Response;
+  if (provider === "serper") {
+    res = await fetch("https://google.serper.dev/search", {
+      method: "POST",
+      headers: { "X-API-KEY": key, "Content-Type": "application/json" },
+      body: JSON.stringify({ q: query, num: max }),
+    });
+  } else if (provider === "brave") {
+    res = await fetch(
+      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${max}`,
+      { headers: { "X-Subscription-Token": key, Accept: "application/json" } },
+    );
+  } else {
+    res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ query, search_depth: "basic", max_results: max }),
+    });
+  }
+
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    if (res.status === 401 || res.status === 403) throw new Error("SEARCH_KEY_INVALID");
     throw new Error(`SEARCH_FAILED: ${res.status} ${text.slice(0, 160)}`);
   }
+
   const json = (await res.json()) as {
     results?: { url?: string; title?: string; content?: string }[];
+    organic?: { link?: string; title?: string; snippet?: string }[];
+    web?: { results?: { url?: string; title?: string; description?: string }[] };
   };
+  const raw: { url?: string; title?: string; content?: string }[] =
+    provider === "serper"
+      ? (json.organic ?? []).map((r) => ({ url: r.link, title: r.title, content: r.snippet }))
+      : provider === "brave"
+        ? (json.web?.results ?? []).map((r) => ({
+            url: r.url,
+            title: r.title,
+            content: r.description,
+          }))
+        : (json.results ?? []);
+
   const hits: SearchHit[] = [];
   const seen = new Set<string>();
-  for (const r of json.results ?? []) {
+  for (const r of raw) {
     if (!r.url || !/^https?:\/\//.test(r.url) || seen.has(r.url)) continue;
     seen.add(r.url);
     hits.push({ url: r.url, title: r.title ?? domainOf(r.url), content: r.content ?? "" });
-    if (hits.length >= (opts.max ?? 10)) break;
+    if (hits.length >= max) break;
   }
   return hits;
 }
+
+/** Lightweight connectivity test used by the admin "changer l'API" panel. */
+export async function testSearchProvider(provider: SearchProvider, key: string) {
+  const previous = { provider, key };
+  void previous;
+  try {
+    const hits = await (async () => {
+      const saved = searchOverride;
+      searchOverride = { provider, key };
+      try {
+        return await searxSearch("samsung refrigerateur", { max: 3 });
+      } finally {
+        searchOverride = saved;
+      }
+    })();
+    return { ok: hits.length > 0, results: hits.length, message: "" };
+  } catch (error) {
+    return {
+      ok: false,
+      results: 0,
+      message: error instanceof Error ? error.message : "SEARCH_FAILED",
+    };
+  }
+}
+
 
 
 /** Reads a page directly (no search credit) and returns its text plus image URLs. */

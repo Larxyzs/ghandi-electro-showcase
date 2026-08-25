@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound, useLoaderData } from "@tanstack/react-router";
-import { ArrowLeft, PackageSearch, Phone } from "lucide-react";
+import { ArrowLeft, PackageSearch, Phone, ShoppingCart } from "lucide-react";
 import { SiteLayout } from "@/components/SiteLayout";
 import { ProductStory } from "@/components/ProductStory";
 import { Reveal } from "@/components/Reveal";
@@ -7,6 +7,7 @@ import { ZoomImage } from "@/components/ZoomImage";
 import { useI18n } from "@/lib/i18n";
 import { pathOf, type SiteData } from "@/lib/catalog-types";
 import { COMPANY, productWhatsappMessage, whatsappLink } from "@/lib/company";
+import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/produits/article/$productId")({
@@ -39,6 +40,7 @@ export const Route = createFileRoute("/produits/article/$productId")({
 
 function ProductDetail() {
   const { t } = useI18n();
+  const { add } = useCart();
   const { productId } = Route.useParams();
   const data = useLoaderData({ from: "__root__" }) as SiteData;
   const product = data.products.find((p) => p.id === productId);
@@ -155,9 +157,29 @@ function ProductDetail() {
               </div>
             )}
 
+            {inStock && (
+              <button
+                type="button"
+                onClick={() =>
+                  add({
+                    product_id: product.id,
+                    name: product.name,
+                    brand: product.brand ?? "",
+                    price: product.price ?? 0,
+                    image_url: product.image_url,
+                    stock: product.stock,
+                  })
+                }
+                className="mt-10 flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-soft)] transition-transform hover:scale-[1.02] active:scale-[0.98] sm:w-auto"
+                style={{ background: "var(--gradient-brand)" }}
+              >
+                <ShoppingCart className="h-4 w-4" /> Ajouter au panier
+              </button>
+            )}
+
             <a
               href={COMPANY.phoneHref}
-              className="mt-10 inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-soft)] transition-transform hover:scale-[1.03]"
+              className="mt-4 inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-soft)] transition-transform hover:scale-[1.03]"
               style={{ background: "var(--gradient-brand)" }}
             >
               <Phone className="h-4 w-4" /> {t("product.ask")}

@@ -1,11 +1,29 @@
 import { Link } from "@tanstack/react-router";
-import { PackageSearch } from "lucide-react";
+import { PackageSearch, ShoppingCart } from "lucide-react";
 import type { Product } from "@/lib/catalog-types";
 import { useI18n } from "@/lib/i18n";
+import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
 
 export function ProductCard({ product }: { product: Product }) {
   const { t } = useI18n();
+  const { add } = useCart();
+  const inStock = product.stock > 0;
+
+  const handleAdd = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!inStock) return;
+    add({
+      product_id: product.id,
+      name: product.name,
+      brand: product.brand ?? "",
+      price: product.price ?? 0,
+      image_url: product.image_url,
+      stock: product.stock,
+    });
+  };
+
   return (
     <Link
       to="/produits/article/$productId"
@@ -49,11 +67,27 @@ export function ProductCard({ product }: { product: Product }) {
           </p>
         )}
         <p className="mt-3 line-clamp-2 text-sm text-foreground/65">{product.characteristics}</p>
-        {product.price !== null && (
-          <p className="mt-4 text-lg font-bold text-brand">
-            {product.price.toLocaleString("fr-MA")} MAD
-          </p>
-        )}
+        <div className="mt-4 flex items-center justify-between gap-3">
+          {product.price !== null ? (
+            <p className="text-lg font-bold text-brand">
+              {product.price.toLocaleString("fr-MA")} MAD
+            </p>
+          ) : (
+            <span />
+          )}
+          {inStock && (
+            <button
+              type="button"
+              onClick={handleAdd}
+              aria-label="Ajouter au panier"
+              className="flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-[var(--shadow-soft)] transition-transform hover:scale-105 active:scale-95"
+              style={{ background: "var(--gradient-brand)" }}
+            >
+              <ShoppingCart className="h-3.5 w-3.5" />
+              Ajouter
+            </button>
+          )}
+        </div>
       </div>
     </Link>
   );
