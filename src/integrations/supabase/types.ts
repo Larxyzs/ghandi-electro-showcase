@@ -17,6 +17,7 @@ export type Database = {
       admin_users: {
         Row: {
           created_at: string
+          email: string | null
           id: string
           password_hash: string
           role: string
@@ -25,6 +26,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          email?: string | null
           id?: string
           password_hash: string
           role?: string
@@ -33,6 +35,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          email?: string | null
           id?: string
           password_hash?: string
           role?: string
@@ -199,6 +202,51 @@ export type Database = {
         }
         Relationships: []
       }
+      orders: {
+        Row: {
+          address: string
+          city: string
+          created_at: string
+          full_name: string
+          id: string
+          items: Json
+          note: string
+          phone: string
+          reference: string
+          status: string
+          total: number | null
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          city?: string
+          created_at?: string
+          full_name: string
+          id?: string
+          items?: Json
+          note?: string
+          phone: string
+          reference?: string
+          status?: string
+          total?: number | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          city?: string
+          created_at?: string
+          full_name?: string
+          id?: string
+          items?: Json
+          note?: string
+          phone?: string
+          reference?: string
+          status?: string
+          total?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       popular_searches: {
         Row: {
           created_at: string
@@ -295,6 +343,8 @@ export type Database = {
         Row: {
           id: string
           primary_color: string
+          search_api_key: string | null
+          search_provider: string
           secondary_color: string
           site_mode: string
           text_color: string
@@ -303,6 +353,8 @@ export type Database = {
         Insert: {
           id?: string
           primary_color?: string
+          search_api_key?: string | null
+          search_provider?: string
           secondary_color?: string
           site_mode?: string
           text_color?: string
@@ -311,6 +363,8 @@ export type Database = {
         Update: {
           id?: string
           primary_color?: string
+          search_api_key?: string | null
+          search_provider?: string
           secondary_color?: string
           site_mode?: string
           text_color?: string
