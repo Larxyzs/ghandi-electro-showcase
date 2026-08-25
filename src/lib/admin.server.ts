@@ -847,3 +847,171 @@ export async function forgetResearchMemory(id: string) {
   if (error) throw new Error(error.message);
   return { ok: true };
 }
+
+/* ---------- Google sign-in (authorized admin emails) ---------- */
+
+/** Emails allowed to open the admin panel with Google. */
+export async function listAdminEmails() {
+  const db = await requireSuperAdmin();
+  const { data, error } = await db
+    .from("admin_emails")
+    .select("id, email, role, created_at")
+    .order("created_at");
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    email: row.email,
+    role: (row.role === "super" ? "super" : "staff") as AdminRole,
+    created_at: row.created_at,
+  }));
+}
+
+export async function addAdminEmail(email: string, role: AdminRole) {
+  const db = await requireSuperAdmin();
+  const value = email.trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(value)) throw new Error("INVALID_EMAIL");
+  const { error } = await db
+    .from("admin_emails")
+    .insert({ email: value, role: role === "super" ? "super" : "staff" });
+  if (error) throw new Error(error.code === "23505" ? "EMAIL_TAKEN" : error.message);
+  return { ok: true as const };
+}
+
+export async function deleteAdminEmail(id: string) {
+  const db = await requireSuperAdmin();
+  const { error } = await db.from("admin_emails").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  return { ok: true as const };
+}
+
+/**
+ * Exchanges a Google (Supabase) access token for an admin session.
+ * Only emails present in `admin_emails` are accepted.
+ */
+export async function loginWithGoogle(accessToken: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: userData, error } = await supabaseAdmin.auth.getUser(accessToken);
+  const email = userData?.user?.email?.toLowerCase() ?? "";
+  if (error || !email) return { ok: false as const, reason: "INVALID_TOKEN" as const, email: "" };
+
+  const { data: allowed } = await supabaseAdmin
+    .from("admin_emails")
+    .select("email, role")
+    .ilike("email", email)
+    .maybeSingle();
+
+  const { count } = await supabaseAdmin
+    .from("admin_emails")
+    .select("id", { count: "exact", head: true });
+
+  // Bootstrap: when no email is authorized yet, the first Google sign-in becomes
+  // the super admin so the founder can set the list up from the panel itself.
+  if (!allowed && (count ?? 0) === 0) {
+    await supabaseAdmin.from("admin_emails").insert({ email, role: "super" });
+  } else if (!allowed) {
+    return { ok: false as const, reason: "NOT_AUTHORIZED" as const, email };
+  }
+
+  const role: AdminRole = !allowed || allowed.role === "super" ? "super" : "staff";
+  const session = await useSession<AdminSession>(sessionConfig());
+  await session.update({ unlocked: true, username: email, role });
+  return { ok: true as const, reason: "OK" as const, email, role };
+}
+
+/* ---------- Cindy: swappable research API ---------- */
+
+export type SearchProviderId = "tavily" | "serper" | "brave";
+
+export async function getSearchSettings() {
+  const db = await requireAdmin();
+  const { data } = await db
+    .from("site_settings")
+    .select("search_provider, search_api_key")
+    .eq("id", "default")
+    .maybeSingle();
+  const provider = (data?.search_provider ?? "tavily") as SearchProviderId;
+  const key = data?.search_api_key ?? "";
+  return {
+    provider,
+    hasKey: Boolean(key) || Boolean(process.env["TAVILY_API_KEY"]),
+    keyPreview: key ? `••••${key.slice(-4)}` : process.env["TAVILY_API_KEY"] ? "clé système" : "",
+  };
+}
+
+export async function saveSearchSettings(input: {
+  provider: SearchProviderId;
+  key: string | null;
+  test?: boolean;
+}) {
+  const db = await requireAdmin();
+  const provider: SearchProviderId = (["tavily", "serper", "brave"] as const).includes(
+    input.provider,
+  )
+    ? input.provider
+    : "tavily";
+  const key = (input.key ?? "").trim();
+
+  let test: { ok: boolean; results: number; message: string } | null = null;
+  if (input.test && key) {
+    const { testSearchProvider } = await import("./cindy.server");
+    test = await testSearchProvider(provider, key);
+  }
+
+  const payload: { search_provider: string; search_api_key?: string } = {
+    search_provider: provider,
+  };
+  if (key) payload.search_api_key = key;
+  const { error } = await db.from("site_settings").update(payload).eq("id", "default");
+  if (error) throw new Error(error.message);
+  return { ok: true as const, test };
+}
+
+/* ---------- Image maintenance (batch optimisation) ---------- */
+
+/** Every catalog image, used by the admin image optimiser. */
+export async function listAllImages() {
+  const db = await requireAdmin();
+  const [{ data: products }, { data: nodes }] = await Promise.all([
+    db.from("products").select("id, name, image_url").order("name"),
+    db.from("catalog_nodes").select("id, name, image_url").order("name"),
+  ]);
+  const sign = async (path: string | null) => {
+    if (!path) return null;
+    if (path.startsWith("http")) return path;
+    const { data } = await db.storage.from("product-images").createSignedUrl(path, 60 * 60);
+    return data?.signedUrl ?? null;
+  };
+  const items: { id: string; kind: "product" | "node"; label: string; imageUrl: string | null }[] =
+    [];
+  for (const row of products ?? []) {
+    items.push({ id: row.id, kind: "product", label: row.name, imageUrl: await sign(row.image_url) });
+  }
+  for (const row of nodes ?? []) {
+    items.push({ id: row.id, kind: "node", label: row.name, imageUrl: await sign(row.image_url) });
+  }
+  return items;
+}
+
+/** Replaces a product/folder image with an already-optimised data URL. */
+export async function replaceImage(input: {
+  kind: "product" | "node";
+  id: string;
+  imageData: string;
+  imageName: string;
+}) {
+  const db = await requireAdmin();
+  const table = input.kind === "product" ? "products" : "catalog_nodes";
+  const { data: existing } = await db
+    .from(table)
+    .select("image_url")
+    .eq("id", input.id)
+    .maybeSingle();
+  const path = await uploadImageFromDataUrl(db, input.imageData, input.imageName);
+  const { error } = await db.from(table).update({ image_url: path }).eq("id", input.id);
+  if (error) throw new Error(error.message);
+  const previous = existing?.image_url;
+  if (previous && !previous.startsWith("http")) {
+    await db.storage.from("product-images").remove([previous]);
+  }
+  return { ok: true as const };
+}
