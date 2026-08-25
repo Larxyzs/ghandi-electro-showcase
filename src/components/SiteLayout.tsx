@@ -1,10 +1,12 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { Menu, Phone, X, MapPin } from "lucide-react";
+import { Menu, Phone, X, MapPin, ShoppingCart } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { HeaderSearch } from "@/components/HeaderSearch";
 import { WhatsAppFloating } from "@/components/WhatsAppFloating";
+import { CartDrawer } from "@/components/CartDrawer";
+import { useCart } from "@/lib/cart";
 import { useI18n } from "@/lib/i18n";
 import { COMPANY } from "@/lib/company";
 
@@ -39,6 +41,8 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 export function SiteLayout({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
+  const { count } = useCart();
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -61,6 +65,19 @@ export function SiteLayout({ children }: { children: ReactNode }) {
           <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
             <HeaderSearch />
             <LanguageSwitcher />
+            <button
+              type="button"
+              onClick={() => setCartOpen(true)}
+              aria-label="Panier"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-border text-foreground/80 transition-colors hover:border-brand/40 hover:text-brand"
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {count > 0 && (
+                <span className="absolute -top-1 -end-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-[0.65rem] font-bold text-primary-foreground">
+                  {count > 99 ? "99+" : count}
+                </span>
+              )}
+            </button>
             <a
               href={COMPANY.phoneHref}
               className="hidden items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-soft)] transition-transform hover:scale-[1.03] lg:flex"
@@ -97,6 +114,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
       <main className="flex-1">{children}</main>
 
       <WhatsAppFloating />
+      <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
 
       <footer className="mt-24 border-t border-border bg-brand-soft/60">
         <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 py-14 sm:grid-cols-2 lg:grid-cols-3">

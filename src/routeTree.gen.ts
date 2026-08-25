@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AProposRouteImport } from './routes/a-propos'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as PanierRouteImport } from './routes/panier'
 import { Route as ProduitsIndexRouteImport } from './routes/produits.index'
 import { Route as ProduitsSplatRouteImport } from './routes/produits.$'
 import { Route as ApiAdminCheckImageRouteImport } from './routes/api/admin/check-image'
@@ -38,6 +39,11 @@ const AdminRoute = AdminRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PanierRoute = PanierRouteImport.update({
+  id: '/panier',
+  path: '/panier',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProduitsIndexRoute = ProduitsIndexRouteImport.update({
@@ -77,6 +83,7 @@ export interface FileRoutesByFullPath {
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
   '/contact': typeof ContactRoute
+  '/panier': typeof PanierRoute
   '/produits/$': typeof ProduitsSplatRoute
   '/produits/': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByTo {
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
   '/contact': typeof ContactRoute
+  '/panier': typeof PanierRoute
   '/produits/$': typeof ProduitsSplatRoute
   '/produits': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
@@ -102,6 +110,7 @@ export interface FileRoutesById {
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
   '/contact': typeof ContactRoute
+  '/panier': typeof PanierRoute
   '/produits/$': typeof ProduitsSplatRoute
   '/produits/': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/a-propos'
     | '/admin'
     | '/contact'
+    | '/panier'
     | '/produits/$'
     | '/produits/'
     | '/api/admin/check-image'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/a-propos'
     | '/admin'
     | '/contact'
+    | '/panier'
     | '/produits/$'
     | '/produits'
     | '/api/admin/check-image'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/a-propos'
     | '/admin'
     | '/contact'
+    | '/panier'
     | '/produits/$'
     | '/produits/'
     | '/api/admin/check-image'
@@ -153,6 +165,7 @@ export interface RootRouteChildren {
   AProposRoute: typeof AProposRoute
   AdminRoute: typeof AdminRoute
   ContactRoute: typeof ContactRoute
+  PanierRoute: typeof PanierRoute
   ProduitsSplatRoute: typeof ProduitsSplatRoute
   ProduitsIndexRoute: typeof ProduitsIndexRoute
   ApiAdminCheckImageRoute: typeof ApiAdminCheckImageRoute
@@ -189,6 +202,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/panier': {
+      id: '/panier'
+      path: '/panier'
+      fullPath: '/panier'
+      preLoaderRoute: typeof PanierRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/produits/': {
@@ -241,6 +261,7 @@ const rootRouteChildren: RootRouteChildren = {
   AProposRoute: AProposRoute,
   AdminRoute: AdminRoute,
   ContactRoute: ContactRoute,
+  PanierRoute: PanierRoute,
   ProduitsSplatRoute: ProduitsSplatRoute,
   ProduitsIndexRoute: ProduitsIndexRoute,
   ApiAdminCheckImageRoute: ApiAdminCheckImageRoute,
