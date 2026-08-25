@@ -73,11 +73,14 @@ export type AdminIdentity = { username: string; role: AdminRole };
 export async function currentAdmin(): Promise<AdminIdentity | null> {
   const session = await useSession<AdminSession>(sessionConfig());
   if (!session.data.unlocked || !session.data.username) return null;
+  const username = session.data.username;
   return {
-    username: session.data.username,
-    role: session.data.role === "super" ? "super" : "staff",
+    username,
+    // Older sessions predate the role field: the founder account is always super.
+    role: session.data.role === "super" || username === SUPER_ADMIN_USERNAME ? "super" : "staff",
   };
 }
+
 
 export async function login(
   username: string,
