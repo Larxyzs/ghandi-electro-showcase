@@ -17,6 +17,7 @@ import { SiteTheme } from "../components/SiteTheme";
 import { SiteModeGate } from "../components/SiteModeGate";
 import { ScrollProgress } from "../components/ScrollProgress";
 import { I18nProvider } from "../lib/i18n";
+import { CartProvider } from "../lib/cart";
 
 function NotFoundComponent() {
   return (
@@ -146,12 +147,14 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
-        <SiteTheme settings={data?.settings ?? DEFAULT_SETTINGS} />
-        <ScrollProgress />
-        <SiteModeGate mode={data?.settings?.site_mode ?? "online"}>
-          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <Outlet />
-        </SiteModeGate>
+        <CartProvider>
+          <SiteTheme settings={data?.settings ?? DEFAULT_SETTINGS} />
+          <ScrollProgress />
+          <SiteModeGate mode={data?.settings?.site_mode ?? "online"}>
+            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+            <Outlet />
+          </SiteModeGate>
+        </CartProvider>
       </I18nProvider>
     </QueryClientProvider>
   );
