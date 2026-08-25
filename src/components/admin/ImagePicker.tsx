@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, ImagePlus, Loader2, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ImagePlus, Loader2, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { normalizeImage } from "@/lib/image-tools";
 
 type ImageVerdict = {
   verdict: "good" | "warn" | "bad";
@@ -48,7 +49,10 @@ export function ImagePicker({
   const [checking, setChecking] = useState(false);
   const [verdict, setVerdict] = useState<ImageVerdict | null>(null);
   const [checkError, setCheckError] = useState<string | null>(null);
+  const [optimizedNote, setOptimizedNote] = useState<string | null>(null);
+  const [fixing, setFixing] = useState(false);
   const checkToken = useRef(0);
+  const lastSourceRef = useRef<{ raw: string; kind: "data" | "url" } | null>(null);
 
   /** Asks Cindy to confirm the image is a clean, well-scaled product shot. */
   const checkImage = async (source: string) => {
@@ -95,20 +99,60 @@ export function ImagePicker({
   const field =
     "w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/25";
 
-  const onFile = (file: File) => {
+  const applyNormalizedData = (
+    result: { dataUrl: string; name: string; width: number; height: number; changed: boolean },
+  ) => {
+    setPreview(result.dataUrl);
+    setOptimizedNote(result.changed ? `Image optimisée · ${result.width}×${result.height}` : null);
+    onChange({ imageData: result.dataUrl, imageName: result.name, imageUrl: null, removeImage: false });
+    onError?.(null);
+    lastSourceRef.current = { raw: result.dataUrl, kind: "data" };
+    void checkImage(result.dataUrl);
+  };
+
+  const onFile = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) {
       onError?.("Image trop volumineuse (5 Mo maximum).");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = String(reader.result);
-      setPreview(result);
-      onChange({ imageData: result, imageName: file.name, imageUrl: null, removeImage: false });
+    try {
+      const result = await normalizeImage(file);
+      applyNormalizedData(result);
+    } catch (error) {
+      onError?.(error instanceof Error ? error.message : "Impossible de traiter cette image.");
+    }
+  };
+
+  const onUrlCommitted = async (value: string) => {
+    if (!/^https?:\/\//.test(value)) return;
+    try {
+      const result = await normalizeImage(value);
+      setOptimizedNote(result.changed ? `Image optimisée · ${result.width}×${result.height}` : null);
+      lastSourceRef.current = { raw: result.dataUrl, kind: "data" };
+      onChange({ imageData: result.dataUrl, imageName: result.name, imageUrl: null, removeImage: false });
       onError?.(null);
-      void checkImage(result);
-    };
-    reader.readAsDataURL(file);
+      void checkImage(result.dataUrl);
+    } catch {
+      // Likely a CORS-restricted remote image: keep the URL as-is.
+      setOptimizedNote("Image externe non optimisée (accès restreint) — lien conservé tel quel.");
+      lastSourceRef.current = { raw: value, kind: "url" };
+      void checkImage(value);
+    }
+  };
+
+  const runAutoFix = async () => {
+    const current = lastSourceRef.current;
+    const source = current?.raw ?? preview;
+    if (!source) return;
+    setFixing(true);
+    try {
+      const result = await normalizeImage(source);
+      applyNormalizedData(result);
+    } catch (error) {
+      onError?.(error instanceof Error ? error.message : "Correction automatique impossible.");
+    } finally {
+      setFixing(false);
+    }
   };
 
   return (
@@ -162,7 +206,7 @@ export function ImagePicker({
               const file = Array.from(e.dataTransfer.files).find((f) =>
                 f.type.startsWith("image/"),
               );
-              if (file) onFile(file);
+              if (file) void onFile(file);
               else onError?.("Déposez un fichier image (JPG, PNG, WebP…).");
             }}
             onPaste={(e) => {
@@ -171,7 +215,7 @@ export function ImagePicker({
               );
               if (file) {
                 e.preventDefault();
-                onFile(file);
+                void onFile(file);
               }
             }}
             className={`flex flex-1 flex-wrap items-center gap-2 rounded-xl border-2 border-dashed p-3 transition-colors ${
@@ -185,7 +229,7 @@ export function ImagePicker({
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) onFile(file);
+                if (file) void onFile(file);
                 e.target.value = "";
               }}
             />
@@ -205,6 +249,8 @@ export function ImagePicker({
                 onClick={() => {
                   setPreview(null);
                   setUrl("");
+                  setOptimizedNote(null);
+                  lastSourceRef.current = null;
                   clearCheck();
                   onChange({ imageData: null, imageName: null, imageUrl: null, removeImage: true });
                 }}
@@ -226,6 +272,8 @@ export function ImagePicker({
                 const value = e.target.value;
                 setUrl(value);
                 setPreview(value.trim() ? value.trim() : null);
+                setOptimizedNote(null);
+                lastSourceRef.current = value.trim() ? { raw: value.trim(), kind: "url" } : null;
                 clearCheck();
                 onChange({
                   imageData: null,
@@ -236,7 +284,7 @@ export function ImagePicker({
               }}
               onBlur={() => {
                 const value = url.trim();
-                if (/^https?:\/\//.test(value)) void checkImage(value);
+                if (value) void onUrlCommitted(value);
               }}
             />
           </label>
@@ -245,6 +293,10 @@ export function ImagePicker({
 
       {preview && (
         <div className="mt-3 space-y-2">
+          {optimizedNote && (
+            <p className="text-xs font-medium text-brand-deep">{optimizedNote}</p>
+          )}
+
           {checking && (
             <p className="flex items-center gap-2 text-xs font-semibold text-foreground/60">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" /> Cindy vérifie l'image
@@ -283,18 +335,36 @@ export function ImagePicker({
             <p className="text-xs font-semibold text-foreground/55">{checkError}</p>
           )}
 
-          {!checking && (
-            <button
-              type="button"
-              onClick={() => {
-                const source = preview;
-                if (source) void checkImage(source);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-semibold text-foreground/70 hover:border-brand hover:text-brand"
-            >
-              <Sparkles className="h-3.5 w-3.5" /> {verdict || checkError ? "Revérifier" : "Vérifier avec Cindy"}
-            </button>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {!checking && (
+              <button
+                type="button"
+                onClick={() => {
+                  const source = preview;
+                  if (source) void checkImage(source);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-semibold text-foreground/70 hover:border-brand hover:text-brand"
+              >
+                <Sparkles className="h-3.5 w-3.5" /> {verdict || checkError ? "Revérifier" : "Vérifier avec Cindy"}
+              </button>
+            )}
+
+            {!checking && verdict && (verdict.verdict === "warn" || verdict.verdict === "bad") && (
+              <button
+                type="button"
+                onClick={() => void runAutoFix()}
+                disabled={fixing}
+                className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3.5 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+              >
+                {fixing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Wand2 className="h-3.5 w-3.5" />
+                )}
+                Corriger automatiquement
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
