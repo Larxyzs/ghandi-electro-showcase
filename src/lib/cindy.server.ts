@@ -73,8 +73,11 @@ async function searchConfig(): Promise<{ provider: SearchProvider; key: string }
 }
 
 /** One request = one "search". Provider is swappable from the admin panel. */
-async function searxSearch(query: string, opts: { max?: number } = {}): Promise<SearchHit[]> {
-  const { provider, key } = await searchConfig();
+async function searxSearch(
+  query: string,
+  opts: { max?: number; override?: { provider: SearchProvider; key: string } } = {},
+): Promise<SearchHit[]> {
+  const { provider, key } = opts.override ?? (await searchConfig());
   if (!key) throw new Error("SEARCH_NOT_CONFIGURED");
   const max = Math.min(opts.max ?? 10, 20);
 
@@ -109,7 +112,7 @@ async function searxSearch(query: string, opts: { max?: number } = {}): Promise<
     organic?: { link?: string; title?: string; snippet?: string }[];
     web?: { results?: { url?: string; title?: string; description?: string }[] };
   };
-  const raw: { url?: string; title?: string; content?: string }[] =
+  const raw: { url: string | undefined; title: string | undefined; content: string | undefined }[] =
     provider === "serper"
       ? (json.organic ?? []).map((r) => ({ url: r.link, title: r.title, content: r.snippet }))
       : provider === "brave"
@@ -118,7 +121,11 @@ async function searxSearch(query: string, opts: { max?: number } = {}): Promise<
             title: r.title,
             content: r.description,
           }))
-        : (json.results ?? []);
+        : (json.results ?? []).map((r) => ({
+            url: r.url,
+            title: r.title,
+            content: r.content,
+          }));
 
   const hits: SearchHit[] = [];
   const seen = new Set<string>();
@@ -133,18 +140,8 @@ async function searxSearch(query: string, opts: { max?: number } = {}): Promise<
 
 /** Lightweight connectivity test used by the admin "changer l'API" panel. */
 export async function testSearchProvider(provider: SearchProvider, key: string) {
-  const previous = { provider, key };
-  void previous;
   try {
-    const hits = await (async () => {
-      const saved = searchOverride;
-      searchOverride = { provider, key };
-      try {
-        return await searxSearch("samsung refrigerateur", { max: 3 });
-      } finally {
-        searchOverride = saved;
-      }
-    })();
+    const hits = await searxSearch("samsung refrigerateur", { max: 3, override: { provider, key } });
     return { ok: hits.length > 0, results: hits.length, message: "" };
   } catch (error) {
     return {
@@ -154,6 +151,7 @@ export async function testSearchProvider(provider: SearchProvider, key: string) 
     };
   }
 }
+
 
 
 
