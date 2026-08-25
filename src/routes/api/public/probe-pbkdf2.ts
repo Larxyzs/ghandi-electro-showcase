@@ -4,27 +4,21 @@ export const Route = createFileRoute("/api/public/probe-pbkdf2")({
   server: {
     handlers: {
       GET: async () => {
-        const results: Record<string, string> = {};
-        for (const iterations of [1000, 100_000, 100_001, 120_000]) {
-          try {
-            const key = await crypto.subtle.importKey(
-              "raw",
-              new TextEncoder().encode("test"),
-              "PBKDF2",
-              false,
-              ["deriveBits"],
-            );
-            await crypto.subtle.deriveBits(
-              { name: "PBKDF2", hash: "SHA-256", salt: new Uint8Array(16), iterations },
-              key,
-              256,
-            );
-            results[String(iterations)] = "ok";
-          } catch (error) {
-            results[String(iterations)] = error instanceof Error ? error.message : "err";
-          }
+        const out: Record<string, unknown> = {};
+        try {
+          const { hashPassword } = await import("@/lib/admin.server");
+          const hash = await hashPassword("probe-secret");
+          out["hash_ok"] = hash.slice(0, 20);
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { error } = await supabaseAdmin
+            .from("admin_users")
+            .insert({ username: "probe.fn", password_hash: hash, role: "staff" });
+          out["insert_error"] = error ? { code: error.code, message: error.message } : null;
+          await supabaseAdmin.from("admin_users").delete().eq("username", "probe.fn");
+        } catch (error) {
+          out["threw"] = error instanceof Error ? error.message : String(error);
         }
-        return Response.json(results);
+        return Response.json(out);
       },
     },
   },
