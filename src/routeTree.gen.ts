@@ -18,6 +18,7 @@ import { Route as ProduitsSplatRouteImport } from './routes/produits.$'
 import { Route as ApiAdminCheckImageRouteImport } from './routes/api/admin/check-image'
 import { Route as ApiAdminCindyRouteImport } from './routes/api/admin/cindy'
 import { Route as ApiAdminCindyAgentRouteImport } from './routes/api/admin/cindy-agent'
+import { Route as ApiPublicProbePbkdf2RouteImport } from './routes/api/public/probe-pbkdf2'
 import { Route as ProduitsArticleProductIdRouteImport } from './routes/produits.article.$productId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -65,6 +66,11 @@ const ApiAdminCindyAgentRoute = ApiAdminCindyAgentRouteImport.update({
   path: '/api/admin/cindy-agent',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicProbePbkdf2Route = ApiPublicProbePbkdf2RouteImport.update({
+  id: '/api/public/probe-pbkdf2',
+  path: '/api/public/probe-pbkdf2',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProduitsArticleProductIdRoute =
   ProduitsArticleProductIdRouteImport.update({
     id: '/produits/article/$productId',
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
   '/api/admin/cindy': typeof ApiAdminCindyRoute
   '/api/admin/cindy-agent': typeof ApiAdminCindyAgentRoute
+  '/api/public/probe-pbkdf2': typeof ApiPublicProbePbkdf2Route
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
 }
 export interface FileRoutesByTo {
@@ -94,6 +101,7 @@ export interface FileRoutesByTo {
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
   '/api/admin/cindy': typeof ApiAdminCindyRoute
   '/api/admin/cindy-agent': typeof ApiAdminCindyAgentRoute
+  '/api/public/probe-pbkdf2': typeof ApiPublicProbePbkdf2Route
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
 }
 export interface FileRoutesById {
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
   '/api/admin/cindy': typeof ApiAdminCindyRoute
   '/api/admin/cindy-agent': typeof ApiAdminCindyAgentRoute
+  '/api/public/probe-pbkdf2': typeof ApiPublicProbePbkdf2Route
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
 }
 export interface FileRouteTypes {
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
     | '/api/admin/check-image'
     | '/api/admin/cindy'
     | '/api/admin/cindy-agent'
+    | '/api/public/probe-pbkdf2'
     | '/produits/article/$productId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/api/admin/check-image'
     | '/api/admin/cindy'
     | '/api/admin/cindy-agent'
+    | '/api/public/probe-pbkdf2'
     | '/produits/article/$productId'
   id:
     | '__root__'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/api/admin/check-image'
     | '/api/admin/cindy'
     | '/api/admin/cindy-agent'
+    | '/api/public/probe-pbkdf2'
     | '/produits/article/$productId'
   fileRoutesById: FileRoutesById
 }
@@ -158,6 +170,7 @@ export interface RootRouteChildren {
   ApiAdminCheckImageRoute: typeof ApiAdminCheckImageRoute
   ApiAdminCindyRoute: typeof ApiAdminCindyRoute
   ApiAdminCindyAgentRoute: typeof ApiAdminCindyAgentRoute
+  ApiPublicProbePbkdf2Route: typeof ApiPublicProbePbkdf2Route
   ProduitsArticleProductIdRoute: typeof ProduitsArticleProductIdRoute
 }
 
@@ -226,6 +239,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminCindyAgentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/probe-pbkdf2': {
+      id: '/api/public/probe-pbkdf2'
+      path: '/api/public/probe-pbkdf2'
+      fullPath: '/api/public/probe-pbkdf2'
+      preLoaderRoute: typeof ApiPublicProbePbkdf2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/produits/article/$productId': {
       id: '/produits/article/$productId'
       path: '/produits/article/$productId'
@@ -246,6 +266,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminCheckImageRoute: ApiAdminCheckImageRoute,
   ApiAdminCindyRoute: ApiAdminCindyRoute,
   ApiAdminCindyAgentRoute: ApiAdminCindyAgentRoute,
+  ApiPublicProbePbkdf2Route: ApiPublicProbePbkdf2Route,
   ProduitsArticleProductIdRoute: ProduitsArticleProductIdRoute,
 }
 export const routeTree = rootRouteImport
