@@ -99,11 +99,23 @@ function AdminPage() {
   const undoActionFn = useServerFn(adminUndoAction);
   const recordActionFn = useServerFn(adminRecordAction);
   const setSiteModeFn = useServerFn(adminSetSiteMode);
+  const googleLogin = useServerFn(adminGoogleLogin);
+  const listEmails = useServerFn(adminListEmails);
+  const addEmail = useServerFn(adminAddEmail);
+  const deleteEmail = useServerFn(adminDeleteEmail);
+  const getSearchSettings = useServerFn(adminGetSearchSettings);
+  const saveSearchSettings = useServerFn(adminSaveSearchSettings);
+  const listImages = useServerFn(adminListImages);
+  const replaceImageFn = useServerFn(adminReplaceImage);
+  const listOrders = useServerFn(adminListOrders);
+  const setOrderStatus = useServerFn(adminSetOrderStatus);
+  const deleteOrder = useServerFn(adminDeleteOrder);
 
   const [phase, setPhase] = useState<"loading" | "locked" | "ready">("loading");
   const [data, setData] = useState<SiteData | null>(null);
   const [identity, setIdentity] = useState<{ username: string; role: AdminRole } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setBusy(true);
@@ -124,10 +136,30 @@ function AdminPage() {
       if (result?.authenticated && result.username) {
         setIdentity({ username: result.username, role: (result.role ?? "staff") as AdminRole });
         await refresh();
-      } else setPhase("locked");
+        return;
+      }
+      // Returning from a Google sign-in: exchange the session for an admin cookie.
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (token) {
+        const outcome = await googleLogin({ data: { accessToken: token } }).catch(() => null);
+        if (outcome?.ok) {
+          setIdentity({ username: outcome.email, role: outcome.role as AdminRole });
+          await refresh();
+          return;
+        }
+        await supabase.auth.signOut().catch(() => undefined);
+        setGoogleError(
+          outcome?.reason === "NOT_AUTHORIZED"
+            ? `Le compte ${outcome.email} n'est pas autorisé à accéder à l'administration.`
+            : "Connexion Google impossible.",
+        );
+      }
+      setPhase("locked");
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
