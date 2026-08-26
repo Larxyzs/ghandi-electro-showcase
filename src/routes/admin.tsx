@@ -34,12 +34,24 @@ import {
   adminUndoAction,
   adminRecordAction,
   adminSetSiteMode,
+  adminGoogleLogin,
+  adminListEmails,
+  adminAddEmail,
+  adminDeleteEmail,
+  adminGetSearchSettings,
+  adminSaveSearchSettings,
+  adminListImages,
+  adminReplaceImage,
 } from "@/lib/admin.functions";
+import { adminListOrders, adminSetOrderStatus, adminDeleteOrder } from "@/lib/orders.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { AdminLogin } from "@/components/admin/AdminLogin";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import type { FolderDraft, ProductDraft } from "@/components/admin/ProductForm";
 import type { SiteData, SiteSettings } from "@/lib/catalog-types";
 import type { AdminRole, StaffAccount } from "@/lib/admin-types";
+import type { Order } from "@/lib/orders-types";
+
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
