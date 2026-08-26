@@ -190,6 +190,7 @@ function AdminPage() {
   if (phase === "locked" || !data || !identity) {
     return (
       <AdminLogin
+        googleError={googleError}
         onSubmit={async (username, password) => {
           const { ok, role, username: name } = await login({ data: { username, password } });
           if (ok && name) {
@@ -208,7 +209,37 @@ function AdminPage() {
       busy={busy}
       role={identity.role}
       username={identity.username}
+      orderActions={{
+        list: async () => (await listOrders()) as Order[],
+        setStatus: (id, status) => setOrderStatus({ data: { id, status } }),
+        remove: (id) => deleteOrder({ data: { id } }),
+      }}
+      imageActions={{
+        list: async () => await listImages(),
+        replace: async (item, dataUrl, name) => {
+          await replaceImageFn({
+            data: { kind: item.kind, id: item.id, imageData: dataUrl, imageName: name },
+          });
+        },
+      }}
+      apiActions={{
+        load: async () => await getSearchSettings(),
+        save: async (input) =>
+          await saveSearchSettings({
+            data: { provider: input.provider, key: input.key, test: input.test },
+          }),
+      }}
+      emailActions={{
+        list: async () => await listEmails(),
+        add: async (email, role) => {
+          await addEmail({ data: { email, role } });
+        },
+        remove: async (id) => {
+          await deleteEmail({ data: { id } });
+        },
+      }}
       staffActions={{
+
         list: async () => (await listStaff()) as StaffAccount[],
         create: async (name, password) => {
           await createStaff({ data: { username: name, password } });
