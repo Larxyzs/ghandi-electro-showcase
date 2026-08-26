@@ -9,16 +9,27 @@ import {
   Search,
   Sparkles,
   Users,
+  ShoppingBag,
+  ImageIcon,
+  KeyRound,
+  Mail,
 } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
 import type { SiteData, SiteSettings } from "@/lib/catalog-types";
 import { CatalogExplorer, type CatalogActions } from "@/components/admin/CatalogExplorer";
 import { StaffPanel } from "@/components/admin/StaffPanel";
 import { PopularSearchesPanel } from "@/components/admin/PopularSearchesPanel";
+import { OrdersPanel } from "@/components/admin/OrdersPanel";
+import { ImageOptimizerPanel } from "@/components/admin/ImageOptimizerPanel";
+import { SearchApiPanel, type SearchProviderId } from "@/components/admin/SearchApiPanel";
+import { AdminEmailsPanel, type AdminEmail } from "@/components/admin/AdminEmailsPanel";
 import { CindyWorkspace, type CindyActions } from "@/components/admin/cindy/CindyWorkspace";
 import { SITE_MODE_LABELS, type SiteMode } from "@/lib/catalog-types";
 import type { AdminRole, StaffAccount } from "@/lib/admin-types";
+import type { Order, OrderStatus } from "@/lib/orders-types";
 import { cn } from "@/lib/utils";
+
+type ImageItem = { id: string; kind: "product" | "node"; label: string; imageUrl: string | null };
 
 export function AdminDashboard({
   data,
@@ -29,6 +40,10 @@ export function AdminDashboard({
   catalogActions,
   cindyActions,
   searchActions,
+  orderActions,
+  imageActions,
+  apiActions,
+  emailActions,
   onSetSiteMode,
   onLogout,
   onSaveSettings,
@@ -51,18 +66,50 @@ export function AdminDashboard({
     remove: (id: string) => Promise<void>;
     move: (id: string, direction: "up" | "down") => Promise<void>;
   };
+  orderActions: {
+    list: () => Promise<Order[]>;
+    setStatus: (id: string, status: OrderStatus) => Promise<unknown>;
+    remove: (id: string) => Promise<unknown>;
+  };
+  imageActions: {
+    list: () => Promise<ImageItem[]>;
+    replace: (
+      item: { id: string; kind: "product" | "node" },
+      dataUrl: string,
+      name: string,
+    ) => Promise<void>;
+  };
+  apiActions: {
+    load: () => Promise<{ provider: SearchProviderId; hasKey: boolean; keyPreview: string }>;
+    save: (input: { provider: SearchProviderId; key: string | null; test: boolean }) => Promise<{
+      test: { ok: boolean; results: number; message: string } | null;
+    }>;
+  };
+  emailActions: {
+    list: () => Promise<AdminEmail[]>;
+    add: (email: string, role: AdminRole) => Promise<void>;
+    remove: (id: string) => Promise<void>;
+  };
   onLogout: () => void;
   onSaveSettings: (settings: SiteSettings) => Promise<void>;
 }) {
-  const [tab, setTab] = useState<"inventory" | "cindy" | "design" | "searches" | "staff">(
-    "inventory",
-  );
+  const [tab, setTab] = useState<
+    "inventory" | "orders" | "cindy" | "design" | "searches" | "images" | "api" | "emails" | "staff"
+  >("inventory");
   const [settings, setSettings] = useState<SiteSettings>(data.settings);
   const [saved, setSaved] = useState(false);
+  const [images, setImages] = useState<ImageItem[] | null>(null);
 
   useEffect(() => {
     setSettings(data.settings);
   }, [data.settings]);
+
+  useEffect(() => {
+    if (tab !== "images" || images !== null) return;
+    void imageActions.list().then(setImages).catch(() => setImages([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
 
   return (
     <div className="min-h-screen bg-brand-soft/30">
