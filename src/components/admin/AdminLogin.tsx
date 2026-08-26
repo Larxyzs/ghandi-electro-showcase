@@ -1,22 +1,27 @@
 import { useState } from "react";
 import { Lock, Loader2, User } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
+import { lovable } from "@/integrations/lovable";
 
 export function AdminLogin({
   onSubmit,
+  googleError,
 }: {
   onSubmit: (username: string, password: string) => Promise<boolean>;
+  googleError?: string | null;
 }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
 
   const input =
     "w-full rounded-full border border-border bg-background py-3 ps-11 pe-4 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/30";
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-brand-soft/50 px-5">
+    <div className="flex min-h-screen items-center justify-center bg-brand-soft/50 px-5 py-10">
+
       <form
         onSubmit={async (e) => {
           e.preventDefault();
