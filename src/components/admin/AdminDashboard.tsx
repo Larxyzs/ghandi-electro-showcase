@@ -9,16 +9,27 @@ import {
   Search,
   Sparkles,
   Users,
+  ShoppingBag,
+  ImageIcon,
+  KeyRound,
+  Mail,
 } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
 import type { SiteData, SiteSettings } from "@/lib/catalog-types";
 import { CatalogExplorer, type CatalogActions } from "@/components/admin/CatalogExplorer";
 import { StaffPanel } from "@/components/admin/StaffPanel";
 import { PopularSearchesPanel } from "@/components/admin/PopularSearchesPanel";
+import { OrdersPanel } from "@/components/admin/OrdersPanel";
+import { ImageOptimizerPanel } from "@/components/admin/ImageOptimizerPanel";
+import { SearchApiPanel, type SearchProviderId } from "@/components/admin/SearchApiPanel";
+import { AdminEmailsPanel, type AdminEmail } from "@/components/admin/AdminEmailsPanel";
 import { CindyWorkspace, type CindyActions } from "@/components/admin/cindy/CindyWorkspace";
 import { SITE_MODE_LABELS, type SiteMode } from "@/lib/catalog-types";
 import type { AdminRole, StaffAccount } from "@/lib/admin-types";
+import type { Order, OrderStatus } from "@/lib/orders-types";
 import { cn } from "@/lib/utils";
+
+type ImageItem = { id: string; kind: "product" | "node"; label: string; imageUrl: string | null };
 
 export function AdminDashboard({
   data,
@@ -29,6 +40,10 @@ export function AdminDashboard({
   catalogActions,
   cindyActions,
   searchActions,
+  orderActions,
+  imageActions,
+  apiActions,
+  emailActions,
   onSetSiteMode,
   onLogout,
   onSaveSettings,
@@ -51,18 +66,50 @@ export function AdminDashboard({
     remove: (id: string) => Promise<void>;
     move: (id: string, direction: "up" | "down") => Promise<void>;
   };
+  orderActions: {
+    list: () => Promise<Order[]>;
+    setStatus: (id: string, status: OrderStatus) => Promise<unknown>;
+    remove: (id: string) => Promise<unknown>;
+  };
+  imageActions: {
+    list: () => Promise<ImageItem[]>;
+    replace: (
+      item: { id: string; kind: "product" | "node" },
+      dataUrl: string,
+      name: string,
+    ) => Promise<void>;
+  };
+  apiActions: {
+    load: () => Promise<{ provider: SearchProviderId; hasKey: boolean; keyPreview: string }>;
+    save: (input: { provider: SearchProviderId; key: string | null; test: boolean }) => Promise<{
+      test: { ok: boolean; results: number; message: string } | null;
+    }>;
+  };
+  emailActions: {
+    list: () => Promise<AdminEmail[]>;
+    add: (email: string, role: AdminRole) => Promise<void>;
+    remove: (id: string) => Promise<void>;
+  };
   onLogout: () => void;
   onSaveSettings: (settings: SiteSettings) => Promise<void>;
 }) {
-  const [tab, setTab] = useState<"inventory" | "cindy" | "design" | "searches" | "staff">(
-    "inventory",
-  );
+  const [tab, setTab] = useState<
+    "inventory" | "orders" | "cindy" | "design" | "searches" | "images" | "api" | "emails" | "staff"
+  >("inventory");
   const [settings, setSettings] = useState<SiteSettings>(data.settings);
   const [saved, setSaved] = useState(false);
+  const [images, setImages] = useState<ImageItem[] | null>(null);
 
   useEffect(() => {
     setSettings(data.settings);
   }, [data.settings]);
+
+  useEffect(() => {
+    if (tab !== "images" || images !== null) return;
+    void imageActions.list().then(setImages).catch(() => setImages([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
 
   return (
     <div className="min-h-screen bg-brand-soft/30">
@@ -95,15 +142,21 @@ export function AdminDashboard({
             </button>
           </div>
         </div>
-        <div className="mx-auto flex w-full max-w-5xl gap-2 px-5 pb-3">
+        <div className="mx-auto flex w-full max-w-5xl gap-2 overflow-x-auto px-5 pb-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {(
             [
               { id: "inventory", label: "Inventaire", icon: Package },
+              { id: "orders", label: "Commandes", icon: ShoppingBag },
               { id: "cindy", label: "Cindy AI", icon: Sparkles },
               { id: "design", label: "Apparence", icon: Palette },
-              { id: "searches", label: "Recherches populaires", icon: Search },
+              { id: "searches", label: "Recherches", icon: Search },
+              { id: "images", label: "Images", icon: ImageIcon },
+              { id: "api", label: "API Cindy", icon: KeyRound },
               ...(role === "super"
-                ? ([{ id: "staff", label: "Gestion des admins", icon: Users }] as const)
+                ? ([
+                    { id: "emails", label: "Accès Google", icon: Mail },
+                    { id: "staff", label: "Admins", icon: Users },
+                  ] as const)
                 : []),
             ] as const
           ).map((item) => (
@@ -112,7 +165,7 @@ export function AdminDashboard({
               type="button"
               onClick={() => setTab(item.id)}
               className={cn(
-                "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
+                "inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
                 tab === item.id
                   ? "bg-brand text-primary-foreground"
                   : "text-foreground/60 hover:bg-brand-soft hover:text-brand",
@@ -126,7 +179,7 @@ export function AdminDashboard({
 
       <main
         className={cn(
-          "mx-auto w-full px-5 py-10",
+          "mx-auto w-full px-4 py-6 sm:px-5 sm:py-10",
           tab === "cindy" ? "max-w-6xl" : "max-w-5xl",
         )}
       >
@@ -137,10 +190,33 @@ export function AdminDashboard({
             onResetPassword={staffActions.resetPassword}
             onDelete={staffActions.remove}
           />
+        ) : tab === "emails" && role === "super" ? (
+          <AdminEmailsPanel
+            load={emailActions.list}
+            add={emailActions.add}
+            remove={emailActions.remove}
+          />
+        ) : tab === "api" ? (
+          <SearchApiPanel load={apiActions.load} save={apiActions.save} />
+        ) : tab === "orders" ? (
+          <OrdersPanel
+            list={orderActions.list}
+            setStatus={orderActions.setStatus}
+            remove={orderActions.remove}
+          />
+        ) : tab === "images" ? (
+          images === null ? (
+            <div className="py-16 text-center">
+              <Loader2 className="mx-auto h-6 w-6 animate-spin text-brand" />
+            </div>
+          ) : (
+            <ImageOptimizerPanel items={images} onOptimized={imageActions.replace} />
+          )
         ) : tab === "searches" ? (
           <PopularSearchesPanel terms={data.popularSearches} actions={searchActions} />
         ) : tab === "cindy" ? (
           <CindyWorkspace data={data} actions={cindyActions} />
+
         ) : tab === "inventory" ? (
           <div className="space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-brand/25 bg-brand-soft/30 p-5">

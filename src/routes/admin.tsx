@@ -34,12 +34,24 @@ import {
   adminUndoAction,
   adminRecordAction,
   adminSetSiteMode,
+  adminGoogleLogin,
+  adminListEmails,
+  adminAddEmail,
+  adminDeleteEmail,
+  adminGetSearchSettings,
+  adminSaveSearchSettings,
+  adminListImages,
+  adminReplaceImage,
 } from "@/lib/admin.functions";
+import { adminListOrders, adminSetOrderStatus, adminDeleteOrder } from "@/lib/orders.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { AdminLogin } from "@/components/admin/AdminLogin";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import type { FolderDraft, ProductDraft } from "@/components/admin/ProductForm";
 import type { SiteData, SiteSettings } from "@/lib/catalog-types";
 import type { AdminRole, StaffAccount } from "@/lib/admin-types";
+import type { Order } from "@/lib/orders-types";
+
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -87,11 +99,23 @@ function AdminPage() {
   const undoActionFn = useServerFn(adminUndoAction);
   const recordActionFn = useServerFn(adminRecordAction);
   const setSiteModeFn = useServerFn(adminSetSiteMode);
+  const googleLogin = useServerFn(adminGoogleLogin);
+  const listEmails = useServerFn(adminListEmails);
+  const addEmail = useServerFn(adminAddEmail);
+  const deleteEmail = useServerFn(adminDeleteEmail);
+  const getSearchSettings = useServerFn(adminGetSearchSettings);
+  const saveSearchSettings = useServerFn(adminSaveSearchSettings);
+  const listImages = useServerFn(adminListImages);
+  const replaceImageFn = useServerFn(adminReplaceImage);
+  const listOrders = useServerFn(adminListOrders);
+  const setOrderStatus = useServerFn(adminSetOrderStatus);
+  const deleteOrder = useServerFn(adminDeleteOrder);
 
   const [phase, setPhase] = useState<"loading" | "locked" | "ready">("loading");
   const [data, setData] = useState<SiteData | null>(null);
   const [identity, setIdentity] = useState<{ username: string; role: AdminRole } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setBusy(true);
@@ -112,10 +136,30 @@ function AdminPage() {
       if (result?.authenticated && result.username) {
         setIdentity({ username: result.username, role: (result.role ?? "staff") as AdminRole });
         await refresh();
-      } else setPhase("locked");
+        return;
+      }
+      // Returning from a Google sign-in: exchange the session for an admin cookie.
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (token) {
+        const outcome = await googleLogin({ data: { accessToken: token } }).catch(() => null);
+        if (outcome?.ok) {
+          setIdentity({ username: outcome.email, role: outcome.role as AdminRole });
+          await refresh();
+          return;
+        }
+        await supabase.auth.signOut().catch(() => undefined);
+        setGoogleError(
+          outcome?.reason === "NOT_AUTHORIZED"
+            ? `Le compte ${outcome.email} n'est pas autorisé à accéder à l'administration.`
+            : "Connexion Google impossible.",
+        );
+      }
+      setPhase("locked");
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -146,6 +190,7 @@ function AdminPage() {
   if (phase === "locked" || !data || !identity) {
     return (
       <AdminLogin
+        googleError={googleError}
         onSubmit={async (username, password) => {
           const { ok, role, username: name } = await login({ data: { username, password } });
           if (ok && name) {
@@ -164,7 +209,37 @@ function AdminPage() {
       busy={busy}
       role={identity.role}
       username={identity.username}
+      orderActions={{
+        list: async () => (await listOrders()) as Order[],
+        setStatus: (id, status) => setOrderStatus({ data: { id, status } }),
+        remove: (id) => deleteOrder({ data: { id } }),
+      }}
+      imageActions={{
+        list: async () => await listImages(),
+        replace: async (item, dataUrl, name) => {
+          await replaceImageFn({
+            data: { kind: item.kind, id: item.id, imageData: dataUrl, imageName: name },
+          });
+        },
+      }}
+      apiActions={{
+        load: async () => await getSearchSettings(),
+        save: async (input) =>
+          await saveSearchSettings({
+            data: { provider: input.provider, key: input.key, test: input.test },
+          }),
+      }}
+      emailActions={{
+        list: async () => await listEmails(),
+        add: async (email, role) => {
+          await addEmail({ data: { email, role } });
+        },
+        remove: async (id) => {
+          await deleteEmail({ data: { id } });
+        },
+      }}
       staffActions={{
+
         list: async () => (await listStaff()) as StaffAccount[],
         create: async (name, password) => {
           await createStaff({ data: { username: name, password } });
