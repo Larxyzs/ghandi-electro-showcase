@@ -358,7 +358,7 @@ function normalizeSections(raw: RawSection[], images: string[]): MarketingSectio
   return out;
 }
 
-async function extractWithAI(input: {
+export async function extractProductFromSources(input: {
   query: string;
   sources: { url: string; title: string; content: string }[];
   images: string[];
