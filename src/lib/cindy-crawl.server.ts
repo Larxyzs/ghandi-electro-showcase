@@ -153,6 +153,15 @@ export async function crawlListingPage(input: {
     if (input.signal?.aborted) break;
     const ref = item.label || item.url;
     emit({ type: "bulk_item", item: { index, ref, status: "running" } });
+    const stepId = `crawl-${index}`;
+    emit({
+      type: "activity",
+      id: stepId,
+      kind: "read",
+      label: `Fiche ${index + 1}/${picked.length} — j'ouvre et je lis`,
+      detail: ref,
+      status: "running",
+    });
     try {
       const page = await readPage(item.url);
       visited += 1;
@@ -168,6 +177,14 @@ export async function crawlListingPage(input: {
       });
       emit({ type: "bulk_item", item: { index, ref, status: "done", product } });
       emit({
+        type: "activity",
+        id: stepId,
+        kind: "read",
+        label: `Fiche ${index + 1}/${picked.length} lue`,
+        detail: `${product.name || ref} · ${product.images.length} image(s) · ${product.specifications.length} spéc.`,
+        status: "done",
+      });
+      emit({
         type: "source",
         source: {
           url: item.url,
@@ -181,6 +198,14 @@ export async function crawlListingPage(input: {
       const message = error instanceof Error ? error.message : "Erreur";
       failures.push(`${ref} : ${message}`);
       emit({ type: "bulk_item", item: { index, ref, status: "error", message } });
+      emit({
+        type: "activity",
+        id: stepId,
+        kind: "read",
+        label: `Fiche ${index + 1}/${picked.length} illisible`,
+        detail: message,
+        status: "error",
+      });
     }
   }
 
