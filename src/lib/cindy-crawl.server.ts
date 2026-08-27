@@ -61,7 +61,8 @@ async function pickProductLinks(input: {
         seen.add(key);
         return true;
       })
-      .slice(0, input.limit);
+      .slice(0, input.limit)
+      .map((item) => ({ url: item.url, label: item.text }));
   }
 
   const { aiSetup, aiFailure } = await import("./ai-config.server");
