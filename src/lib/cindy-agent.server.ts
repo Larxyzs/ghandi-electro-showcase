@@ -855,15 +855,30 @@ export async function runCindyAgent(input: {
       let failed = false;
       try {
         if (!tool) throw new Error(`Outil inconnu : ${name}`);
+        // Before the first real change of the conversation, keep a full backup
+        // so the admin can revert everything Cindy does in one click.
+        if (MUTATING_TOOLS.has(name)) await ensureSafetyPoint();
         result = await tool.run(args, input.emit);
       } catch (error) {
         failed = true;
         result = { error: error instanceof Error ? error.message : "Erreur inconnue" };
       }
 
-      if (!failed && name !== "get_site_overview" && name !== "research_product") {
+      if (!failed && MUTATING_TOOLS.has(name)) {
         input.emit({ type: "changed" });
+        try {
+          const { recordAction } = await import("./admin.server");
+          await recordAction({
+            action: `cindy_${name}`,
+            entity: "site",
+            label: `${TOOL_LABELS[name] ?? name} — Cindy${describeArgs(args) ? ` (${describeArgs(args)})` : ""}`,
+            after_state: args as never,
+          });
+        } catch {
+          /* history logging must never break the action itself */
+        }
       }
+
 
       input.emit({
         type: "activity",
