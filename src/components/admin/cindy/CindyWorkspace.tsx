@@ -392,7 +392,57 @@ export function CindyWorkspace({
                   )}
                 </div>
               ))}
+
+            {!loading && pane === "snapshots" && (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await actions.createSnapshot?.(
+                      `Sauvegarde manuelle ${new Date().toLocaleString("fr-MA")}`,
+                    );
+                    void refresh();
+                  }}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border px-3 py-2 text-[11px] font-semibold text-brand hover:bg-brand-soft/40"
+                >
+                  <Save className="h-3.5 w-3.5" /> Sauvegarder l'état actuel
+                </button>
+                {snapshots.length === 0 && (
+                  <p className="px-2 py-4 text-center text-[11px] text-foreground/50">
+                    Aucune sauvegarde. Une sauvegarde est créée automatiquement avant chaque
+                    modification faite par Cindy.
+                  </p>
+                )}
+                {snapshots.map((snap) => (
+                  <div key={snap.id} className="rounded-xl px-2.5 py-2 hover:bg-brand-soft/40">
+                    <p className="truncate text-xs font-semibold">{snap.label}</p>
+                    <p className="text-[11px] text-foreground/50">
+                      {new Date(snap.created_at).toLocaleString("fr-MA")}
+                      {snap.created_by ? ` · ${snap.created_by}` : ""}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (
+                          !window.confirm(
+                            `Remettre tout le site (dossiers, articles, couleurs, recherches) dans l'état « ${snap.label} » ?`,
+                          )
+                        )
+                          return;
+                        await actions.restoreSnapshot?.(snap.id);
+                        await actions.refreshSite?.();
+                        void refresh();
+                      }}
+                      className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
+                    >
+                      <RotateCcw className="h-3 w-3" /> Restaurer
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+
         </div>
       </aside>
     </div>
