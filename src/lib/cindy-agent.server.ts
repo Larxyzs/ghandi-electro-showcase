@@ -728,7 +728,21 @@ export async function runCindyAgent(input: {
   const { aiSetup, aiFailure } = await import("./ai-config.server");
   const ai = await aiSetup();
 
+  let safetyPoint = false;
+  /** One full backup per conversation turn, created lazily on the first change. */
+  const ensureSafetyPoint = async () => {
+    if (safetyPoint) return;
+    safetyPoint = true;
+    try {
+      const { createSnapshot } = await import("./admin.server");
+      await createSnapshot("Avant les changements de Cindy");
+    } catch {
+      /* a missing backup must not block the admin's request */
+    }
+  };
+
   const tools = buildTools();
+
   const toolSchemas = tools.map((tool) => ({
     type: "function" as const,
     function: {
