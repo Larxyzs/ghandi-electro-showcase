@@ -281,6 +281,32 @@ export async function readPage(
     }
   }
 
+  // Some product grids are serialized in application state instead of being
+  // rendered as anchors or JSON-LD. Recover same-site descendant URLs from
+  // that state so the crawler does not depend on a storefront's UI markup.
+  try {
+    const listingUrl = new URL(url);
+    const listingPath = listingUrl.pathname.endsWith("/")
+      ? listingUrl.pathname
+      : `${listingUrl.pathname}/`;
+    const escapedHost = listingUrl.hostname.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const absoluteUrlPattern = new RegExp(
+      `https?:\\\\?\\/\\\\?\\/${escapedHost}[^"'<>\\s\\\\]*`,
+      "gi",
+    );
+    for (const match of html.matchAll(absoluteUrlPattern)) {
+      const raw = (match[0] ?? "").replace(/\\\//g, "/").replace(/\\u002F/gi, "/");
+      const candidate = new URL(raw);
+      const remainder = candidate.pathname.startsWith(listingPath)
+        ? candidate.pathname.slice(listingPath.length).replace(/^\/+|\/+$/g, "")
+        : "";
+      if (!remainder || /\.(?:jpe?g|png|webp|svg|gif)$/i.test(candidate.pathname)) continue;
+      pushLink(candidate.toString(), remainder.split("/").filter(Boolean).at(-1) ?? remainder);
+    }
+  } catch {
+    /* ordinary links remain available as fallback */
+  }
+
   return { text, images: images.slice(0, 24), links };
 }
 
