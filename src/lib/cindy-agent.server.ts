@@ -505,6 +505,104 @@ function buildTools(): ToolDef[] {
       },
     },
     {
+      name: "import_from_page",
+      description:
+        "L'admin donne l'URL d'une page (rayon, listing, résultats d'une marque) : cet outil ouvre la page, repère TOUS les liens de fiches produits, ouvre chaque fiche une par une et en extrait toutes les informations (nom, référence, caractéristiques, spécifications, images), puis crée les articles dans le dossier demandé. Les doublons déjà au catalogue sont signalés, pas recréés. price/stock viennent uniquement de l'admin (laisse null/0 s'il ne les a pas donnés). C'est l'outil à utiliser dès que l'admin envoie un lien de page avec plusieurs produits.",
+      properties: {
+        url: { type: "string" },
+        folder_path: S,
+        hint: S,
+        limit: N,
+        stock: N,
+        price: N,
+        create: B,
+      },
+      required: ["url", "folder_path", "hint", "limit", "stock", "price", "create"],
+      run: async (args, emit) => {
+        const url = str(args, "url");
+        if (!/^https?:\/\//i.test(url)) throw new Error("Donne-moi une URL complète (https://…).");
+        const limit = num(args, "limit");
+        const { crawlListingPage } = await import("./cindy-crawl.server");
+        const crawled = await crawlListingPage({
+          url,
+          hint: str(args, "hint"),
+          ...(limit ? { limit: Math.floor(limit) } : {}),
+          emit,
+          ...(signal ? { signal } : {}),
+        });
+        if (crawled.products.length === 0)
+          throw new Error(
+            "Aucune fiche produit trouvée sur cette page. Envoie-moi la page de listing exacte ou les références.",
+          );
+
+        const shouldCreate = args["create"] !== false;
+        const report = crawled.products.map((p) => ({
+          reference: p.model || p.name,
+          name: p.name,
+          brand: p.brand,
+          url: p.url,
+          images: p.images.length,
+          specifications: p.specifications.length,
+          status: "found" as string,
+        }));
+
+        if (!shouldCreate) return { pages_read: crawled.visited, products: report, failures: crawled.failures };
+
+        const folderPath = str(args, "folder_path");
+        const stock = Math.max(0, Math.floor(num(args, "stock") ?? 0));
+        const price = num(args, "price");
+        const { saveProduct } = await import("./admin.server");
+
+        for (const [index, product] of crawled.products.entries()) {
+          if (signal?.aborted) break;
+          const reference = product.model || product.name;
+          try {
+            const { products: existing } = await loadCatalog();
+            const key = norm(reference);
+            const duplicate = existing.find(
+              (p) => norm(p.serial_number ?? "") === key || norm(p.name) === key,
+            );
+            if (duplicate) {
+              report[index]!.status = "duplicate";
+              continue;
+            }
+            const path =
+              folderPath ||
+              [product.brand || "Divers", "Modèles", reference].filter(Boolean).join(" / ");
+            const node = await resolvePath(path, true);
+            await saveProduct({
+              node_id: node.id,
+              name: product.name || reference,
+              brand: product.brand,
+              serial_number: product.model || reference,
+              characteristics: product.characteristics,
+              specifications: product.specifications,
+              gallery: product.images.slice(0, 8),
+              marketing_sections: product.marketing_sections as never,
+              source_url: product.url,
+              source_name: product.sources[0]?.name ?? null,
+              stock,
+              price,
+              ...httpsImage(product.images[0] ?? null),
+            });
+            report[index]!.status = "created";
+            emit({ type: "changed" });
+          } catch (error) {
+            report[index]!.status = `error: ${error instanceof Error ? error.message : "échec"}`;
+          }
+        }
+
+        return {
+          pages_read: crawled.visited,
+          created: report.filter((r) => r.status === "created").length,
+          duplicates: report.filter((r) => r.status === "duplicate").length,
+          products: report,
+          failures: crawled.failures,
+        };
+      },
+    },
+
+    {
       name: "web_search",
       description:
         "Recherche web par mots-clés courts (jamais une phrase complète). Utile pour trouver la bonne page officielle avant open_page.",
