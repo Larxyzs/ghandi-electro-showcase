@@ -22,17 +22,12 @@ const AI_PROVIDERS: { id: AiProviderId; label: string; hint: string }[] = [
   { id: "lovable", label: "Lovable AI", hint: "passerelle Lovable (crédits)" },
 ];
 
-const AI_MODELS: Record<AiProviderId, { id: string; label: string }[]> = {
-  gemini: [
-    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (rapide)" },
-    { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (économique)" },
-    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro (qualité)" },
-    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
-  ],
-  lovable: [
-    { id: "openai/gpt-5.6-sol", label: "GPT-5.6 Sol" },
-    { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash (gateway)" },
-  ],
+type AiModelOption = { id: string; label: string };
+
+/** Fallback list; the live catalog comes from the server on load. */
+const AI_MODELS_FALLBACK: Record<AiProviderId, AiModelOption[]> = {
+  gemini: [{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" }],
+  lovable: [{ id: "openai/gpt-5.6-sol", label: "GPT-5.6 Sol" }],
 };
 
 export type SearchSettings = {
@@ -44,6 +39,7 @@ export type SearchSettings = {
   aiModel: string;
   hasAiKey: boolean;
   aiKeyPreview: string;
+  aiModels?: Record<AiProviderId, AiModelOption[]>;
 };
 
 export type SearchSaveInput = {
@@ -90,6 +86,8 @@ export function SearchApiPanel({
   const [aiModel, setAiModel] = useState("gemini-2.5-flash");
   const [aiPreview, setAiPreview] = useState("");
   const [aiKey, setAiKey] = useState("");
+  const [aiModels, setAiModels] =
+    useState<Record<AiProviderId, AiModelOption[]>>(AI_MODELS_FALLBACK);
 
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
@@ -104,6 +102,7 @@ export function SearchApiPanel({
       setAiProvider(settings.aiProvider);
       setAiModel(settings.aiModel);
       setAiPreview(settings.aiKeyPreview);
+      if (settings.aiModels) setAiModels(settings.aiModels);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -238,7 +237,7 @@ export function SearchApiPanel({
               type="button"
               onClick={() => {
                 setAiProvider(item.id);
-                setAiModel(AI_MODELS[item.id][0]!.id);
+                setAiModel((aiModels[item.id][0] ?? AI_MODELS_FALLBACK[item.id][0]!).id);
               }}
               className={cn(
                 "rounded-2xl border p-4 text-start transition",
@@ -261,7 +260,7 @@ export function SearchApiPanel({
               onChange={(e) => setAiModel(e.target.value)}
               className="mt-1.5 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/25"
             >
-              {AI_MODELS[aiProvider].map((item) => (
+              {(aiModels[aiProvider] ?? AI_MODELS_FALLBACK[aiProvider]).map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.label}
                 </option>
