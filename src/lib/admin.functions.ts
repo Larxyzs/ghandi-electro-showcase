@@ -392,11 +392,25 @@ export const adminGetSearchSettings = createServerFn({ method: "GET" }).handler(
 });
 
 export const adminSaveSearchSettings = createServerFn({ method: "POST" })
-  .inputValidator((data: { provider: string; key: string | null; test?: boolean }) => ({
-    provider: String(data.provider) as "tavily" | "serper" | "brave",
-    key: data.key ? String(data.key).slice(0, 300) : null,
-    test: Boolean(data.test),
-  }))
+  .inputValidator(
+    (data: {
+      provider: string;
+      key: string | null;
+      model?: string;
+      aiProvider?: string;
+      aiModel?: string;
+      aiKey?: string | null;
+      test?: boolean;
+    }) => ({
+      provider: String(data.provider) as "tavily" | "serper" | "brave",
+      key: data.key ? String(data.key).slice(0, 300) : null,
+      model: String(data.model ?? "search"),
+      aiProvider: String(data.aiProvider ?? "gemini") as "gemini" | "lovable",
+      aiModel: String(data.aiModel ?? ""),
+      aiKey: data.aiKey ? String(data.aiKey).slice(0, 300) : null,
+      test: Boolean(data.test),
+    }),
+  )
   .handler(async ({ data }) => {
     const { saveSearchSettings } = await import("./admin.server");
     return saveSearchSettings(data);

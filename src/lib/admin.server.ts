@@ -921,26 +921,51 @@ export async function loginWithGoogle(accessToken: string) {
 /* ---------- Cindy: swappable research API ---------- */
 
 export type SearchProviderId = "tavily" | "serper" | "brave";
+export type AiProviderChoice = "gemini" | "lovable";
 
+const SEARCH_ENV: Record<SearchProviderId, string> = {
+  serper: "SERPER_API_KEY",
+  tavily: "TAVILY_API_KEY",
+  brave: "BRAVE_API_KEY",
+};
+
+/** Current research + Cindy AI configuration (keys are never returned in clear). */
 export async function getSearchSettings() {
   const db = await requireAdmin();
   const { data } = await db
     .from("site_settings")
-    .select("search_provider, search_api_key")
+    .select("search_provider, search_api_key, search_model, ai_provider, ai_model, ai_api_key")
     .eq("id", "default")
     .maybeSingle();
-  const provider = (data?.search_provider ?? "tavily") as SearchProviderId;
+
+  const provider = (data?.search_provider ?? "serper") as SearchProviderId;
   const key = data?.search_api_key ?? "";
+  const envKey = (process.env[SEARCH_ENV[provider]] ?? "").trim();
+  const aiProvider = (data?.ai_provider ?? "gemini") as AiProviderChoice;
+  const aiKey = data?.ai_api_key ?? "";
+  const aiEnvKey = (
+    aiProvider === "gemini" ? (process.env["GEMINI_API_KEY"] ?? "") : (process.env["LOVABLE_API_KEY"] ?? "")
+  ).trim();
+
   return {
     provider,
-    hasKey: Boolean(key) || Boolean(process.env["TAVILY_API_KEY"]),
-    keyPreview: key ? `••••${key.slice(-4)}` : process.env["TAVILY_API_KEY"] ? "clé système" : "",
+    model: data?.search_model ?? "search",
+    hasKey: Boolean(key || envKey),
+    keyPreview: key ? `••••${key.slice(-4)}` : envKey ? "clé système" : "",
+    aiProvider,
+    aiModel: data?.ai_model ?? "gemini-2.5-flash",
+    hasAiKey: Boolean(aiKey || aiEnvKey),
+    aiKeyPreview: aiKey ? `••••${aiKey.slice(-4)}` : aiEnvKey ? "clé système" : "",
   };
 }
 
 export async function saveSearchSettings(input: {
   provider: SearchProviderId;
   key: string | null;
+  model?: string;
+  aiProvider?: AiProviderChoice;
+  aiModel?: string;
+  aiKey?: string | null;
   test?: boolean;
 }) {
   const db = await requireAdmin();
@@ -948,22 +973,67 @@ export async function saveSearchSettings(input: {
     input.provider,
   )
     ? input.provider
-    : "tavily";
+    : "serper";
   const key = (input.key ?? "").trim();
+  const model = ["search", "news", "shopping"].includes(input.model ?? "")
+    ? (input.model as string)
+    : "search";
+  const aiProvider: AiProviderChoice =
+    input.aiProvider === "lovable" || input.aiProvider === "gemini" ? input.aiProvider : "gemini";
+  const aiKey = (input.aiKey ?? "").trim();
 
+  const { AI_MODELS } = await import("./ai-config.server");
+  const allowedAiModels = AI_MODELS[aiProvider].map((m) => m.id);
+  const aiModel = allowedAiModels.includes(input.aiModel ?? "")
+    ? (input.aiModel as string)
+    : allowedAiModels[0]!;
+
+  // Test with the key being submitted, or the one already active.
   let test: { ok: boolean; results: number; message: string } | null = null;
-  if (input.test && key) {
-    const { testSearchProvider } = await import("./cindy.server");
-    test = await testSearchProvider(provider, key);
+  let aiTest: { ok: boolean; message: string } | null = null;
+  if (input.test) {
+    const searchKey = key || (process.env[SEARCH_ENV[provider]] ?? "").trim();
+    if (searchKey) {
+      const { testSearchProvider } = await import("./cindy.server");
+      test = await testSearchProvider(provider, searchKey, model);
+    } else {
+      test = { ok: false, results: 0, message: "SEARCH_NOT_CONFIGURED" };
+    }
+
+    const brainKey =
+      aiKey ||
+      (aiProvider === "gemini"
+        ? (process.env["GEMINI_API_KEY"] ?? "")
+        : (process.env["LOVABLE_API_KEY"] ?? "")
+      ).trim();
+    const { testAiProvider } = await import("./ai-config.server");
+    aiTest = brainKey
+      ? await testAiProvider(aiProvider, aiModel, brainKey)
+      : { ok: false, message: "AI_NOT_CONFIGURED" };
   }
 
-  const payload: { search_provider: string; search_api_key?: string } = {
+  // When a test was requested and failed, keep the previous working configuration.
+  if (test && !test.ok) return { ok: false as const, test, aiTest, saved: false };
+  if (aiTest && !aiTest.ok) return { ok: false as const, test, aiTest, saved: false };
+
+  const payload: {
+    search_provider: string;
+    search_model: string;
+    ai_provider: string;
+    ai_model: string;
+    search_api_key?: string;
+    ai_api_key?: string;
+  } = {
     search_provider: provider,
+    search_model: model,
+    ai_provider: aiProvider,
+    ai_model: aiModel,
   };
   if (key) payload.search_api_key = key;
+  if (aiKey) payload.ai_api_key = aiKey;
   const { error } = await db.from("site_settings").update(payload).eq("id", "default");
   if (error) throw new Error(error.message);
-  return { ok: true as const, test };
+  return { ok: true as const, test, aiTest, saved: true };
 }
 
 /* ---------- Image maintenance (batch optimisation) ---------- */

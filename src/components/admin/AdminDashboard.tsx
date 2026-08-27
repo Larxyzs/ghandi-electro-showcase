@@ -21,7 +21,12 @@ import { StaffPanel } from "@/components/admin/StaffPanel";
 import { PopularSearchesPanel } from "@/components/admin/PopularSearchesPanel";
 import { OrdersPanel } from "@/components/admin/OrdersPanel";
 import { ImageOptimizerPanel } from "@/components/admin/ImageOptimizerPanel";
-import { SearchApiPanel, type SearchProviderId } from "@/components/admin/SearchApiPanel";
+import {
+  SearchApiPanel,
+  type SearchSaveInput,
+  type SearchSaveResult,
+  type SearchSettings,
+} from "@/components/admin/SearchApiPanel";
 import { AdminEmailsPanel, type AdminEmail } from "@/components/admin/AdminEmailsPanel";
 import { CindyWorkspace, type CindyActions } from "@/components/admin/cindy/CindyWorkspace";
 import { SITE_MODE_LABELS, type SiteMode } from "@/lib/catalog-types";
@@ -80,10 +85,8 @@ export function AdminDashboard({
     ) => Promise<void>;
   };
   apiActions: {
-    load: () => Promise<{ provider: SearchProviderId; hasKey: boolean; keyPreview: string }>;
-    save: (input: { provider: SearchProviderId; key: string | null; test: boolean }) => Promise<{
-      test: { ok: boolean; results: number; message: string } | null;
-    }>;
+    load: () => Promise<SearchSettings>;
+    save: (input: SearchSaveInput) => Promise<SearchSaveResult>;
   };
   emailActions: {
     list: () => Promise<AdminEmail[]>;
