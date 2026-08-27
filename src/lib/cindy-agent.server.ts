@@ -793,11 +793,17 @@ DESTRUCTIF : ne supprime un dossier ou un article qu'après une confirmation exp
 type ChatMessage = {
   role: "system" | "user" | "assistant" | "tool";
   content?: string | null;
-  tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[];
+  tool_calls?: {
+    id: string;
+    type: "function";
+    function: { name: string; arguments: string };
+    /** Gemini 3 requires its thought signature to be echoed back verbatim. */
+    extra_content?: { google?: { thought_signature: string } };
+  }[];
   tool_call_id?: string;
 };
 
-type StreamToolCall = { id: string; name: string; args: string };
+type StreamToolCall = { id: string; name: string; args: string; signature?: string };
 
 export async function runCindyAgent(input: {
   messages: { role: "user" | "assistant"; content: string }[];
@@ -882,6 +888,7 @@ export async function runCindyAgent(input: {
                   index?: number;
                   id?: string;
                   function?: { name?: string; arguments?: string };
+                  extra_content?: { google?: { thought_signature?: string } };
                 }[];
               };
             }[];
@@ -898,6 +905,10 @@ export async function runCindyAgent(input: {
             if (call.id) current.id = call.id;
             if (call.function?.name) current.name = call.function.name;
             if (call.function?.arguments) current.args += call.function.arguments;
+            // Gemini 3 sends a thought signature on the tool-call chunk; it MUST be
+            // sent back untouched or the next request fails with a 400.
+            const signature = call.extra_content?.google?.thought_signature;
+            if (signature) current.signature = signature;
             pending.set(index, current);
           }
         } catch {
@@ -921,6 +932,9 @@ export async function runCindyAgent(input: {
         id: call.id,
         type: "function" as const,
         function: { name: call.name, arguments: call.args || "{}" },
+        ...(call.signature
+          ? { extra_content: { google: { thought_signature: call.signature } } }
+          : {}),
       })),
     });
 
