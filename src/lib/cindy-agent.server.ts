@@ -538,8 +538,148 @@ function buildTools(): ToolDef[] {
         return { ok: true };
       },
     },
+    {
+      name: "reorder_popular_search",
+      description:
+        "Déplace une recherche populaire dans la liste (direction 'up' ou 'down').",
+      properties: { term: { type: "string" }, direction: { type: "string" } },
+      required: ["term", "direction"],
+      run: async (args, emit) => {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { movePopularSearch } = await import("./admin.server");
+        const { data } = await supabaseAdmin.from("popular_searches").select("id, term");
+        const found = (data ?? []).find((row) => norm(row.term) === norm(str(args, "term")));
+        if (!found) throw new Error(`Recherche populaire introuvable : « ${str(args, "term")} ».`);
+        await movePopularSearch(found.id, str(args, "direction") === "up" ? "up" : "down");
+        emit({ type: "changed" });
+        return { ok: true };
+      },
+    },
+    {
+      name: "reorder_folder",
+      description:
+        "Change la position d'affichage d'un dossier parmi ses voisins (direction 'up' ou 'down').",
+      properties: { folder: { type: "string" }, direction: { type: "string" } },
+      required: ["folder", "direction"],
+      run: async (args, emit) => {
+        const node = await findNode(str(args, "folder"));
+        const { moveNode } = await import("./admin.server");
+        await moveNode(node.id, str(args, "direction") === "up" ? "up" : "down");
+        emit({ type: "changed" });
+        return { ok: true };
+      },
+    },
+    {
+      name: "set_product_featured",
+      description:
+        "Met un article en avant sur la page d'accueil (featured=true) ou le retire (featured=false).",
+      properties: { product: { type: "string" }, featured: { type: "boolean" } },
+      required: ["product", "featured"],
+      run: async (args, emit) => {
+        const product = await findProduct(str(args, "product"));
+        const { setProductFeatured } = await import("./admin.server");
+        await setProductFeatured(product.id, args["featured"] === true);
+        emit({ type: "changed" });
+        return { ok: true, product: product.name };
+      },
+    },
+    {
+      name: "list_orders",
+      description:
+        "Lit les commandes des clients (nom, téléphone, adresse, articles, total, statut). Ne jamais divulguer ces informations en dehors de l'administration.",
+      properties: {},
+      required: [],
+      run: async () => {
+        const { listOrders } = await import("./orders.server");
+        const orders = await listOrders();
+        return orders.slice(0, 60);
+      },
+    },
+    {
+      name: "update_order_status",
+      description:
+        "Change le statut d'une commande à partir de sa référence : 'nouveau', 'en_cours' ou 'termine'.",
+      properties: { reference: { type: "string" }, status: { type: "string" } },
+      required: ["reference", "status"],
+      run: async (args, emit) => {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const ref = str(args, "reference");
+        const { data } = await supabaseAdmin.from("orders").select("id, reference");
+        const found = (data ?? []).find(
+          (row) => norm(row.reference) === norm(ref) || row.id === ref,
+        );
+        if (!found) throw new Error(`Commande introuvable : « ${ref} ».`);
+        const { setOrderStatus } = await import("./orders.server");
+        await setOrderStatus(found.id, str(args, "status") as never);
+        emit({ type: "changed" });
+        return { ok: true, reference: found.reference, status: str(args, "status") };
+      },
+    },
+    {
+      name: "list_history",
+      description:
+        "Liste les dernières actions enregistrées dans l'administration (qui a fait quoi, et si c'est déjà annulé).",
+      properties: {},
+      required: [],
+      run: async () => {
+        const { listActions } = await import("./admin.server");
+        return listActions();
+      },
+    },
+    {
+      name: "list_restore_points",
+      description:
+        "Liste les points de restauration disponibles (sauvegardes complètes du catalogue, des articles, des couleurs et des recherches populaires).",
+      properties: {},
+      required: [],
+      run: async () => {
+        const { listSnapshots } = await import("./admin.server");
+        return listSnapshots();
+      },
+    },
+    {
+      name: "create_restore_point",
+      description:
+        "Crée une sauvegarde complète du site avant un gros changement, pour pouvoir tout remettre en arrière ensuite.",
+      properties: { label: S },
+      required: ["label"],
+      run: async (args) => {
+        const { createSnapshot } = await import("./admin.server");
+        return createSnapshot(str(args, "label") || "Point de restauration");
+      },
+    },
+    {
+      name: "restore_site",
+      description:
+        "Remet tout le site (dossiers, articles, couleurs, recherches populaires) dans l'état d'un point de restauration. À utiliser quand l'admin dit qu'il n'aime pas les changements. Demande toujours confirmation avant.",
+      properties: { restore_point_id: { type: "string" } },
+      required: ["restore_point_id"],
+      run: async (args, emit) => {
+        const { restoreSnapshot } = await import("./admin.server");
+        const result = await restoreSnapshot(str(args, "restore_point_id"));
+        emit({ type: "changed" });
+        return result;
+      },
+    },
+    {
+      name: "optimize_images",
+      description:
+        "Liste les images du site (articles et dossiers) avec leur taille pour repérer celles à remplacer. N'altère rien : sert à conseiller l'admin.",
+      properties: {},
+      required: [],
+      run: async () => {
+        const { listAllImages } = await import("./admin.server");
+        const images = await listAllImages();
+        return images.map((image) => ({
+          kind: image.kind,
+          label: image.label,
+          has_image: Boolean(image.imageUrl),
+        }));
+      },
+    },
   ];
 }
+
 
 function summarize(product: ResearchedProduct) {
   return {
