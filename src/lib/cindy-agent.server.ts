@@ -914,7 +914,7 @@ export async function runCindyAgent(input: {
   signal?: AbortSignal;
 }) {
 
-  const { aiSetup, aiFailure } = await import("./ai-config.server");
+  const { aiSetup, aiFailure, aiFetchWithRetry } = await import("./ai-config.server");
   const ai = await aiSetup();
 
   let safetyPoint = false;
