@@ -167,7 +167,14 @@ export async function crawlListingPage(input: {
       status: "running",
     });
     try {
-      const query = `site:${listingUrl.hostname}${listingPath} ${input.hint ?? "produits modèles"}`.trim();
+      const pathKeywords = listingPath
+        .split("/")
+        .filter(Boolean)
+        .filter((part) => !/^(n_[a-z]+|[a-z]{2}_[a-z]{2})$/i.test(part))
+        .join(" ")
+        .replace(/-/g, " ");
+      const brand = listingUrl.hostname.split(".").filter((part) => !/^(www|com|net|org)$/i.test(part))[0] ?? "";
+      const query = `${brand} ${pathKeywords} ${input.hint ?? "produits modèles"}`.trim().slice(0, 180);
       const hits = await webSearch(query, { max: Math.min(limit * 2, 40) });
       const recovered = hits
         .filter((hit) => {
