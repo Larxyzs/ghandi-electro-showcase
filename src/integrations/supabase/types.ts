@@ -405,6 +405,30 @@ export type Database = {
         }
         Relationships: []
       }
+      site_snapshots: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          label: string
+          payload: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          label?: string
+          payload?: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          label?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
