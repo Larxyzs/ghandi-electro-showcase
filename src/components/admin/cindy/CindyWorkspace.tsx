@@ -78,7 +78,10 @@ export function CindyWorkspace({
   const [sessions, setSessions] = useState<Awaited<ReturnType<CindyActions["listSessions"]>>>([]);
   const [history, setHistory] = useState<Awaited<ReturnType<CindyActions["listActions"]>>>([]);
   const [memory, setMemory] = useState<Awaited<ReturnType<CindyActions["listMemory"]>>>([]);
-  const [pane, setPane] = useState<"sessions" | "memory" | "history">("sessions");
+  const [snapshots, setSnapshots] = useState<
+    { id: string; label: string; created_by: string; created_at: string }[]
+  >([]);
+  const [pane, setPane] = useState<"sessions" | "memory" | "history" | "snapshots">("sessions");
   const [mode, setMode] = useState<"chat" | "research">("chat");
   const [loading, setLoading] = useState(true);
   const [replay, setReplay] = useState<{ query: string; events: CindyEvent[] } | null>(null);
@@ -86,14 +89,16 @@ export function CindyWorkspace({
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, h, m] = await Promise.all([
+      const [s, h, m, snaps] = await Promise.all([
         actions.listSessions(),
         actions.listActions(),
         actions.listMemory(),
+        actions.listSnapshots?.() ?? Promise.resolve([]),
       ]);
       setSessions(s);
       setHistory(h);
       setMemory(m);
+      setSnapshots(snaps);
     } finally {
       setLoading(false);
     }
@@ -102,6 +107,7 @@ export function CindyWorkspace({
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
 
   const onEvents = async (events: CindyEvent[], query: string) => {
     if (events.length === 0) return;
