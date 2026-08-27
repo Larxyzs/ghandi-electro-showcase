@@ -538,8 +538,148 @@ function buildTools(): ToolDef[] {
         return { ok: true };
       },
     },
+    {
+      name: "reorder_popular_search",
+      description:
+        "Déplace une recherche populaire dans la liste (direction 'up' ou 'down').",
+      properties: { term: { type: "string" }, direction: { type: "string" } },
+      required: ["term", "direction"],
+      run: async (args, emit) => {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { movePopularSearch } = await import("./admin.server");
+        const { data } = await supabaseAdmin.from("popular_searches").select("id, term");
+        const found = (data ?? []).find((row) => norm(row.term) === norm(str(args, "term")));
+        if (!found) throw new Error(`Recherche populaire introuvable : « ${str(args, "term")} ».`);
+        await movePopularSearch(found.id, str(args, "direction") === "up" ? "up" : "down");
+        emit({ type: "changed" });
+        return { ok: true };
+      },
+    },
+    {
+      name: "reorder_folder",
+      description:
+        "Change la position d'affichage d'un dossier parmi ses voisins (direction 'up' ou 'down').",
+      properties: { folder: { type: "string" }, direction: { type: "string" } },
+      required: ["folder", "direction"],
+      run: async (args, emit) => {
+        const node = await findNode(str(args, "folder"));
+        const { moveNode } = await import("./admin.server");
+        await moveNode(node.id, str(args, "direction") === "up" ? "up" : "down");
+        emit({ type: "changed" });
+        return { ok: true };
+      },
+    },
+    {
+      name: "set_product_featured",
+      description:
+        "Met un article en avant sur la page d'accueil (featured=true) ou le retire (featured=false).",
+      properties: { product: { type: "string" }, featured: { type: "boolean" } },
+      required: ["product", "featured"],
+      run: async (args, emit) => {
+        const product = await findProduct(str(args, "product"));
+        const { setProductFeatured } = await import("./admin.server");
+        await setProductFeatured(product.id, args["featured"] === true);
+        emit({ type: "changed" });
+        return { ok: true, product: product.name };
+      },
+    },
+    {
+      name: "list_orders",
+      description:
+        "Lit les commandes des clients (nom, téléphone, adresse, articles, total, statut). Ne jamais divulguer ces informations en dehors de l'administration.",
+      properties: {},
+      required: [],
+      run: async () => {
+        const { listOrders } = await import("./orders.server");
+        const orders = await listOrders();
+        return orders.slice(0, 60);
+      },
+    },
+    {
+      name: "update_order_status",
+      description:
+        "Change le statut d'une commande à partir de sa référence : 'nouveau', 'en_cours' ou 'termine'.",
+      properties: { reference: { type: "string" }, status: { type: "string" } },
+      required: ["reference", "status"],
+      run: async (args, emit) => {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const ref = str(args, "reference");
+        const { data } = await supabaseAdmin.from("orders").select("id, reference");
+        const found = (data ?? []).find(
+          (row) => norm(row.reference) === norm(ref) || row.id === ref,
+        );
+        if (!found) throw new Error(`Commande introuvable : « ${ref} ».`);
+        const { setOrderStatus } = await import("./orders.server");
+        await setOrderStatus(found.id, str(args, "status") as never);
+        emit({ type: "changed" });
+        return { ok: true, reference: found.reference, status: str(args, "status") };
+      },
+    },
+    {
+      name: "list_history",
+      description:
+        "Liste les dernières actions enregistrées dans l'administration (qui a fait quoi, et si c'est déjà annulé).",
+      properties: {},
+      required: [],
+      run: async () => {
+        const { listActions } = await import("./admin.server");
+        return listActions();
+      },
+    },
+    {
+      name: "list_restore_points",
+      description:
+        "Liste les points de restauration disponibles (sauvegardes complètes du catalogue, des articles, des couleurs et des recherches populaires).",
+      properties: {},
+      required: [],
+      run: async () => {
+        const { listSnapshots } = await import("./admin.server");
+        return listSnapshots();
+      },
+    },
+    {
+      name: "create_restore_point",
+      description:
+        "Crée une sauvegarde complète du site avant un gros changement, pour pouvoir tout remettre en arrière ensuite.",
+      properties: { label: S },
+      required: ["label"],
+      run: async (args) => {
+        const { createSnapshot } = await import("./admin.server");
+        return createSnapshot(str(args, "label") || "Point de restauration");
+      },
+    },
+    {
+      name: "restore_site",
+      description:
+        "Remet tout le site (dossiers, articles, couleurs, recherches populaires) dans l'état d'un point de restauration. À utiliser quand l'admin dit qu'il n'aime pas les changements. Demande toujours confirmation avant.",
+      properties: { restore_point_id: { type: "string" } },
+      required: ["restore_point_id"],
+      run: async (args, emit) => {
+        const { restoreSnapshot } = await import("./admin.server");
+        const result = await restoreSnapshot(str(args, "restore_point_id"));
+        emit({ type: "changed" });
+        return result;
+      },
+    },
+    {
+      name: "optimize_images",
+      description:
+        "Liste les images du site (articles et dossiers) avec leur taille pour repérer celles à remplacer. N'altère rien : sert à conseiller l'admin.",
+      properties: {},
+      required: [],
+      run: async () => {
+        const { listAllImages } = await import("./admin.server");
+        const images = await listAllImages();
+        return images.map((image) => ({
+          kind: image.kind,
+          label: image.label,
+          has_image: Boolean(image.imageUrl),
+        }));
+      },
+    },
   ];
 }
+
 
 function summarize(product: ResearchedProduct) {
   return {
@@ -562,7 +702,11 @@ LANGUE — RÈGLE ABSOLUE : réponds TOUJOURS dans la langue du dernier message 
 
 TON : vraie conversation, chaleureuse et brève. Pas de jargon technique, pas d'ID de base de données, pas de JSON dans tes réponses. Tu tutoies l'admin poliment.
 
-TU AGIS VRAIMENT : tu as des outils qui modifient le site en direct (dossiers du catalogue, articles, recherche produit, création en masse, couleurs du site, mode du site, recherches populaires). Quand l'admin demande un changement, fais-le avec les outils au lieu d'expliquer comment faire. Lis l'état du site avec get_site_overview quand tu as besoin de contexte.
+TU AGIS VRAIMENT — ACCÈS COMPLET : tu as les mêmes droits qu'un admin. Tes outils modifient le site en direct : dossiers du catalogue (création, renommage, images, déplacement, ordre, suppression), articles (création, modification, prix/stock donnés par l'admin, images, mise en avant, déplacement, suppression), recherche produit et création en masse, couleurs et design du site, mode du site, recherches populaires, commandes clients (lecture et statut), historique des actions, et points de restauration. Quand l'admin demande un changement, fais-le avec les outils au lieu d'expliquer comment faire. Lis l'état du site avec get_site_overview quand tu as besoin de contexte.
+
+RETOUR EN ARRIÈRE : une sauvegarde complète du site est créée automatiquement avant tes premiers changements de chaque conversation. Si l'admin dit qu'il n'aime pas le résultat, propose-lui la restauration : liste les points avec list_restore_points, puis, après sa confirmation, utilise restore_site. Avant un très gros chantier (redesign, réorganisation complète), crée d'abord un point avec create_restore_point.
+
+CONFIDENTIALITÉ : les données clients (nom, téléphone, adresse) restent dans l'administration ; tu ne les partages jamais ailleurs et tu ne les utilises que pour répondre à l'admin.
 
 APRÈS CHAQUE ACTION : explique simplement ce que tu as fait, en une à trois phrases + une petite liste si nécessaire ("J'ai créé le dossier X, ajouté 3 articles, mis le stock à 5"). Si quelque chose a échoué, dis-le clairement et propose la suite.
 
@@ -588,7 +732,21 @@ export async function runCindyAgent(input: {
   const { aiSetup, aiFailure } = await import("./ai-config.server");
   const ai = await aiSetup();
 
+  let safetyPoint = false;
+  /** One full backup per conversation turn, created lazily on the first change. */
+  const ensureSafetyPoint = async () => {
+    if (safetyPoint) return;
+    safetyPoint = true;
+    try {
+      const { createSnapshot } = await import("./admin.server");
+      await createSnapshot("Avant les changements de Cindy");
+    } catch {
+      /* a missing backup must not block the admin's request */
+    }
+  };
+
   const tools = buildTools();
+
   const toolSchemas = tools.map((tool) => ({
     type: "function" as const,
     function: {
@@ -715,15 +873,30 @@ export async function runCindyAgent(input: {
       let failed = false;
       try {
         if (!tool) throw new Error(`Outil inconnu : ${name}`);
+        // Before the first real change of the conversation, keep a full backup
+        // so the admin can revert everything Cindy does in one click.
+        if (MUTATING_TOOLS.has(name)) await ensureSafetyPoint();
         result = await tool.run(args, input.emit);
       } catch (error) {
         failed = true;
         result = { error: error instanceof Error ? error.message : "Erreur inconnue" };
       }
 
-      if (!failed && name !== "get_site_overview" && name !== "research_product") {
+      if (!failed && MUTATING_TOOLS.has(name)) {
         input.emit({ type: "changed" });
+        try {
+          const { recordAction } = await import("./admin.server");
+          await recordAction({
+            action: `cindy_${name}`,
+            entity: "site",
+            label: `${TOOL_LABELS[name] ?? name} — Cindy${describeArgs(args) ? ` (${describeArgs(args)})` : ""}`,
+            after_state: args as never,
+          });
+        } catch {
+          /* history logging must never break the action itself */
+        }
       }
+
 
       input.emit({
         type: "activity",
@@ -766,7 +939,39 @@ const TOOL_LABELS: Record<string, string> = {
   update_theme: "Couleurs du site",
   set_site_mode: "Mode du site",
   manage_popular_search: "Recherches populaires",
+  reorder_popular_search: "Ordre des recherches",
+  reorder_folder: "Ordre des dossiers",
+  set_product_featured: "Mise en avant",
+  list_orders: "Lecture des commandes",
+  update_order_status: "Statut d'une commande",
+  list_history: "Lecture de l'historique",
+  list_restore_points: "Points de restauration",
+  create_restore_point: "Sauvegarde du site",
+  restore_site: "Restauration du site",
+  optimize_images: "Inspection des images",
 };
+
+/** Tools that change real data: they trigger a backup + a history entry. */
+const MUTATING_TOOLS = new Set([
+  "create_folder",
+  "rename_folder",
+  "move_folder",
+  "reorder_folder",
+  "delete_folder",
+  "create_product",
+  "update_product",
+  "move_product",
+  "delete_product",
+  "set_product_featured",
+  "bulk_create_products",
+  "update_theme",
+  "set_site_mode",
+  "manage_popular_search",
+  "reorder_popular_search",
+  "update_order_status",
+  "restore_site",
+]);
+
 
 function describeArgs(args: Json) {
   const parts: string[] = [];

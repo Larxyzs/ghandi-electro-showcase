@@ -434,3 +434,75 @@ export const adminReplaceImage = createServerFn({ method: "POST" })
     const { replaceImage } = await import("./admin.server");
     return replaceImage(data);
   });
+
+/* ---------- Restore points ---------- */
+
+export const adminListSnapshots = createServerFn({ method: "POST" }).handler(async () => {
+  const { listSnapshots } = await import("./admin.server");
+  return listSnapshots();
+});
+
+export const adminCreateSnapshot = createServerFn({ method: "POST" })
+  .inputValidator((data: { label?: string }) => ({ label: String(data?.label ?? "").trim() }))
+  .handler(async ({ data }) => {
+    const { createSnapshot } = await import("./admin.server");
+    return createSnapshot(data.label || "Point de restauration");
+  });
+
+export const adminRestoreSnapshot = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => ({ id: String(data.id) }))
+  .handler(async ({ data }) => {
+    const { restoreSnapshot } = await import("./admin.server");
+    return restoreSnapshot(data.id);
+  });
+
+/* ---------- Batch product save ("Tout enregistrer") ---------- */
+
+export const adminSaveProductsBatch = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      products: {
+        id: string;
+        name: string;
+        brand: string;
+        serial_number: string;
+        stock: number;
+        price: number | null;
+        characteristics: string;
+        featured: boolean;
+      }[];
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { saveProduct, adminDb } = await import("./admin.server");
+    const db = await adminDb();
+    const results: { id: string; ok: boolean; error?: string }[] = [];
+    for (const item of data.products) {
+      try {
+        const { data: existing } = await db
+          .from("products")
+          .select("node_id")
+          .eq("id", item.id)
+          .single();
+        await saveProduct({
+          id: item.id,
+          node_id: existing!.node_id,
+          name: item.name,
+          brand: item.brand,
+          serial_number: item.serial_number,
+          stock: Math.max(0, Math.floor(Number(item.stock) || 0)),
+          price: item.price === null ? null : Number(item.price),
+          characteristics: item.characteristics,
+          featured: item.featured,
+        });
+        results.push({ id: item.id, ok: true });
+      } catch (error) {
+        results.push({
+          id: item.id,
+          ok: false,
+          error: error instanceof Error ? error.message : "ERREUR",
+        });
+      }
+    }
+    return { saved: results.filter((r) => r.ok).length, results };
+  });

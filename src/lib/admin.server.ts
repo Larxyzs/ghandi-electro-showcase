@@ -1086,3 +1086,110 @@ export async function replaceImage(input: {
   }
   return { ok: true as const };
 }
+
+// ===================== Restore points (site snapshots) =====================
+
+/**
+ * Captures the full editable state of the site (catalog folders, products,
+ * colors, popular searches) so any later change — by an admin or by Cindy —
+ * can be rolled back in one click.
+ */
+export async function createSnapshot(label = "Point de restauration") {
+  const db = await requireAdmin();
+  const me = await currentAdmin();
+  const [{ data: nodes }, { data: products }, { data: settings }, { data: searches }] =
+    await Promise.all([
+      db.from("catalog_nodes").select("*"),
+      db.from("products").select("*"),
+      db.from("site_settings").select("*").eq("id", "default").maybeSingle(),
+      db.from("popular_searches").select("*"),
+    ]);
+  const payload = {
+    nodes: nodes ?? [],
+    products: products ?? [],
+    settings: settings ?? null,
+    popular_searches: searches ?? [],
+  };
+  const { data, error } = await db
+    .from("site_snapshots")
+    .insert({
+      label,
+      created_by: me?.username ?? "",
+      payload: payload as unknown as Json,
+    })
+    .select("id, label, created_at")
+    .single();
+  if (error) throw new Error(error.message);
+  // Keep only the 30 most recent restore points.
+  const { data: extra } = await db
+    .from("site_snapshots")
+    .select("id")
+    .order("created_at", { ascending: false })
+    .range(30, 200);
+  if (extra?.length) {
+    await db
+      .from("site_snapshots")
+      .delete()
+      .in("id", extra.map((row) => row.id));
+  }
+  return data;
+}
+
+export async function listSnapshots() {
+  const db = await requireAdmin();
+  const { data, error } = await db
+    .from("site_snapshots")
+    .select("id, label, created_by, created_at")
+    .order("created_at", { ascending: false })
+    .limit(30);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/** Puts the catalog, products, colors and popular searches back to a snapshot. */
+export async function restoreSnapshot(id: string) {
+  const db = await requireAdmin();
+  const { data: snapshot, error } = await db
+    .from("site_snapshots")
+    .select("payload, label")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!snapshot) throw new Error("NOT_FOUND");
+
+  const payload = (snapshot.payload ?? {}) as {
+    nodes?: Record<string, unknown>[];
+    products?: Record<string, unknown>[];
+    settings?: Record<string, unknown> | null;
+    popular_searches?: Record<string, unknown>[];
+  };
+
+  // Safety net: keep the state we are replacing, so a restore can be undone too.
+  await createSnapshot(`Avant restauration « ${snapshot.label} »`);
+
+  await db.from("products").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await db.from("catalog_nodes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  await db.from("popular_searches").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+
+  const nodes = payload.nodes ?? [];
+  // Insert parents before children so the self-referencing FK stays valid.
+  for (const level of [1, 2, 3, 4]) {
+    const batch = nodes.filter((node) => Number(node["level"]) === level);
+    if (batch.length) {
+      const { error: nodeError } = await db.from("catalog_nodes").insert(batch as never);
+      if (nodeError) throw new Error(nodeError.message);
+    }
+  }
+  if (payload.products?.length) {
+    const { error: productError } = await db.from("products").insert(payload.products as never);
+    if (productError) throw new Error(productError.message);
+  }
+  if (payload.popular_searches?.length) {
+    await db.from("popular_searches").insert(payload.popular_searches as never);
+  }
+  if (payload.settings) {
+    const { id: _ignored, ...rest } = payload.settings;
+    await db.from("site_settings").update(rest as never).eq("id", "default");
+  }
+  return { ok: true as const, label: snapshot.label };
+}

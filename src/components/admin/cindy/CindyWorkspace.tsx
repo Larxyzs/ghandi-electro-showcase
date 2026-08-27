@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Plus,
   RotateCcw,
+  Save,
   Search,
   Trash2,
 } from "lucide-react";
@@ -48,9 +49,16 @@ export type CindyActions = {
     }[]
   >;
   forgetMemory: (id: string) => Promise<void>;
+  /** Full-site restore points, so any change can be rolled back. */
+  listSnapshots?: () => Promise<
+    { id: string; label: string; created_by: string; created_at: string }[]
+  >;
+  createSnapshot?: (label: string) => Promise<void>;
+  restoreSnapshot?: (id: string) => Promise<void>;
   /** Reloads the admin's view of the site after Cindy changed something. */
   refreshSite?: () => Promise<void> | void;
 };
+
 
 export function CindyWorkspace({
   data,
@@ -71,7 +79,10 @@ export function CindyWorkspace({
   const [sessions, setSessions] = useState<Awaited<ReturnType<CindyActions["listSessions"]>>>([]);
   const [history, setHistory] = useState<Awaited<ReturnType<CindyActions["listActions"]>>>([]);
   const [memory, setMemory] = useState<Awaited<ReturnType<CindyActions["listMemory"]>>>([]);
-  const [pane, setPane] = useState<"sessions" | "memory" | "history">("sessions");
+  const [snapshots, setSnapshots] = useState<
+    { id: string; label: string; created_by: string; created_at: string }[]
+  >([]);
+  const [pane, setPane] = useState<"sessions" | "memory" | "history" | "snapshots">("sessions");
   const [mode, setMode] = useState<"chat" | "research">("chat");
   const [loading, setLoading] = useState(true);
   const [replay, setReplay] = useState<{ query: string; events: CindyEvent[] } | null>(null);
@@ -79,14 +90,16 @@ export function CindyWorkspace({
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, h, m] = await Promise.all([
+      const [s, h, m, snaps] = await Promise.all([
         actions.listSessions(),
         actions.listActions(),
         actions.listMemory(),
+        actions.listSnapshots?.() ?? Promise.resolve([]),
       ]);
       setSessions(s);
       setHistory(h);
       setMemory(m);
+      setSnapshots(snaps);
     } finally {
       setLoading(false);
     }
@@ -95,6 +108,7 @@ export function CindyWorkspace({
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
 
   const onEvents = async (events: CindyEvent[], query: string) => {
     if (events.length === 0) return;
@@ -242,12 +256,13 @@ export function CindyWorkspace({
         </button>
 
         <div className="rounded-3xl border border-border bg-card p-2">
-          <div className="grid grid-cols-3 gap-1">
+          <div className="grid grid-cols-4 gap-1">
             {(
               [
                 ["sessions", "Recherches", Clock],
                 ["memory", "Mémoire", Database],
                 ["history", "Historique", History],
+                ["snapshots", "Sauvegardes", Save],
               ] as const
             ).map(([id, label, Icon]) => (
               <button
@@ -255,7 +270,7 @@ export function CindyWorkspace({
                 type="button"
                 onClick={() => setPane(id)}
                 className={cn(
-                  "flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition",
+                  "flex flex-col items-center justify-center gap-1 rounded-xl px-1.5 py-2 text-[11px] font-semibold transition",
                   pane === id ? "bg-brand-soft text-brand" : "text-foreground/60",
                 )}
               >
@@ -377,7 +392,57 @@ export function CindyWorkspace({
                   )}
                 </div>
               ))}
+
+            {!loading && pane === "snapshots" && (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await actions.createSnapshot?.(
+                      `Sauvegarde manuelle ${new Date().toLocaleString("fr-MA")}`,
+                    );
+                    void refresh();
+                  }}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border px-3 py-2 text-[11px] font-semibold text-brand hover:bg-brand-soft/40"
+                >
+                  <Save className="h-3.5 w-3.5" /> Sauvegarder l'état actuel
+                </button>
+                {snapshots.length === 0 && (
+                  <p className="px-2 py-4 text-center text-[11px] text-foreground/50">
+                    Aucune sauvegarde. Une sauvegarde est créée automatiquement avant chaque
+                    modification faite par Cindy.
+                  </p>
+                )}
+                {snapshots.map((snap) => (
+                  <div key={snap.id} className="rounded-xl px-2.5 py-2 hover:bg-brand-soft/40">
+                    <p className="truncate text-xs font-semibold">{snap.label}</p>
+                    <p className="text-[11px] text-foreground/50">
+                      {new Date(snap.created_at).toLocaleString("fr-MA")}
+                      {snap.created_by ? ` · ${snap.created_by}` : ""}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (
+                          !window.confirm(
+                            `Remettre tout le site (dossiers, articles, couleurs, recherches) dans l'état « ${snap.label} » ?`,
+                          )
+                        )
+                          return;
+                        await actions.restoreSnapshot?.(snap.id);
+                        await actions.refreshSite?.();
+                        void refresh();
+                      }}
+                      className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
+                    >
+                      <RotateCcw className="h-3 w-3" /> Restaurer
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+
         </div>
       </aside>
     </div>
