@@ -935,7 +935,39 @@ const TOOL_LABELS: Record<string, string> = {
   update_theme: "Couleurs du site",
   set_site_mode: "Mode du site",
   manage_popular_search: "Recherches populaires",
+  reorder_popular_search: "Ordre des recherches",
+  reorder_folder: "Ordre des dossiers",
+  set_product_featured: "Mise en avant",
+  list_orders: "Lecture des commandes",
+  update_order_status: "Statut d'une commande",
+  list_history: "Lecture de l'historique",
+  list_restore_points: "Points de restauration",
+  create_restore_point: "Sauvegarde du site",
+  restore_site: "Restauration du site",
+  optimize_images: "Inspection des images",
 };
+
+/** Tools that change real data: they trigger a backup + a history entry. */
+const MUTATING_TOOLS = new Set([
+  "create_folder",
+  "rename_folder",
+  "move_folder",
+  "reorder_folder",
+  "delete_folder",
+  "create_product",
+  "update_product",
+  "move_product",
+  "delete_product",
+  "set_product_featured",
+  "bulk_create_products",
+  "update_theme",
+  "set_site_mode",
+  "manage_popular_search",
+  "reorder_popular_search",
+  "update_order_status",
+  "restore_site",
+]);
+
 
 function describeArgs(args: Json) {
   const parts: string[] = [];
