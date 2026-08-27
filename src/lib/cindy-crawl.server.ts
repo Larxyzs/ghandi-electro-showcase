@@ -324,7 +324,7 @@ export async function crawlListingPage(input: {
         if (input.signal?.aborted) throw new Error("ABORTED");
         try {
           product = await extractProductFromSources({
-            query: item.label || item.url,
+            query: `${item.label || "Produit"} — référence exacte à extraire depuis l'URL officielle : ${item.url}`,
             sources: [{ url: item.url, title: item.label || item.url, content: page.text }],
             images: page.images.slice(0, 12),
           });
