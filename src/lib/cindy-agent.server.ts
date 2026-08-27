@@ -1193,6 +1193,10 @@ const TOOL_LABELS: Record<string, string> = {
   create_restore_point: "Sauvegarde du site",
   restore_site: "Restauration du site",
   optimize_images: "Inspection des images",
+  import_from_page: "Import depuis une page",
+  discover_references: "Découverte de modèles",
+  web_search: "Recherche web",
+  open_page: "Ouverture d'une page",
 };
 
 /** Tools that change real data: they trigger a backup + a history entry. */
@@ -1214,6 +1218,7 @@ const MUTATING_TOOLS = new Set([
   "reorder_popular_search",
   "update_order_status",
   "restore_site",
+  "import_from_page",
 ]);
 
 
