@@ -725,7 +725,7 @@ export async function researchProduct(
     detail: "Toutes les informations de la page officielle",
     status: "running",
   });
-  let product = await extractWithAI({ query, sources: pages, images: images.slice(0, 14) });
+  let product = await extractProductFromSources({ query, sources: pages, images: images.slice(0, 14) });
   emit({
     type: "activity",
     id: "x1",
@@ -775,7 +775,7 @@ export async function researchProduct(
           detail: "Complément d'informations",
           status: "running",
         });
-        product = await extractWithAI({ query, sources: pages, images: images.slice(0, 14) });
+        product = await extractProductFromSources({ query, sources: pages, images: images.slice(0, 14) });
         emit({
           type: "activity",
           id: "x2",
