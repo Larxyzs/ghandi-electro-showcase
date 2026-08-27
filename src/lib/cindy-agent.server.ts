@@ -140,7 +140,7 @@ const S = { type: ["string", "null"] };
 const N = { type: ["number", "null"] };
 const B = { type: ["boolean", "null"] };
 
-function buildTools(): ToolDef[] {
+function buildTools(signal?: AbortSignal): ToolDef[] {
   return [
     {
       name: "get_site_overview",
@@ -923,7 +923,7 @@ export async function runCindyAgent(input: {
     }
   };
 
-  const tools = buildTools();
+  const tools = buildTools(input.signal);
 
   const toolSchemas = tools.map((tool) => ({
     type: "function" as const,
