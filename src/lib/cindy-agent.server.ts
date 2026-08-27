@@ -959,20 +959,38 @@ export async function runCindyAgent(input: {
       input.emit({ type: "done" });
       return;
     }
-    const res = await fetch(ai.url, {
-      method: "POST",
-      headers: ai.headers,
-      ...(input.signal ? { signal: input.signal } : {}),
-      body: JSON.stringify({
-        model: ai.model,
-        stream: true,
-        tools: toolSchemas,
-        messages: history,
-
-      }),
-    });
+    const res = await aiFetchWithRetry(
+      ai.url,
+      {
+        method: "POST",
+        headers: ai.headers,
+        ...(input.signal ? { signal: input.signal } : {}),
+        body: JSON.stringify({
+          model: ai.model,
+          stream: true,
+          tools: toolSchemas,
+          messages: history,
+        }),
+      },
+      {
+        signal: input.signal,
+        onWait: ({ waitMs, attempt, status }) => {
+          input.emit({
+            type: "activity",
+            id: `wait-${step}-${attempt}`,
+            kind: "read",
+            label:
+              status === 429
+                ? `Limite d'IA atteinte — je patiente ${Math.round(waitMs / 1000)}s puis je reprends`
+                : `Service IA momentanément indisponible — nouvelle tentative dans ${Math.round(waitMs / 1000)}s`,
+            status: "running",
+          });
+        },
+      },
+    );
 
     if (!res.ok || !res.body) throw await aiFailure(res);
+
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
