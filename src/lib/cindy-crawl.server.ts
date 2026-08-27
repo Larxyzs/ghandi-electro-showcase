@@ -37,6 +37,29 @@ const wait = (milliseconds: number, signal?: AbortSignal) =>
     );
   });
 
+const normalizedProductPath = (candidateUrl: string, listingUrl: URL) => {
+  try {
+    const candidate = new URL(candidateUrl);
+    if (candidate.hostname.replace(/^www\./, "") !== listingUrl.hostname.replace(/^www\./, "")) {
+      return "";
+    }
+    const listingParts = listingUrl.pathname.split("/").filter(Boolean);
+    const candidateParts = candidate.pathname.split("/").filter(Boolean);
+    const exactChild =
+      candidate.pathname.startsWith(`${listingUrl.pathname.replace(/\/+$/, "")}/`) &&
+      candidateParts.length > listingParts.length;
+    // "all-products" pages aggregate product URLs under sibling subtype paths.
+    const aggregatorChild =
+      /^(?:all|all-products?|all-[a-z-]+)$/i.test(listingParts.at(-1) ?? "") &&
+      candidateParts.length >= 4 &&
+      candidateParts[0] === listingParts[0] &&
+      candidateParts[1] === listingParts[1];
+    return exactChild || aggregatorChild ? candidate.pathname.replace(/\/+$/, "") : "";
+  } catch {
+    return "";
+  }
+};
+
 const LINKS_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -62,16 +85,9 @@ async function pickProductLinks(input: {
   limit: number;
 }): Promise<{ url: string; label: string }[]> {
   const listing = new URL(input.pageUrl);
-  const basePath = listing.pathname.endsWith("/") ? listing.pathname : `${listing.pathname}/`;
   const structuralMatches = input.links.filter((link) => {
-    try {
-      const candidate = new URL(link.url);
-      if (candidate.hostname !== listing.hostname || !candidate.pathname.startsWith(basePath)) return false;
-      const remainder = candidate.pathname.slice(basePath.length).replace(/^\/+|\/+$/g, "");
-      return remainder.length > 0 && !/^(all|compare|support|reviews?)(\/|$)/i.test(remainder);
-    } catch {
-      return false;
-    }
+    const path = normalizedProductPath(link.url, listing);
+    return Boolean(path) && !/(?:\/|^)(?:compare|support|reviews?)(?:\/|$)/i.test(path);
   });
 
   // A product nested below a category path is deterministic evidence. Prefer
@@ -162,20 +178,9 @@ export async function crawlListingPage(input: {
   const listing = await readPage(input.url);
   let candidateLinks = listing.links;
   const listingUrl = new URL(input.url);
-  const listingPath = listingUrl.pathname.endsWith("/")
-    ? listingUrl.pathname
-    : `${listingUrl.pathname}/`;
+  const listingPath = listingUrl.pathname.endsWith("/") ? listingUrl.pathname : `${listingUrl.pathname}/`;
   const directProductLinks = candidateLinks.filter((link) => {
-    try {
-      const candidate = new URL(link.url);
-      return (
-        candidate.hostname === listingUrl.hostname &&
-        candidate.pathname.startsWith(listingPath) &&
-        candidate.pathname.slice(listingPath.length).replace(/^\/+|\/+$/g, "").length > 0
-      );
-    } catch {
-      return false;
-    }
+    return Boolean(normalizedProductPath(link.url, listingUrl));
   });
 
   // JS-heavy manufacturer grids often expose only one SEO product in their
@@ -222,10 +227,7 @@ export async function crawlListingPage(input: {
         for (const hit of hits) {
           try {
             const candidate = new URL(hit.url);
-            const remainder = candidate.pathname.startsWith(listingPath)
-              ? candidate.pathname.slice(listingPath.length).replace(/^\/+|\/+$/g, "")
-              : "";
-            if (candidate.hostname !== listingUrl.hostname || !remainder) continue;
+            if (!normalizedProductPath(candidate.toString(), listingUrl)) continue;
             const key = candidate.toString().replace(/[?#].*$/, "").toLowerCase();
             if (recoveredKeys.has(key)) continue;
             recoveredKeys.add(key);

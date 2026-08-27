@@ -362,9 +362,9 @@ export async function readPage(
           const categoryFilter = filtersJson.response?.resultData?.navGroups
             ?.flatMap((group) => group.productFinderFilter ?? [])
             .find((filter) => filter.filterRegName === categorySlug)?.filterSearchCode;
-          if (categoryFilter) {
-            commonParams.set("onlyFilterInfoYN", "N");
-            commonParams.set("filter1", categoryFilter);
+          commonParams.set("onlyFilterInfoYN", "N");
+          if (categoryFilter) commonParams.set("filter1", categoryFilter);
+          {
             const productsResponse = await fetch(`${endpoint}?${commonParams}`);
             if (productsResponse.ok) {
               const productsJson = (await productsResponse.json()) as {
