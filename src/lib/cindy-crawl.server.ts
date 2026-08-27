@@ -13,6 +13,30 @@ type Emit = (event: CindyAgentEvent) => void;
 
 export type CrawledProduct = ResearchedProduct & { url: string };
 
+const isTransientAiError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  return /(?:AI_FAILED:\s*(?:429|500|502|503|504)|high demand|UNAVAILABLE|RESOURCE_EXHAUSTED|temporar)/i.test(
+    message,
+  );
+};
+
+const wait = (milliseconds: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new Error("ABORTED"));
+      return;
+    }
+    const timer = setTimeout(resolve, milliseconds);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(new Error("ABORTED"));
+      },
+      { once: true },
+    );
+  });
+
 const LINKS_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -294,11 +318,32 @@ export async function crawlListingPage(input: {
     try {
       const page = await readPage(item.url);
       visited += 1;
-      const product = await extractProductFromSources({
-        query: item.label || item.url,
-        sources: [{ url: item.url, title: item.label || item.url, content: page.text }],
-        images: page.images.slice(0, 12),
-      });
+      let product: ResearchedProduct | null = null;
+      let extractionError: unknown = null;
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        if (input.signal?.aborted) throw new Error("ABORTED");
+        try {
+          product = await extractProductFromSources({
+            query: item.label || item.url,
+            sources: [{ url: item.url, title: item.label || item.url, content: page.text }],
+            images: page.images.slice(0, 12),
+          });
+          break;
+        } catch (error) {
+          extractionError = error;
+          if (!isTransientAiError(error) || attempt === 3) throw error;
+          emit({
+            type: "activity",
+            id: stepId,
+            kind: "read",
+            label: `Fiche ${index + 1}/${picked.length} — service occupé, nouvel essai ${attempt + 1}/3`,
+            detail: ref,
+            status: "running",
+          });
+          await wait(attempt * 1200, input.signal);
+        }
+      }
+      if (!product) throw extractionError ?? new Error("EXTRACTION_FAILED");
       products.push({
         ...product,
         url: item.url,
