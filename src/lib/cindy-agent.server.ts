@@ -906,7 +906,10 @@ type StreamToolCall = { id: string; name: string; args: string; signature?: stri
 export async function runCindyAgent(input: {
   messages: { role: "user" | "assistant"; content: string }[];
   emit: Emit;
+  /** Aborted when the admin presses "Stop" — ends retries and long crawls. */
+  signal?: AbortSignal;
 }) {
+
   const { aiSetup, aiFailure } = await import("./ai-config.server");
   const ai = await aiSetup();
 
