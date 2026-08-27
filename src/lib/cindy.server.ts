@@ -51,39 +51,56 @@ export type SearchHit = { url: string; title: string; content: string };
 
 export type SearchProvider = "tavily" | "serper" | "brave";
 
-/** Provider + key are admin-configurable (site_settings), with env fallback. */
-async function searchConfig(): Promise<{ provider: SearchProvider; key: string }> {
-  let provider: SearchProvider = "tavily";
+/** Provider + key + model are admin-configurable (site_settings), with env fallback. */
+async function searchConfig(): Promise<{ provider: SearchProvider; key: string; model: string }> {
+  let provider: SearchProvider = "serper";
   let key = "";
+  let model = "search";
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
       .from("site_settings")
-      .select("search_provider, search_api_key")
+      .select("search_provider, search_api_key, search_model")
       .eq("id", "default")
       .maybeSingle();
-    const stored = (data?.search_provider ?? "tavily") as SearchProvider;
+    const stored = (data?.search_provider ?? "serper") as SearchProvider;
     if (stored === "serper" || stored === "brave" || stored === "tavily") provider = stored;
     key = (data?.search_api_key ?? "").trim();
+    model = (data?.search_model ?? "search").trim() || "search";
   } catch {
     /* fall back to env */
   }
-  if (!key) key = (process.env["TAVILY_API_KEY"] ?? "").trim();
-  return { provider, key };
+  if (!key) {
+    const envKey =
+      provider === "serper"
+        ? process.env["SERPER_API_KEY"]
+        : provider === "brave"
+          ? process.env["BRAVE_API_KEY"]
+          : process.env["TAVILY_API_KEY"];
+    key = (envKey ?? "").trim();
+  }
+  return { provider, key, model };
 }
 
 /** One request = one "search". Provider is swappable from the admin panel. */
 async function searxSearch(
   query: string,
-  opts: { max?: number; override?: { provider: SearchProvider; key: string } } = {},
+  opts: {
+    max?: number;
+    override?: { provider: SearchProvider; key: string; model?: string };
+  } = {},
 ): Promise<SearchHit[]> {
-  const { provider, key } = opts.override ?? (await searchConfig());
+  const config = opts.override
+    ? { ...opts.override, model: opts.override.model ?? "search" }
+    : await searchConfig();
+  const { provider, key, model } = config;
   if (!key) throw new Error("SEARCH_NOT_CONFIGURED");
   const max = Math.min(opts.max ?? 10, 20);
 
   let res: Response;
   if (provider === "serper") {
-    res = await fetch("https://google.serper.dev/search", {
+    const endpoint = ["search", "news", "shopping"].includes(model) ? model : "search";
+    res = await fetch(`https://google.serper.dev/${endpoint}`, {
       method: "POST",
       headers: { "X-API-KEY": key, "Content-Type": "application/json" },
       body: JSON.stringify({ q: query, num: max }),
@@ -100,6 +117,7 @@ async function searxSearch(
       body: JSON.stringify({ query, search_depth: "basic", max_results: max }),
     });
   }
+
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
