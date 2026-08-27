@@ -51,39 +51,56 @@ export type SearchHit = { url: string; title: string; content: string };
 
 export type SearchProvider = "tavily" | "serper" | "brave";
 
-/** Provider + key are admin-configurable (site_settings), with env fallback. */
-async function searchConfig(): Promise<{ provider: SearchProvider; key: string }> {
-  let provider: SearchProvider = "tavily";
+/** Provider + key + model are admin-configurable (site_settings), with env fallback. */
+async function searchConfig(): Promise<{ provider: SearchProvider; key: string; model: string }> {
+  let provider: SearchProvider = "serper";
   let key = "";
+  let model = "search";
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
       .from("site_settings")
-      .select("search_provider, search_api_key")
+      .select("search_provider, search_api_key, search_model")
       .eq("id", "default")
       .maybeSingle();
-    const stored = (data?.search_provider ?? "tavily") as SearchProvider;
+    const stored = (data?.search_provider ?? "serper") as SearchProvider;
     if (stored === "serper" || stored === "brave" || stored === "tavily") provider = stored;
     key = (data?.search_api_key ?? "").trim();
+    model = (data?.search_model ?? "search").trim() || "search";
   } catch {
     /* fall back to env */
   }
-  if (!key) key = (process.env["TAVILY_API_KEY"] ?? "").trim();
-  return { provider, key };
+  if (!key) {
+    const envKey =
+      provider === "serper"
+        ? process.env["SERPER_API_KEY"]
+        : provider === "brave"
+          ? process.env["BRAVE_API_KEY"]
+          : process.env["TAVILY_API_KEY"];
+    key = (envKey ?? "").trim();
+  }
+  return { provider, key, model };
 }
 
 /** One request = one "search". Provider is swappable from the admin panel. */
 async function searxSearch(
   query: string,
-  opts: { max?: number; override?: { provider: SearchProvider; key: string } } = {},
+  opts: {
+    max?: number;
+    override?: { provider: SearchProvider; key: string; model?: string };
+  } = {},
 ): Promise<SearchHit[]> {
-  const { provider, key } = opts.override ?? (await searchConfig());
+  const config = opts.override
+    ? { ...opts.override, model: opts.override.model ?? "search" }
+    : await searchConfig();
+  const { provider, key, model } = config;
   if (!key) throw new Error("SEARCH_NOT_CONFIGURED");
   const max = Math.min(opts.max ?? 10, 20);
 
   let res: Response;
   if (provider === "serper") {
-    res = await fetch("https://google.serper.dev/search", {
+    const endpoint = ["search", "news", "shopping"].includes(model) ? model : "search";
+    res = await fetch(`https://google.serper.dev/${endpoint}`, {
       method: "POST",
       headers: { "X-API-KEY": key, "Content-Type": "application/json" },
       body: JSON.stringify({ q: query, num: max }),
@@ -101,6 +118,7 @@ async function searxSearch(
     });
   }
 
+
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     if (res.status === 401 || res.status === 403) throw new Error("SEARCH_KEY_INVALID");
@@ -110,11 +128,17 @@ async function searxSearch(
   const json = (await res.json()) as {
     results?: { url?: string; title?: string; content?: string }[];
     organic?: { link?: string; title?: string; snippet?: string }[];
+    news?: { link?: string; title?: string; snippet?: string }[];
+    shopping?: { link?: string; title?: string; source?: string }[];
     web?: { results?: { url?: string; title?: string; description?: string }[] };
   };
   const raw: { url: string | undefined; title: string | undefined; content: string | undefined }[] =
     provider === "serper"
-      ? (json.organic ?? []).map((r) => ({ url: r.link, title: r.title, content: r.snippet }))
+      ? [
+          ...(json.organic ?? []).map((r) => ({ url: r.link, title: r.title, content: r.snippet })),
+          ...(json.news ?? []).map((r) => ({ url: r.link, title: r.title, content: r.snippet })),
+          ...(json.shopping ?? []).map((r) => ({ url: r.link, title: r.title, content: r.source })),
+        ]
       : provider === "brave"
         ? (json.web?.results ?? []).map((r) => ({
             url: r.url,
@@ -139,9 +163,12 @@ async function searxSearch(
 }
 
 /** Lightweight connectivity test used by the admin "changer l'API" panel. */
-export async function testSearchProvider(provider: SearchProvider, key: string) {
+export async function testSearchProvider(provider: SearchProvider, key: string, model = "search") {
   try {
-    const hits = await searxSearch("samsung refrigerateur", { max: 3, override: { provider, key } });
+    const hits = await searxSearch("samsung refrigerateur", {
+      max: 3,
+      override: { provider, key, model },
+    });
     return { ok: hits.length > 0, results: hits.length, message: "" };
   } catch (error) {
     return {
@@ -317,8 +344,8 @@ async function extractWithAI(input: {
   sources: { url: string; title: string; content: string }[];
   images: string[];
 }): Promise<ResearchedProduct> {
-  const key = process.env["LOVABLE_API_KEY"];
-  if (!key) throw new Error("AI_NOT_CONFIGURED");
+  const { aiSetup, aiFailure } = await import("./ai-config.server");
+  const ai = await aiSetup();
 
   const corpus = input.sources
     .map(
@@ -337,77 +364,34 @@ async function extractWithAI(input: {
     "Les 'marketing_sections' sont 2 à 5 blocs de présentation premium basés sur les vraies fonctionnalités du produit; " +
     "utilise uniquement les URLs d'images fournies. Termine toujours par un bloc de type 'specs'.";
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
+  const res = await fetch(ai.url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Lovable-API-Key": key,
-      "X-Lovable-AIG-SDK": "fetch",
-    },
+    headers: ai.headers,
     body: JSON.stringify({
-      model: "openai/gpt-5.6-sol",
-      stream: true,
-      store: false,
-      instructions: system,
-      input: [
+      model: ai.model,
+      messages: [
+        { role: "system", content: system },
         {
           role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: `Référence demandée par l'admin: "${input.query}"\n\nImages disponibles (URLs réelles):\n${input.images.slice(0, 8).join("\n") || "(aucune)"}\n\n${corpus}`,
-            },
-          ],
+          content: `Référence demandée par l'admin: "${input.query}"\n\nImages disponibles (URLs réelles):\n${input.images.slice(0, 8).join("\n") || "(aucune)"}\n\n${corpus}`,
         },
       ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "product",
-          strict: true,
-          schema: EXTRACTION_SCHEMA,
-        },
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "product", strict: true, schema: EXTRACTION_SCHEMA },
       },
     }),
   });
 
-  if (!res.ok || !res.body) {
-    const text = await res.text().catch(() => "");
-    if (res.status === 429) throw new Error("AI_RATE_LIMITED");
-    if (res.status === 402) throw new Error("AI_CREDITS");
-    throw new Error(`AI_FAILED: ${res.status} ${text.slice(0, 200)}`);
-  }
+  if (!res.ok) throw await aiFailure(res);
 
-  // Streaming is required on this endpoint; we only need the final text.
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let content = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split("\n\n");
-    buffer = parts.pop() ?? "";
-    for (const part of parts) {
-      const line = part.split("\n").find((l) => l.startsWith("data:"));
-      if (!line) continue;
-      const payload = line.slice(5).trim();
-      if (!payload || payload === "[DONE]") continue;
-      try {
-        const event = JSON.parse(payload) as {
-          type?: string;
-          delta?: string;
-          response?: { output_text?: string };
-        };
-        if (event.type === "response.output_text.delta" && event.delta) content += event.delta;
-        else if (event.type === "response.completed" && event.response?.output_text)
-          content = event.response.output_text;
-      } catch {
-        /* ignore malformed chunk */
-      }
-    }
-  }
+  const payload = (await res.json()) as {
+    choices?: { message?: { content?: string } }[];
+  };
+  const content = (payload.choices?.[0]?.message?.content ?? "")
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/, "")
+    .trim();
 
   if (!content.trim()) throw new Error("AI_EMPTY");
   const parsed = JSON.parse(content) as {

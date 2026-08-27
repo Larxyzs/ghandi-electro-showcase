@@ -572,70 +572,63 @@ EN MASSE : si l'admin donne plusieurs références (même dans un long message),
 
 DESTRUCTIF : ne supprime un dossier ou un article qu'après une confirmation explicite de l'admin.`;
 
-type OutputItem = Json & { type?: string };
+type ChatMessage = {
+  role: "system" | "user" | "assistant" | "tool";
+  content?: string | null;
+  tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[];
+  tool_call_id?: string;
+};
+
+type StreamToolCall = { id: string; name: string; args: string };
 
 export async function runCindyAgent(input: {
   messages: { role: "user" | "assistant"; content: string }[];
   emit: Emit;
 }) {
-  const key = process.env["LOVABLE_API_KEY"];
-  if (!key) throw new Error("AI_NOT_CONFIGURED");
+  const { aiSetup, aiFailure } = await import("./ai-config.server");
+  const ai = await aiSetup();
 
   const tools = buildTools();
   const toolSchemas = tools.map((tool) => ({
     type: "function" as const,
-    name: tool.name,
-    description: tool.description,
-    strict: true,
-    parameters: {
-      type: "object",
-      properties: tool.properties,
-      required: tool.required,
-      additionalProperties: false,
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: {
+        type: "object",
+        properties: tool.properties,
+        required: tool.required,
+      },
     },
   }));
 
-  const history: OutputItem[] = input.messages.slice(-24).map((message) => ({
-    type: "message",
-    role: message.role,
-    content: [
-      {
-        type: message.role === "assistant" ? "output_text" : "input_text",
-        text: message.content,
-      },
-    ],
-  }));
+  const history: ChatMessage[] = [
+    { role: "system", content: SYSTEM },
+    ...input.messages.slice(-24).map((message) => ({
+      role: message.role,
+      content: message.content,
+    })),
+  ];
 
   for (let step = 0; step < 12; step += 1) {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
+    const res = await fetch(ai.url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": key,
-        "X-Lovable-AIG-SDK": "fetch",
-      },
+      headers: ai.headers,
       body: JSON.stringify({
-        model: "openai/gpt-5.6-sol",
+        model: ai.model,
         stream: true,
-        store: false,
-        instructions: SYSTEM,
         tools: toolSchemas,
-        input: history,
+        messages: history,
       }),
     });
 
-    if (!res.ok || !res.body) {
-      const text = await res.text().catch(() => "");
-      if (res.status === 429) throw new Error("AI_RATE_LIMITED");
-      if (res.status === 402) throw new Error("AI_CREDITS");
-      throw new Error(`AI_FAILED: ${res.status} ${text.slice(0, 200)}`);
-    }
+    if (!res.ok || !res.body) throw await aiFailure(res);
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
-    let output: OutputItem[] = [];
     let text = "";
+    const pending = new Map<number, StreamToolCall>();
 
     for (;;) {
       const { done, value } = await reader.read();
@@ -650,15 +643,30 @@ export async function runCindyAgent(input: {
         if (!payload || payload === "[DONE]") continue;
         try {
           const event = JSON.parse(payload) as {
-            type?: string;
-            delta?: string;
-            response?: { output?: OutputItem[] };
+            choices?: {
+              delta?: {
+                content?: string | null;
+                tool_calls?: {
+                  index?: number;
+                  id?: string;
+                  function?: { name?: string; arguments?: string };
+                }[];
+              };
+            }[];
           };
-          if (event.type === "response.output_text.delta" && event.delta) {
-            text += event.delta;
-            input.emit({ type: "delta", text: event.delta });
-          } else if (event.type === "response.completed" && event.response?.output) {
-            output = event.response.output;
+          const delta = event.choices?.[0]?.delta;
+          if (delta?.content) {
+            text += delta.content;
+            input.emit({ type: "delta", text: delta.content });
+          }
+          for (const call of delta?.tool_calls ?? []) {
+            const index = call.index ?? 0;
+            const current =
+              pending.get(index) ?? { id: call.id ?? `call-${step}-${index}`, name: "", args: "" };
+            if (call.id) current.id = call.id;
+            if (call.function?.name) current.name = call.function.name;
+            if (call.function?.arguments) current.args += call.function.arguments;
+            pending.set(index, current);
           }
         } catch {
           /* ignore malformed chunk */
@@ -666,8 +674,7 @@ export async function runCindyAgent(input: {
       }
     }
 
-    const calls = output.filter((item) => item["type"] === "function_call");
-    history.push(...output);
+    const calls = [...pending.values()].filter((call) => call.name);
 
     if (calls.length === 0) {
       if (text.trim()) input.emit({ type: "assistant", text: text.trim() });
@@ -675,17 +682,26 @@ export async function runCindyAgent(input: {
       return;
     }
 
+    history.push({
+      role: "assistant",
+      content: text || null,
+      tool_calls: calls.map((call) => ({
+        id: call.id,
+        type: "function" as const,
+        function: { name: call.name, arguments: call.args || "{}" },
+      })),
+    });
+
     for (const call of calls) {
-      const name = String(call["name"] ?? "");
-      const callId = String(call["call_id"] ?? "");
+      const name = call.name;
       const tool = tools.find((t) => t.name === name);
       let args: Json = {};
       try {
-        args = JSON.parse(String(call["arguments"] ?? "{}")) as Json;
+        args = JSON.parse(call.args || "{}") as Json;
       } catch {
         args = {};
       }
-      const activityId = `t-${callId || name}`;
+      const activityId = `t-${call.id || name}`;
       input.emit({
         type: "activity",
         id: activityId,
@@ -721,9 +737,9 @@ export async function runCindyAgent(input: {
       });
 
       history.push({
-        type: "function_call_output",
-        call_id: callId,
-        output: JSON.stringify(result).slice(0, 12000),
+        role: "tool",
+        tool_call_id: call.id,
+        content: JSON.stringify(result).slice(0, 12000),
       });
     }
   }
