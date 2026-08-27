@@ -344,8 +344,8 @@ async function extractWithAI(input: {
   sources: { url: string; title: string; content: string }[];
   images: string[];
 }): Promise<ResearchedProduct> {
-  const key = process.env["LOVABLE_API_KEY"];
-  if (!key) throw new Error("AI_NOT_CONFIGURED");
+  const { aiSetup, aiFailure } = await import("./ai-config.server");
+  const ai = await aiSetup();
 
   const corpus = input.sources
     .map(
@@ -364,77 +364,34 @@ async function extractWithAI(input: {
     "Les 'marketing_sections' sont 2 à 5 blocs de présentation premium basés sur les vraies fonctionnalités du produit; " +
     "utilise uniquement les URLs d'images fournies. Termine toujours par un bloc de type 'specs'.";
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
+  const res = await fetch(ai.url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Lovable-API-Key": key,
-      "X-Lovable-AIG-SDK": "fetch",
-    },
+    headers: ai.headers,
     body: JSON.stringify({
-      model: "openai/gpt-5.6-sol",
-      stream: true,
-      store: false,
-      instructions: system,
-      input: [
+      model: ai.model,
+      messages: [
+        { role: "system", content: system },
         {
           role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: `Référence demandée par l'admin: "${input.query}"\n\nImages disponibles (URLs réelles):\n${input.images.slice(0, 8).join("\n") || "(aucune)"}\n\n${corpus}`,
-            },
-          ],
+          content: `Référence demandée par l'admin: "${input.query}"\n\nImages disponibles (URLs réelles):\n${input.images.slice(0, 8).join("\n") || "(aucune)"}\n\n${corpus}`,
         },
       ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "product",
-          strict: true,
-          schema: EXTRACTION_SCHEMA,
-        },
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "product", strict: true, schema: EXTRACTION_SCHEMA },
       },
     }),
   });
 
-  if (!res.ok || !res.body) {
-    const text = await res.text().catch(() => "");
-    if (res.status === 429) throw new Error("AI_RATE_LIMITED");
-    if (res.status === 402) throw new Error("AI_CREDITS");
-    throw new Error(`AI_FAILED: ${res.status} ${text.slice(0, 200)}`);
-  }
+  if (!res.ok) throw await aiFailure(res);
 
-  // Streaming is required on this endpoint; we only need the final text.
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let content = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split("\n\n");
-    buffer = parts.pop() ?? "";
-    for (const part of parts) {
-      const line = part.split("\n").find((l) => l.startsWith("data:"));
-      if (!line) continue;
-      const payload = line.slice(5).trim();
-      if (!payload || payload === "[DONE]") continue;
-      try {
-        const event = JSON.parse(payload) as {
-          type?: string;
-          delta?: string;
-          response?: { output_text?: string };
-        };
-        if (event.type === "response.output_text.delta" && event.delta) content += event.delta;
-        else if (event.type === "response.completed" && event.response?.output_text)
-          content = event.response.output_text;
-      } catch {
-        /* ignore malformed chunk */
-      }
-    }
-  }
+  const payload = (await res.json()) as {
+    choices?: { message?: { content?: string } }[];
+  };
+  const content = (payload.choices?.[0]?.message?.content ?? "")
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/, "")
+    .trim();
 
   if (!content.trim()) throw new Error("AI_EMPTY");
   const parsed = JSON.parse(content) as {
