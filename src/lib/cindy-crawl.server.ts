@@ -154,9 +154,11 @@ export async function crawlListingPage(input: {
     }
   });
 
-  // JS-heavy manufacturer grids may expose only one SEO product in their raw
-  // HTML. In that case, use the configured search provider strictly as a
-  // discovery fallback constrained to this exact listing path.
+  // JS-heavy manufacturer grids often expose only one SEO product in their
+  // raw HTML. One search based on the admin's sentence is not enough: search
+  // the category and the visible seed product separately, then keep only
+  // official URLs nested under this exact listing. This is storefront-agnostic
+  // and works for Samsung, Bosch, LG, etc. without inventing model references.
   if (directProductLinks.length <= 1) {
     emit({
       type: "activity",
@@ -168,28 +170,48 @@ export async function crawlListingPage(input: {
     });
     try {
       const brand = listingUrl.hostname.split(".").filter((part) => !/^(www|com|net|org)$/i.test(part))[0] ?? "";
+      const category = listingPath
+        .split("/")
+        .filter(Boolean)
+        .filter((part) => !/^(n_[a-z]+|[a-z]{2}_[a-z]{2}|fr|en|ma)$/i.test(part))
+        .join(" ")
+        .replace(/[-_]+/g, " ");
       const hint = (input.hint ?? "")
         .replace(/https?:\/\/\S+/gi, " ")
         .replace(/\b(?:ajoute|importe|cherche|trouve|tous?|toutes?|page|site)\b/gi, " ")
         .replace(/\s+/g, " ")
         .trim();
       const visibleProductName = directProductLinks[0]?.text ?? "";
-      const query = `${brand} ${hint || visibleProductName || "produits"}`.trim().slice(0, 140);
-      const hits = await webSearch(query, { max: Math.min(limit * 2, 40) });
-      const recovered = hits
-        .filter((hit) => {
+      const queries = [
+        `${brand} ${category}`,
+        visibleProductName ? `${brand} ${visibleProductName}` : "",
+        hint ? `${brand} ${hint}` : "",
+      ]
+        .map((query) => query.replace(/\s+/g, " ").trim().slice(0, 140))
+        .filter((query, index, all) => query.length > brand.length && all.indexOf(query) === index);
+
+      const recovered: { url: string; text: string }[] = [];
+      const recoveredKeys = new Set<string>();
+      for (const query of queries) {
+        if (input.signal?.aborted) break;
+        const hits = await webSearch(query, { max: 20 });
+        for (const hit of hits) {
           try {
             const candidate = new URL(hit.url);
-            return (
-              candidate.hostname === listingUrl.hostname &&
-              candidate.pathname.startsWith(listingPath) &&
-              candidate.pathname.slice(listingPath.length).replace(/^\/+|\/+$/g, "").length > 0
-            );
+            const remainder = candidate.pathname.startsWith(listingPath)
+              ? candidate.pathname.slice(listingPath.length).replace(/^\/+|\/+$/g, "")
+              : "";
+            if (candidate.hostname !== listingUrl.hostname || !remainder) continue;
+            const key = candidate.toString().replace(/[?#].*$/, "").toLowerCase();
+            if (recoveredKeys.has(key)) continue;
+            recoveredKeys.add(key);
+            recovered.push({ url: candidate.toString(), text: hit.title });
           } catch {
-            return false;
+            /* ignore malformed search result URLs */
           }
-        })
-        .map((hit) => ({ url: hit.url, text: hit.title }));
+        }
+        if (recovered.length >= limit) break;
+      }
       candidateLinks = [...directProductLinks, ...recovered, ...candidateLinks].filter(
         (link, index, all) =>
           all.findIndex(
@@ -202,13 +224,7 @@ export async function crawlListingPage(input: {
         type: "activity",
         id: "crawl-recover-links",
         kind: "search",
-        label: `${Math.max(candidateLinks.filter((link) => {
-          try {
-            return new URL(link.url).pathname.startsWith(listingPath) && new URL(link.url).pathname !== listingPath;
-          } catch {
-            return false;
-          }
-        }).length, directProductLinks.length)} fiche(s) récupérée(s)`,
+        label: `${new Set([...directProductLinks, ...recovered].map((link) => link.url.replace(/[?#].*$/, "").toLowerCase())).size} fiche(s) récupérée(s)`,
         status: "done",
       });
     } catch (error) {
