@@ -1,0 +1,195 @@
+/**
+ * Listing crawler — "give Cindy a page, she opens every product on it".
+ *
+ * The admin pastes a category/listing URL (e.g. all Samsung combi fridges).
+ * Cindy opens that page, lets the AI pick the real product-detail links out of
+ * the page's links/text, then opens each product page and extracts the full
+ * product data (name, reference, characteristics, specs, images) from it.
+ * No commercial data is ever invented: price and stock stay with the admin.
+ */
+import type { CindyAgentEvent, ResearchedProduct } from "./cindy-types";
+
+type Emit = (event: CindyAgentEvent) => void;
+
+export type CrawledProduct = ResearchedProduct & { url: string };
+
+const LINKS_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["products"],
+  properties: {
+    products: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["url", "label"],
+        properties: { url: { type: "string" }, label: { type: "string" } },
+      },
+    },
+  },
+} as const;
+
+async function pickProductLinks(input: {
+  pageUrl: string;
+  text: string;
+  links: { url: string; text: string }[];
+  hint: string;
+  limit: number;
+}): Promise<{ url: string; label: string }[]> {
+  const { aiSetup, aiFailure } = await import("./ai-config.server");
+  const ai = await aiSetup();
+  const res = await fetch(ai.url, {
+    method: "POST",
+    headers: ai.headers,
+    body: JSON.stringify({
+      model: ai.model,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Tu analyses une page de listing d'un site d'électroménager. Parmi les liens fournis, sélectionne UNIQUEMENT les liens qui mènent à une fiche produit (un modèle précis). Ignore la navigation, les catégories, les filtres, les comparateurs, le support, les accessoires, les blogs, les réseaux sociaux et les doublons (même modèle, autre couleur). Renvoie les URLs telles quelles.",
+        },
+        {
+          role: "user",
+          content: `PAGE : ${input.pageUrl}\nDEMANDE DE L'ADMIN : ${input.hint || "(aucune précision)"}\nMAX : ${input.limit}\n\nLIENS :\n${input.links
+            .map((l) => `- ${l.text || "(sans texte)"} → ${l.url}`)
+            .join("\n")}\n\nTEXTE DE LA PAGE :\n${input.text.slice(0, 8000)}`,
+        },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "product_links", strict: true, schema: LINKS_SCHEMA },
+      },
+    }),
+  });
+  if (!res.ok) throw await aiFailure(res);
+  const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  const raw = json.choices?.[0]?.message?.content ?? "{}";
+  let parsed: { products?: { url?: string; label?: string }[] } = {};
+  try {
+    parsed = JSON.parse(raw) as typeof parsed;
+  } catch {
+    const match = raw.match(/\{[\s\S]*\}/);
+    parsed = match ? (JSON.parse(match[0]) as typeof parsed) : {};
+  }
+  const seen = new Set<string>();
+  const out: { url: string; label: string }[] = [];
+  for (const item of parsed.products ?? []) {
+    const url = String(item?.url ?? "").trim();
+    if (!/^https?:\/\//i.test(url)) continue;
+    const key = url.replace(/[?#].*$/, "").toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ url, label: String(item?.label ?? "").trim() });
+    if (out.length >= input.limit) break;
+  }
+  return out;
+}
+
+/** Opens a listing page and reads every product page it links to. */
+export async function crawlListingPage(input: {
+  url: string;
+  hint?: string;
+  limit?: number;
+  emit?: Emit;
+  signal?: AbortSignal;
+}): Promise<{ products: CrawledProduct[]; visited: number; failures: string[] }> {
+  const emit = input.emit ?? (() => {});
+  const limit = Math.min(Math.max(input.limit ?? 12, 1), 30);
+  const { readPage } = await import("./cindy.server");
+  const { extractProductFromSources } = await import("./cindy.server");
+
+  emit({
+    type: "activity",
+    id: "crawl-listing",
+    kind: "open",
+    label: "J'ouvre la page",
+    detail: input.url,
+    status: "running",
+  });
+  const listing = await readPage(input.url);
+  emit({
+    type: "activity",
+    id: "crawl-listing",
+    kind: "open",
+    label: "Page lue",
+    detail: `${listing.links.length} liens`,
+    status: "done",
+  });
+
+  emit({
+    type: "activity",
+    id: "crawl-pick",
+    kind: "extract",
+    label: "Je repère les produits de la page",
+    status: "running",
+  });
+  const picked = await pickProductLinks({
+    pageUrl: input.url,
+    text: listing.text,
+    links: listing.links.slice(0, 220),
+    hint: input.hint ?? "",
+    limit,
+  });
+  emit({
+    type: "activity",
+    id: "crawl-pick",
+    kind: "extract",
+    label: `${picked.length} produit(s) sur la page`,
+    status: picked.length ? "done" : "error",
+  });
+  if (picked.length === 0) return { products: [], visited: 0, failures: [] };
+
+  picked.forEach((item, index) =>
+    emit({ type: "bulk_item", item: { index, ref: item.label || item.url, status: "pending" } }),
+  );
+
+  const products: CrawledProduct[] = [];
+  const failures: string[] = [];
+  let visited = 0;
+
+  for (const [index, item] of picked.entries()) {
+    if (input.signal?.aborted) break;
+    const ref = item.label || item.url;
+    emit({ type: "bulk_item", item: { index, ref, status: "running" } });
+    try {
+      const page = await readPage(item.url);
+      visited += 1;
+      const product = await extractProductFromSources({
+        query: item.label || item.url,
+        sources: [{ url: item.url, title: item.label || item.url, content: page.text }],
+        images: page.images.slice(0, 12),
+      });
+      products.push({
+        ...product,
+        url: item.url,
+        sources: [{ name: new URL(item.url).hostname, url: item.url, official: true }],
+      });
+      emit({ type: "bulk_item", item: { index, ref, status: "done", product } });
+      emit({
+        type: "source",
+        source: {
+          url: item.url,
+          domain: new URL(item.url).hostname,
+          title: product.name || ref,
+          official: true,
+          status: "ok",
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erreur";
+      failures.push(`${ref} : ${message}`);
+      emit({ type: "bulk_item", item: { index, ref, status: "error", message } });
+    }
+  }
+
+  emit({
+    type: "bulk_summary",
+    total: picked.length,
+    ok: products.length,
+    failed: picked.length - products.length,
+  });
+
+  return { products, visited, failures };
+}
