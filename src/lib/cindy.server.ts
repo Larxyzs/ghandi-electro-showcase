@@ -512,7 +512,7 @@ export async function extractProductFromSources(input: {
   sources: { url: string; title: string; content: string }[];
   images: string[];
 }): Promise<ResearchedProduct> {
-  const { aiSetup, aiFailure } = await import("./ai-config.server");
+  const { aiSetup, aiFailure, aiFetchWithRetry } = await import("./ai-config.server");
   const ai = await aiSetup();
 
   const corpus = input.sources
@@ -532,7 +532,7 @@ export async function extractProductFromSources(input: {
     "Les 'marketing_sections' sont 2 à 5 blocs de présentation premium basés sur les vraies fonctionnalités du produit; " +
     "utilise uniquement les URLs d'images fournies. Termine toujours par un bloc de type 'specs'.";
 
-  const res = await fetch(ai.url, {
+  const res = await aiFetchWithRetry(ai.url, {
     method: "POST",
     headers: ai.headers,
     body: JSON.stringify({

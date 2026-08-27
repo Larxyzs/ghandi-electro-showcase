@@ -23,9 +23,9 @@ type Plan = {
 };
 
 async function chat(messages: { role: string; content: string }[], schemaName: string, schema: unknown) {
-  const { aiSetup, aiFailure } = await import("./ai-config.server");
+  const { aiSetup, aiFailure, aiFetchWithRetry } = await import("./ai-config.server");
   const ai = await aiSetup();
-  const res = await fetch(ai.url, {
+  const res = await aiFetchWithRetry(ai.url, {
     method: "POST",
     headers: ai.headers,
     body: JSON.stringify({
