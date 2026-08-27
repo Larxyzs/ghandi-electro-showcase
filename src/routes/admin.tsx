@@ -226,7 +226,15 @@ function AdminPage() {
         load: async () => await getSearchSettings(),
         save: async (input) =>
           await saveSearchSettings({
-            data: { provider: input.provider, key: input.key, test: input.test },
+            data: {
+              provider: input.provider,
+              key: input.key,
+              model: input.model,
+              aiProvider: input.aiProvider,
+              aiModel: input.aiModel,
+              aiKey: input.aiKey,
+              test: input.test,
+            },
           }),
       }}
       emailActions={{
