@@ -949,15 +949,22 @@ export async function runCindyAgent(input: {
     })),
   ];
 
-  for (let step = 0; step < 12; step += 1) {
+  for (let step = 0; step < 18; step += 1) {
+    if (input.signal?.aborted) {
+      input.emit({ type: "assistant", text: "Ok, j'arrête là." });
+      input.emit({ type: "done" });
+      return;
+    }
     const res = await fetch(ai.url, {
       method: "POST",
       headers: ai.headers,
+      ...(input.signal ? { signal: input.signal } : {}),
       body: JSON.stringify({
         model: ai.model,
         stream: true,
         tools: toolSchemas,
         messages: history,
+
       }),
     });
 
