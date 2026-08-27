@@ -125,8 +125,7 @@ export async function crawlListingPage(input: {
 }): Promise<{ products: CrawledProduct[]; visited: number; failures: string[] }> {
   const emit = input.emit ?? (() => {});
   const limit = Math.min(Math.max(input.limit ?? 12, 1), 30);
-  const { readPage } = await import("./cindy.server");
-  const { extractProductFromSources } = await import("./cindy.server");
+  const { readPage, webSearch, extractProductFromSources } = await import("./cindy.server");
 
   emit({
     type: "activity",
@@ -137,6 +136,85 @@ export async function crawlListingPage(input: {
     status: "running",
   });
   const listing = await readPage(input.url);
+  let candidateLinks = listing.links;
+  const listingUrl = new URL(input.url);
+  const listingPath = listingUrl.pathname.endsWith("/")
+    ? listingUrl.pathname
+    : `${listingUrl.pathname}/`;
+  const directProductLinks = candidateLinks.filter((link) => {
+    try {
+      const candidate = new URL(link.url);
+      return (
+        candidate.hostname === listingUrl.hostname &&
+        candidate.pathname.startsWith(listingPath) &&
+        candidate.pathname.slice(listingPath.length).replace(/^\/+|\/+$/g, "").length > 0
+      );
+    } catch {
+      return false;
+    }
+  });
+
+  // JS-heavy manufacturer grids may expose only one SEO product in their raw
+  // HTML. In that case, use the configured search provider strictly as a
+  // discovery fallback constrained to this exact listing path.
+  if (directProductLinks.length <= 1) {
+    emit({
+      type: "activity",
+      id: "crawl-recover-links",
+      kind: "search",
+      label: "La grille est dynamique — je récupère ses fiches",
+      detail: `${listingUrl.hostname}${listingPath}`,
+      status: "running",
+    });
+    try {
+      const query = `site:${listingUrl.hostname}${listingPath} ${input.hint ?? "produits modèles"}`.trim();
+      const hits = await webSearch(query, { max: Math.min(limit * 2, 40) });
+      const recovered = hits
+        .filter((hit) => {
+          try {
+            const candidate = new URL(hit.url);
+            return (
+              candidate.hostname === listingUrl.hostname &&
+              candidate.pathname.startsWith(listingPath) &&
+              candidate.pathname.slice(listingPath.length).replace(/^\/+|\/+$/g, "").length > 0
+            );
+          } catch {
+            return false;
+          }
+        })
+        .map((hit) => ({ url: hit.url, text: hit.title }));
+      candidateLinks = [...directProductLinks, ...recovered, ...candidateLinks].filter(
+        (link, index, all) =>
+          all.findIndex(
+            (candidate) =>
+              candidate.url.replace(/[?#].*$/, "").toLowerCase() ===
+              link.url.replace(/[?#].*$/, "").toLowerCase(),
+          ) === index,
+      );
+      emit({
+        type: "activity",
+        id: "crawl-recover-links",
+        kind: "search",
+        label: `${Math.max(candidateLinks.filter((link) => {
+          try {
+            return new URL(link.url).pathname.startsWith(listingPath) && new URL(link.url).pathname !== listingPath;
+          } catch {
+            return false;
+          }
+        }).length, directProductLinks.length)} fiche(s) récupérée(s)`,
+        status: "done",
+      });
+    } catch (error) {
+      emit({
+        type: "activity",
+        id: "crawl-recover-links",
+        kind: "search",
+        label: "Récupération complémentaire indisponible",
+        detail: error instanceof Error ? error.message : "Erreur",
+        status: "error",
+      });
+    }
+  }
   emit({
     type: "activity",
     id: "crawl-listing",
@@ -156,7 +234,7 @@ export async function crawlListingPage(input: {
   const picked = await pickProductLinks({
     pageUrl: input.url,
     text: listing.text,
-    links: listing.links.slice(0, 220),
+    links: candidateLinks.slice(0, 220),
     hint: input.hint ?? "",
     limit,
   });
