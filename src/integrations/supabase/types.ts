@@ -362,9 +362,13 @@ export type Database = {
       }
       site_settings: {
         Row: {
+          ai_api_key: string | null
+          ai_model: string
+          ai_provider: string
           id: string
           primary_color: string
           search_api_key: string | null
+          search_model: string
           search_provider: string
           secondary_color: string
           site_mode: string
@@ -372,9 +376,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_api_key?: string | null
+          ai_model?: string
+          ai_provider?: string
           id?: string
           primary_color?: string
           search_api_key?: string | null
+          search_model?: string
           search_provider?: string
           secondary_color?: string
           site_mode?: string
@@ -382,9 +390,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_api_key?: string | null
+          ai_model?: string
+          ai_provider?: string
           id?: string
           primary_color?: string
           search_api_key?: string | null
+          search_model?: string
           search_provider?: string
           secondary_color?: string
           site_mode?: string
