@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, ArrowUp, Check, Loader2, Zap } from "lucide-react";
+import { AlertCircle, ArrowUp, Check, Loader2, Square, Zap } from "lucide-react";
 import type { CindyActivityKind, CindyAgentEvent, CindyChatMessage } from "@/lib/cindy-types";
 import { CindyAvatar } from "./CindyChat";
 import { cn } from "@/lib/utils";
@@ -52,6 +52,8 @@ export function CindyAgentChat({
   const [live, setLive] = useState("");
   const [activities, setActivities] = useState<Activity[]>([]);
   const boxRef = useRef<HTMLDivElement>(null);
+  /** Lets the admin stop Cindy mid-run (long imports, repair retries). */
+  const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -79,12 +81,16 @@ export function CindyAgentChat({
     const steps: Activity[] = [];
     let failure: string | null = null;
     let changed = false;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let stopped = false;
 
     try {
       const res = await fetch("/api/admin/cindy-agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: history }),
+        signal: controller.signal,
       });
       if (!res.ok || !res.body) throw new Error(res.status === 401 ? "Session expirée." : "Erreur réseau.");
 
@@ -132,14 +138,17 @@ export function CindyAgentChat({
         }
       }
     } catch (error) {
-      failure = error instanceof Error ? error.message : "Erreur inconnue.";
+      if (controller.signal.aborted) stopped = true;
+      else failure = error instanceof Error ? error.message : "Erreur inconnue.";
     }
+
+    abortRef.current = null;
 
     setTurns((prev) => [
       ...prev,
       {
         role: "assistant",
-        content: answer.trim() || (failure ? "" : "C'est fait."),
+        content: answer.trim() || (failure ? "" : stopped ? "Ok, j'arrête là." : "C'est fait."),
         ...(steps.length ? { activities: [...steps] } : {}),
         ...(failure ? { error: failure } : {}),
       },
@@ -149,6 +158,8 @@ export function CindyAgentChat({
     setStreaming(false);
     if (changed) onChanged?.();
   };
+
+  const stop = () => abortRef.current?.abort();
 
   const stepIcon = (status: Activity["status"]) =>
     status === "running" ? (
@@ -253,6 +264,13 @@ export function CindyAgentChat({
                 </p>
               )}
               {activities.length > 0 && <Steps items={activities} />}
+              <button
+                type="button"
+                onClick={stop}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground/70 transition hover:border-destructive/50 hover:text-destructive"
+              >
+                <Square className="h-3 w-3" /> Arrêter
+              </button>
             </div>
           </div>
         )}
@@ -281,6 +299,16 @@ export function CindyAgentChat({
             placeholder="Écrivez à Cindy — français, English, العربية, Español, Italiano…"
             className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-3 py-2 text-sm outline-none"
           />
+          {streaming ? (
+            <button
+              type="button"
+              onClick={stop}
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-border text-foreground/70 transition hover:border-destructive/50 hover:text-destructive"
+              aria-label="Arrêter Cindy"
+            >
+              <Square className="h-4 w-4" />
+            </button>
+          ) : null}
           <button
             type="submit"
             disabled={streaming || !input.trim()}

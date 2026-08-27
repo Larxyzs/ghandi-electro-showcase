@@ -140,7 +140,7 @@ const S = { type: ["string", "null"] };
 const N = { type: ["number", "null"] };
 const B = { type: ["boolean", "null"] };
 
-function buildTools(): ToolDef[] {
+function buildTools(signal?: AbortSignal): ToolDef[] {
   return [
     {
       name: "get_site_overview",
@@ -505,6 +505,104 @@ function buildTools(): ToolDef[] {
       },
     },
     {
+      name: "import_from_page",
+      description:
+        "L'admin donne l'URL d'une page (rayon, listing, résultats d'une marque) : cet outil ouvre la page, repère TOUS les liens de fiches produits, ouvre chaque fiche une par une et en extrait toutes les informations (nom, référence, caractéristiques, spécifications, images), puis crée les articles dans le dossier demandé. Les doublons déjà au catalogue sont signalés, pas recréés. price/stock viennent uniquement de l'admin (laisse null/0 s'il ne les a pas donnés). C'est l'outil à utiliser dès que l'admin envoie un lien de page avec plusieurs produits.",
+      properties: {
+        url: { type: "string" },
+        folder_path: S,
+        hint: S,
+        limit: N,
+        stock: N,
+        price: N,
+        create: B,
+      },
+      required: ["url", "folder_path", "hint", "limit", "stock", "price", "create"],
+      run: async (args, emit) => {
+        const url = str(args, "url");
+        if (!/^https?:\/\//i.test(url)) throw new Error("Donne-moi une URL complète (https://…).");
+        const limit = num(args, "limit");
+        const { crawlListingPage } = await import("./cindy-crawl.server");
+        const crawled = await crawlListingPage({
+          url,
+          hint: str(args, "hint"),
+          ...(limit ? { limit: Math.floor(limit) } : {}),
+          emit,
+          ...(signal ? { signal } : {}),
+        });
+        if (crawled.products.length === 0)
+          throw new Error(
+            "Aucune fiche produit trouvée sur cette page. Envoie-moi la page de listing exacte ou les références.",
+          );
+
+        const shouldCreate = args["create"] !== false;
+        const report = crawled.products.map((p) => ({
+          reference: p.model || p.name,
+          name: p.name,
+          brand: p.brand,
+          url: p.url,
+          images: p.images.length,
+          specifications: p.specifications.length,
+          status: "found" as string,
+        }));
+
+        if (!shouldCreate) return { pages_read: crawled.visited, products: report, failures: crawled.failures };
+
+        const folderPath = str(args, "folder_path");
+        const stock = Math.max(0, Math.floor(num(args, "stock") ?? 0));
+        const price = num(args, "price");
+        const { saveProduct } = await import("./admin.server");
+
+        for (const [index, product] of crawled.products.entries()) {
+          if (signal?.aborted) break;
+          const reference = product.model || product.name;
+          try {
+            const { products: existing } = await loadCatalog();
+            const key = norm(reference);
+            const duplicate = existing.find(
+              (p) => norm(p.serial_number ?? "") === key || norm(p.name) === key,
+            );
+            if (duplicate) {
+              report[index]!.status = "duplicate";
+              continue;
+            }
+            const path =
+              folderPath ||
+              [product.brand || "Divers", "Modèles", reference].filter(Boolean).join(" / ");
+            const node = await resolvePath(path, true);
+            await saveProduct({
+              node_id: node.id,
+              name: product.name || reference,
+              brand: product.brand,
+              serial_number: product.model || reference,
+              characteristics: product.characteristics,
+              specifications: product.specifications,
+              gallery: product.images.slice(0, 8),
+              marketing_sections: product.marketing_sections as never,
+              source_url: product.url,
+              source_name: product.sources[0]?.name ?? null,
+              stock,
+              price,
+              ...httpsImage(product.images[0] ?? null),
+            });
+            report[index]!.status = "created";
+            emit({ type: "changed" });
+          } catch (error) {
+            report[index]!.status = `error: ${error instanceof Error ? error.message : "échec"}`;
+          }
+        }
+
+        return {
+          pages_read: crawled.visited,
+          created: report.filter((r) => r.status === "created").length,
+          duplicates: report.filter((r) => r.status === "duplicate").length,
+          products: report,
+          failures: crawled.failures,
+        };
+      },
+    },
+
+    {
       name: "web_search",
       description:
         "Recherche web par mots-clés courts (jamais une phrase complète). Utile pour trouver la bonne page officielle avant open_page.",
@@ -784,7 +882,11 @@ APRÈS CHAQUE ACTION : explique simplement ce que tu as fait, en une à trois ph
 
 INFOS COMMERCIALES : tu n'invents JAMAIS un prix ni un stock. Si l'admin ne les donne pas, mets stock 0 / prix vide et demande-les.
 
-RECHERCHE — RÈGLE IMPORTANTE : l'API de recherche ne comprend que des mots-clés courts, jamais une phrase. Ne lui passe donc JAMAIS la demande de l'admin mot à mot. Quand l'admin décrit un rayon ou un site entier (« va dans tous les réfrigérateurs combinés Samsung Afrique du Nord (samsung.com/n_africa) », « ajoute toute la gamme lave-linge LG »), utilise discover_references avec sa phrase complète : cet outil réfléchit, ouvre vraiment les pages officielles de listing et te renvoie les références des modèles. Ensuite montre-lui la liste trouvée, demande le dossier + prix/stock si besoin, puis crée tout avec bulk_create_products. Tu peux aussi explorer toi-même : web_search (mots-clés courts) pour trouver la bonne page, puis open_page (gratuit) pour la lire et suivre ses liens. research_product ne sert qu'à UNE référence précise déjà connue.
+LIEN D'UNE PAGE = import_from_page : dès que l'admin t'envoie une URL de page contenant plusieurs produits (« voilà le lien, prends tout ce qu'il y a dessus »), utilise import_from_page avec cette URL. L'outil ouvre la page, clique lui-même sur chaque fiche produit, lit chaque fiche et récupère toutes les infos, puis crée les articles dans le dossier indiqué (doublons signalés, jamais recréés). Si l'admin n'a pas donné dossier/prix/stock, appelle-le d'abord avec create=false pour lui montrer la liste trouvée, puis demande dossier + prix/stock en une seule question courte, puis relance avec create=true.
+
+RECHERCHE — RÈGLE IMPORTANTE : l'API de recherche ne comprend que des mots-clés courts, jamais une phrase. Ne lui passe donc JAMAIS la demande de l'admin mot à mot. Quand l'admin décrit un rayon ou un site entier sans donner de lien (« va dans tous les réfrigérateurs combinés Samsung Afrique du Nord », « ajoute toute la gamme lave-linge LG »), utilise discover_references avec sa phrase complète : cet outil réfléchit, ouvre vraiment les pages officielles de listing et te renvoie les références des modèles. Ensuite montre-lui la liste trouvée, demande le dossier + prix/stock si besoin, puis crée tout avec bulk_create_products. Tu peux aussi explorer toi-même : web_search (mots-clés courts) pour trouver la bonne page, puis open_page (gratuit) pour la lire et suivre ses liens. research_product ne sert qu'à UNE référence précise déjà connue. Les références seules données par l'admin (Samsung RB34T672EWW, etc.) continuent de passer par research_product / bulk_create_products.
+
+AUTO-RÉPARATION : si un outil échoue, ne t'arrête pas. Diagnostique la cause (URL invalide, dossier inexistant, référence introuvable, page bloquée), corrige les arguments ou change de méthode (autre URL, web_search puis open_page, création du dossier manquant), et réessaie. Après 3 essais infructueux sur la même chose, explique la cause en une phrase simple et propose une alternative. L'admin peut arrêter les tentatives à tout moment avec le bouton Stop : dans ce cas termine proprement sans rien relancer.
 
 EN MASSE : si l'admin donne plusieurs références (même dans un long message), utilise bulk_create_products une seule fois avec toutes les références, plus la marque/le dossier/le prix/le stock communs qu'il a indiqués. Si le dossier ou le prix/stock commun manque et que l'admin veut publier tout de suite, demande-le en une seule question courte.
 
@@ -808,7 +910,10 @@ type StreamToolCall = { id: string; name: string; args: string; signature?: stri
 export async function runCindyAgent(input: {
   messages: { role: "user" | "assistant"; content: string }[];
   emit: Emit;
+  /** Aborted when the admin presses "Stop" — ends retries and long crawls. */
+  signal?: AbortSignal;
 }) {
+
   const { aiSetup, aiFailure } = await import("./ai-config.server");
   const ai = await aiSetup();
 
@@ -825,7 +930,7 @@ export async function runCindyAgent(input: {
     }
   };
 
-  const tools = buildTools();
+  const tools = buildTools(input.signal);
 
   const toolSchemas = tools.map((tool) => ({
     type: "function" as const,
@@ -848,15 +953,22 @@ export async function runCindyAgent(input: {
     })),
   ];
 
-  for (let step = 0; step < 12; step += 1) {
+  for (let step = 0; step < 18; step += 1) {
+    if (input.signal?.aborted) {
+      input.emit({ type: "assistant", text: "Ok, j'arrête là." });
+      input.emit({ type: "done" });
+      return;
+    }
     const res = await fetch(ai.url, {
       method: "POST",
       headers: ai.headers,
+      ...(input.signal ? { signal: input.signal } : {}),
       body: JSON.stringify({
         model: ai.model,
         stream: true,
         tools: toolSchemas,
         messages: history,
+
       }),
     });
 
@@ -959,15 +1071,52 @@ export async function runCindyAgent(input: {
 
       let result: unknown;
       let failed = false;
-      try {
-        if (!tool) throw new Error(`Outil inconnu : ${name}`);
-        // Before the first real change of the conversation, keep a full backup
-        // so the admin can revert everything Cindy does in one click.
-        if (MUTATING_TOOLS.has(name)) await ensureSafetyPoint();
-        result = await tool.run(args, input.emit);
-      } catch (error) {
-        failed = true;
-        result = { error: error instanceof Error ? error.message : "Erreur inconnue" };
+      /** Auto-repair: on failure Cindy retries the same call, backing off a
+       *  little, until it works or the admin presses Stop. */
+      const attempts = 3;
+      for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        if (input.signal?.aborted) {
+          failed = true;
+          result = { error: "Arrêté par l'admin." };
+          break;
+        }
+        try {
+          if (!tool) throw new Error(`Outil inconnu : ${name}`);
+          // Before the first real change of the conversation, keep a full backup
+          // so the admin can revert everything Cindy does in one click.
+          if (MUTATING_TOOLS.has(name)) await ensureSafetyPoint();
+          result = await tool.run(args, input.emit);
+          failed = false;
+          break;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Erreur inconnue";
+          failed = true;
+          result = {
+            error: message,
+            attempts: attempt,
+            repair_hint:
+              "Diagnostique la cause de cette erreur, corrige les arguments (chemin de dossier, URL, référence) ou change de méthode, puis réessaie. Si ça échoue toujours, explique la cause à l'admin en une phrase et propose une solution.",
+          };
+          const retryable = !tool || attempt >= attempts || input.signal?.aborted;
+          if (retryable) break;
+          input.emit({
+            type: "activity",
+            id: `${activityId}-fix-${attempt}`,
+            kind: "action",
+            label: "Erreur détectée — je répare et je réessaie",
+            detail: message,
+            status: "running",
+          });
+          await new Promise((resolve) => setTimeout(resolve, 600 * attempt));
+          input.emit({
+            type: "activity",
+            id: `${activityId}-fix-${attempt}`,
+            kind: "action",
+            label: `Nouvelle tentative ${attempt + 1}/${attempts}`,
+            detail: message,
+            status: "done",
+          });
+        }
       }
 
       if (!failed && MUTATING_TOOLS.has(name)) {
@@ -1002,7 +1151,14 @@ export async function runCindyAgent(input: {
         tool_call_id: call.id,
         content: JSON.stringify(result).slice(0, 12000),
       });
+
+      if (input.signal?.aborted) {
+        input.emit({ type: "assistant", text: "Ok, j'arrête là." });
+        input.emit({ type: "done" });
+        return;
+      }
     }
+
   }
 
   input.emit({
@@ -1037,6 +1193,10 @@ const TOOL_LABELS: Record<string, string> = {
   create_restore_point: "Sauvegarde du site",
   restore_site: "Restauration du site",
   optimize_images: "Inspection des images",
+  import_from_page: "Import depuis une page",
+  discover_references: "Découverte de modèles",
+  web_search: "Recherche web",
+  open_page: "Ouverture d'une page",
 };
 
 /** Tools that change real data: they trigger a backup + a history entry. */
@@ -1058,6 +1218,7 @@ const MUTATING_TOOLS = new Set([
   "reorder_popular_search",
   "update_order_status",
   "restore_site",
+  "import_from_page",
 ]);
 
 

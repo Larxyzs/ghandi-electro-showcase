@@ -39,22 +39,44 @@ export const Route = createFileRoute("/api/admin/cindy-agent")({
                   ? "Crédits IA épuisés."
                   : `Une erreur est survenue (${message}).`;
 
+        // The admin's "Stop" button aborts the request; the agent stops its
+        // retries and long page crawls instead of finishing them.
+        const stopper = new AbortController();
+        request.signal.addEventListener("abort", () => stopper.abort());
+
         const stream = new ReadableStream<Uint8Array>({
           async start(controller) {
+            let closed = false;
             const send = (event: CindyAgentEvent) => {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+              if (closed) return;
+              try {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+              } catch {
+                closed = true;
+              }
             };
             try {
-              await runCindyAgent({ messages, emit: send });
+              await runCindyAgent({ messages, emit: send, signal: stopper.signal });
             } catch (error) {
               const message = error instanceof Error ? error.message : "UNKNOWN";
-              send({ type: "error", message: humanError(message) });
-              send({ type: "done" });
+              if (!stopper.signal.aborted) {
+                send({ type: "error", message: humanError(message) });
+                send({ type: "done" });
+              }
             } finally {
-              controller.close();
+              closed = true;
+              try {
+                controller.close();
+              } catch {
+                /* already closed by the aborted client */
+              }
             }
           },
+          cancel() {
+            stopper.abort();
+          },
         });
+
 
         return new Response(stream, {
           headers: {
