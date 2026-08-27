@@ -132,6 +132,56 @@ export async function aiFailure(res: Response) {
   return new Error(`AI_FAILED: ${res.status} ${text.slice(0, 200)}`);
 }
 
+/**
+ * Calls the AI endpoint and, when rate limited (429) or hit by a transient
+ * upstream error (5xx), waits (Retry-After when provided, else exponential
+ * backoff with jitter) and resumes automatically.
+ */
+export async function aiFetchWithRetry(
+  url: string,
+  init: RequestInit,
+  options: {
+    attempts?: number;
+    signal?: AbortSignal;
+    onWait?: (info: { attempt: number; waitMs: number; status: number }) => void;
+  } = {},
+): Promise<Response> {
+  const attempts = options.attempts ?? 5;
+  for (let attempt = 1; ; attempt += 1) {
+    const res = await fetch(url, init);
+    if (res.ok) return res;
+    const retryable = res.status === 429 || res.status >= 500;
+    if (!retryable || attempt >= attempts) return res;
+
+    const header = res.headers.get("retry-after");
+    const headerMs = header ? Number(header) * 1000 : NaN;
+    const waitMs = Number.isFinite(headerMs) && headerMs > 0
+      ? Math.min(headerMs, 60_000)
+      : Math.min(2 ** attempt * 1000, 30_000) + Math.floor(Math.random() * 750);
+
+    try {
+      await res.body?.cancel();
+    } catch {
+      /* ignore */
+    }
+    options.onWait?.({ attempt, waitMs, status: res.status });
+
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        options.signal?.removeEventListener("abort", onAbort);
+        resolve();
+      }, waitMs);
+      function onAbort() {
+        clearTimeout(timer);
+        reject(new Error("ABORTED"));
+      }
+      if (options.signal?.aborted) onAbort();
+      else options.signal?.addEventListener("abort", onAbort, { once: true });
+    });
+  }
+}
+
+
 /** Quick connectivity probe used by the admin panel before saving a key. */
 export async function testAiProvider(provider: AiProviderId, model: string, key: string) {
   const url =
