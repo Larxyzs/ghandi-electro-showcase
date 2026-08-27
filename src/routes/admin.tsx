@@ -310,6 +310,7 @@ function AdminPage() {
             }),
           ),
         deleteProduct: (id) => run(() => deleteProductFn({ data: { id } })),
+        saveProductsBatch: (products) => run(() => saveProductsBatch({ data: { products } })),
         saveProduct: (draft: ProductDraft & { node_id: string }) =>
           run(() =>
             saveProduct({
