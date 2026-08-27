@@ -128,11 +128,17 @@ async function searxSearch(
   const json = (await res.json()) as {
     results?: { url?: string; title?: string; content?: string }[];
     organic?: { link?: string; title?: string; snippet?: string }[];
+    news?: { link?: string; title?: string; snippet?: string }[];
+    shopping?: { link?: string; title?: string; source?: string }[];
     web?: { results?: { url?: string; title?: string; description?: string }[] };
   };
   const raw: { url: string | undefined; title: string | undefined; content: string | undefined }[] =
     provider === "serper"
-      ? (json.organic ?? []).map((r) => ({ url: r.link, title: r.title, content: r.snippet }))
+      ? [
+          ...(json.organic ?? []).map((r) => ({ url: r.link, title: r.title, content: r.snippet })),
+          ...(json.news ?? []).map((r) => ({ url: r.link, title: r.title, content: r.snippet })),
+          ...(json.shopping ?? []).map((r) => ({ url: r.link, title: r.title, content: r.source })),
+        ]
       : provider === "brave"
         ? (json.web?.results ?? []).map((r) => ({
             url: r.url,
@@ -157,9 +163,12 @@ async function searxSearch(
 }
 
 /** Lightweight connectivity test used by the admin "changer l'API" panel. */
-export async function testSearchProvider(provider: SearchProvider, key: string) {
+export async function testSearchProvider(provider: SearchProvider, key: string, model = "search") {
   try {
-    const hits = await searxSearch("samsung refrigerateur", { max: 3, override: { provider, key } });
+    const hits = await searxSearch("samsung refrigerateur", {
+      max: 3,
+      override: { provider, key, model },
+    });
     return { ok: hits.length > 0, results: hits.length, message: "" };
   } catch (error) {
     return {
