@@ -42,6 +42,10 @@ import {
   adminSaveSearchSettings,
   adminListImages,
   adminReplaceImage,
+  adminListSnapshots,
+  adminCreateSnapshot,
+  adminRestoreSnapshot,
+  adminSaveProductsBatch,
 } from "@/lib/admin.functions";
 import { adminListOrders, adminSetOrderStatus, adminDeleteOrder } from "@/lib/orders.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -105,6 +109,10 @@ function AdminPage() {
   const deleteEmail = useServerFn(adminDeleteEmail);
   const getSearchSettings = useServerFn(adminGetSearchSettings);
   const saveSearchSettings = useServerFn(adminSaveSearchSettings);
+  const listSnapshots = useServerFn(adminListSnapshots);
+  const createSnapshot = useServerFn(adminCreateSnapshot);
+  const restoreSnapshot = useServerFn(adminRestoreSnapshot);
+  const saveProductsBatch = useServerFn(adminSaveProductsBatch);
   const listImages = useServerFn(adminListImages);
   const replaceImageFn = useServerFn(adminReplaceImage);
   const listOrders = useServerFn(adminListOrders);
@@ -357,6 +365,13 @@ function AdminPage() {
             searches_used: m.searches_used,
             updated_at: m.updated_at,
           })),
+        listSnapshots: async () => await listSnapshots(),
+        createSnapshot: async (label: string) => {
+          await createSnapshot({ data: { label } });
+        },
+        restoreSnapshot: async (id: string) => {
+          await restoreSnapshot({ data: { id } });
+        },
         refreshSite: () => refresh(),
         forgetMemory: async (id) => {
           await forgetResearchMemoryFn({ data: { id } });
