@@ -37,6 +37,33 @@ async function pickProductLinks(input: {
   hint: string;
   limit: number;
 }): Promise<{ url: string; label: string }[]> {
+  const listing = new URL(input.pageUrl);
+  const basePath = listing.pathname.endsWith("/") ? listing.pathname : `${listing.pathname}/`;
+  const structuralMatches = input.links.filter((link) => {
+    try {
+      const candidate = new URL(link.url);
+      if (candidate.hostname !== listing.hostname || !candidate.pathname.startsWith(basePath)) return false;
+      const remainder = candidate.pathname.slice(basePath.length).replace(/^\/+|\/+$/g, "");
+      return remainder.length > 0 && !/^(all|compare|support|reviews?)(\/|$)/i.test(remainder);
+    } catch {
+      return false;
+    }
+  });
+
+  // A product nested below a category path is deterministic evidence. Prefer
+  // it over asking the model, which can return an empty array with long menus.
+  if (structuralMatches.length > 0) {
+    const seen = new Set<string>();
+    return structuralMatches
+      .filter((item) => {
+        const key = item.url.replace(/[?#].*$/, "").toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, input.limit);
+  }
+
   const { aiSetup, aiFailure } = await import("./ai-config.server");
   const ai = await aiSetup();
   const res = await fetch(ai.url, {

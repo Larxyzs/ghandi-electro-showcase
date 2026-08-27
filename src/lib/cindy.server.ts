@@ -235,19 +235,49 @@ export async function readPage(
     .trim();
 
   const links: { url: string; text: string }[] = [];
-  for (const m of html.matchAll(/<a[^>]+href=["']([^"'#]+)["'][^>]*>([\s\S]{0,160}?)<\/a>/gi)) {
+  const pushLink = (rawUrl: string, label = "") => {
     try {
-      const abs = new URL((m[1] ?? "").trim(), url).toString();
-      if (!/^https?:\/\//.test(abs)) continue;
-      const label = (m[2] ?? "")
-        .replace(/<[^>]+>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      if (links.some((l) => l.url === abs)) continue;
-      links.push({ url: abs, text: label });
-      if (links.length >= 220) break;
+      const abs = new URL(rawUrl.trim(), url).toString();
+      if (!/^https?:\/\//.test(abs)) return;
+      const clean = abs.replace(/#.*$/, "");
+      if (links.some((link) => link.url.replace(/#.*$/, "") === clean)) return;
+      links.push({ url: abs, text: label.replace(/\s+/g, " ").trim() });
     } catch {
       /* ignore malformed link */
+    }
+  };
+  for (const m of html.matchAll(/<a[^>]+href=["']([^"'#]+)["'][^>]*>([\s\S]{0,160}?)<\/a>/gi)) {
+    const label = (m[2] ?? "").replace(/<[^>]+>/g, " ");
+    pushLink(m[1] ?? "", label);
+    if (links.length >= 220) break;
+  }
+
+  // Many manufacturer listings (notably Samsung) render product cards with
+  // JavaScript. Their raw HTML contains the products only in JSON-LD, so the
+  // ordinary anchor scan above sees navigation links but no product pages.
+  const visitStructuredData = (value: unknown) => {
+    if (Array.isArray(value)) {
+      value.forEach(visitStructuredData);
+      return;
+    }
+    if (!value || typeof value !== "object") return;
+    const item = value as Record<string, unknown>;
+    const type = Array.isArray(item["@type"])
+      ? item["@type"].map(String)
+      : [String(item["@type"] ?? "")];
+    if (type.some((entry) => entry.toLowerCase() === "product")) {
+      const productUrl = String(item["url"] ?? item["@id"] ?? "");
+      if (productUrl) pushLink(productUrl, String(item["name"] ?? ""));
+    }
+    Object.values(item).forEach(visitStructuredData);
+  };
+  for (const match of html.matchAll(
+    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+  )) {
+    try {
+      visitStructuredData(JSON.parse((match[1] ?? "").trim()));
+    } catch {
+      /* ignore invalid third-party structured data */
     }
   }
 

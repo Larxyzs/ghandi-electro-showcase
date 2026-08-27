@@ -186,6 +186,42 @@ export async function discoverReferences(input: {
     )
     .join("\n\n");
 
+  const deterministicReferences: DiscoveredRef[] = [];
+  const deterministicSeen = new Set<string>();
+  for (const page of corpus) {
+    const listing = new URL(page.url);
+    const basePath = listing.pathname.endsWith("/") ? listing.pathname : `${listing.pathname}/`;
+    for (const link of page.links) {
+      try {
+        const candidate = new URL(link.url);
+        const remainder = candidate.pathname.startsWith(basePath)
+          ? candidate.pathname.slice(basePath.length).replace(/^\/+|\/+$/g, "")
+          : "";
+        if (candidate.hostname !== listing.hostname || !remainder) continue;
+        const slug = remainder.split("/").filter(Boolean).at(-1) ?? "";
+        const reference = slug.match(/(?:^|-)([a-z]{1,5}\d[a-z0-9-]{3,})(?:-|$)/i)?.[1] ?? slug;
+        const key = candidate.toString().replace(/[?#].*$/, "").toLowerCase();
+        if (deterministicSeen.has(key)) continue;
+        deterministicSeen.add(key);
+        deterministicReferences.push({ reference, name: link.text || reference, url: candidate.toString() });
+      } catch {
+        /* ignore malformed link */
+      }
+    }
+  }
+
+  if (deterministicReferences.length > 0) {
+    const references = deterministicReferences.slice(0, limit);
+    emit({
+      type: "activity",
+      id: "extract",
+      kind: "extract",
+      label: `${references.length} modèle(s) identifié(s)`,
+      status: "done",
+    });
+    return { references, plan, pages: opened };
+  }
+
   const parsed = await chat(
     [
       {
