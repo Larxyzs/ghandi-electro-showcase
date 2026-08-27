@@ -83,7 +83,7 @@ async function searchConfig(): Promise<{ provider: SearchProvider; key: string; 
 }
 
 /** One request = one "search". Provider is swappable from the admin panel. */
-async function searxSearch(
+export async function webSearch(
   query: string,
   opts: {
     max?: number;
@@ -165,7 +165,7 @@ async function searxSearch(
 /** Lightweight connectivity test used by the admin "changer l'API" panel. */
 export async function testSearchProvider(provider: SearchProvider, key: string, model = "search") {
   try {
-    const hits = await searxSearch("samsung refrigerateur", {
+    const hits = await webSearch("samsung refrigerateur", {
       max: 3,
       override: { provider, key, model },
     });
@@ -183,7 +183,9 @@ export async function testSearchProvider(provider: SearchProvider, key: string, 
 
 
 /** Reads a page directly (no search credit) and returns its text plus image URLs. */
-async function readPage(url: string): Promise<{ text: string; images: string[] }> {
+export async function readPage(
+  url: string,
+): Promise<{ text: string; images: string[]; links: { url: string; text: string }[] }> {
   const res = await fetch(url, {
     headers: {
       "User-Agent":
@@ -232,7 +234,24 @@ async function readPage(url: string): Promise<{ text: string; images: string[] }
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
-  return { text, images: images.slice(0, 24) };
+  const links: { url: string; text: string }[] = [];
+  for (const m of html.matchAll(/<a[^>]+href=["']([^"'#]+)["'][^>]*>([\s\S]{0,160}?)<\/a>/gi)) {
+    try {
+      const abs = new URL((m[1] ?? "").trim(), url).toString();
+      if (!/^https?:\/\//.test(abs)) continue;
+      const label = (m[2] ?? "")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (links.some((l) => l.url === abs)) continue;
+      links.push({ url: abs, text: label });
+      if (links.length >= 220) break;
+    } catch {
+      /* ignore malformed link */
+    }
+  }
+
+  return { text, images: images.slice(0, 24), links };
 }
 
 /** Stable cache key: brand/model characters only, so casing and spacing never miss. */
@@ -595,7 +614,7 @@ export async function researchProduct(
 
   // ---- 1. ONE exact-reference search ----
   emit({ type: "activity", id: "s1", kind: "search", label: "Recherche (1)", detail: query, status: "running" });
-  const hits = await searxSearch(
+  const hits = await webSearch(
     officialDomains.length ? `"${query}" site:${officialDomains[0]}` : `"${query}"`,
     { max: 10 },
   );
@@ -621,7 +640,7 @@ export async function researchProduct(
       detail: "Aucune page officielle, recherche ouverte",
       status: "running",
     });
-    pool = rankHits(await searxSearch(`"${query}" fiche technique`, { max: 10 }), brandGuess, []);
+    pool = rankHits(await webSearch(`"${query}" fiche technique`, { max: 10 }), brandGuess, []);
     searchesUsed += 1;
     emit({
       type: "activity",
@@ -729,7 +748,7 @@ export async function researchProduct(
     });
     try {
       const extra = rankHits(
-        await searxSearch(`"${query}" ${missing.join(" ")} fiche technique`, { max: 8 }),
+        await webSearch(`"${query}" ${missing.join(" ")} fiche technique`, { max: 8 }),
         brandGuess,
         officialDomains,
       ).filter((hit) => !pages.some((p) => p.url === hit.url));

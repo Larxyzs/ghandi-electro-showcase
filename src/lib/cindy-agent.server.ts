@@ -480,6 +480,78 @@ function buildTools(): ToolDef[] {
       },
     },
     {
+      name: "discover_references",
+      description:
+        "Comprend une demande en langage naturel (« va dans tous les réfrigérateurs combinés Samsung Afrique du Nord (samsung.com/n_africa) », « ajoute tout le rayon lave-linge LG »), ouvre vraiment les pages de listing officielles et renvoie la liste des références de modèles trouvées. À utiliser AVANT bulk_create_products quand l'admin ne donne pas les références une par une. N'écris jamais la phrase de l'admin dans une recherche mot à mot : passe-la ici.",
+      properties: { instruction: { type: "string" }, limit: N },
+      required: ["instruction", "limit"],
+      run: async (args, emit) => {
+        const { discoverReferences } = await import("./cindy-discover.server");
+        const limit = num(args, "limit");
+        const found = await discoverReferences({
+          instruction: str(args, "instruction"),
+          ...(limit ? { limit: Math.floor(limit) } : {}),
+          emit,
+        });
+        if (found.references.length === 0)
+          throw new Error(
+            "Aucun modèle trouvé sur ces pages. Donne-moi une page de listing plus précise ou les références directement.",
+          );
+        return {
+          brand: found.plan.brand,
+          pages: found.pages,
+          references: found.references,
+        };
+      },
+    },
+    {
+      name: "web_search",
+      description:
+        "Recherche web par mots-clés courts (jamais une phrase complète). Utile pour trouver la bonne page officielle avant open_page.",
+      properties: { query: { type: "string" }, max: N },
+      required: ["query", "max"],
+      run: async (args, emit) => {
+        const query = str(args, "query");
+        const { webSearch } = await import("./cindy.server");
+        emit({ type: "activity", id: `s-${query}`, kind: "search", label: `Recherche : ${query}`, status: "running" });
+        const max = num(args, "max");
+        const hits = await webSearch(query, { max: Math.min(Math.max(max ?? 6, 1), 10) });
+        emit({
+          type: "activity",
+          id: `s-${query}`,
+          kind: "search",
+          label: `Recherche : ${query}`,
+          detail: `${hits.length} résultats`,
+          status: "done",
+        });
+        return hits.map((h) => ({ url: h.url, title: h.title, snippet: h.content.slice(0, 300) }));
+      },
+    },
+    {
+      name: "open_page",
+      description:
+        "Ouvre une URL et renvoie son texte, ses images et ses liens (gratuit, aucun crédit de recherche). Utilise-le pour explorer un site officiel page par page.",
+      properties: { url: { type: "string" } },
+      required: ["url"],
+      run: async (args, emit) => {
+        const url = str(args, "url");
+        const { readPage } = await import("./cindy.server");
+        emit({ type: "activity", id: `o-${url}`, kind: "open", label: "J'ouvre la page", detail: url, status: "running" });
+        try {
+          const page = await readPage(url);
+          emit({ type: "activity", id: `o-${url}`, kind: "open", label: "Page lue", detail: url, status: "done" });
+          return {
+            text: page.text.slice(0, 9000),
+            images: page.images.slice(0, 12),
+            links: page.links.slice(0, 120),
+          };
+        } catch (error) {
+          emit({ type: "activity", id: `o-${url}`, kind: "open", label: "Page inaccessible", detail: url, status: "error" });
+          throw error;
+        }
+      },
+    },
+    {
       name: "update_theme",
       description:
         "Change les couleurs globales du site (hex #RRGGBB) : primary_color (fond), secondary_color (couleur de marque), text_color.",
@@ -711,6 +783,8 @@ CONFIDENTIALITÉ : les données clients (nom, téléphone, adresse) restent dans
 APRÈS CHAQUE ACTION : explique simplement ce que tu as fait, en une à trois phrases + une petite liste si nécessaire ("J'ai créé le dossier X, ajouté 3 articles, mis le stock à 5"). Si quelque chose a échoué, dis-le clairement et propose la suite.
 
 INFOS COMMERCIALES : tu n'invents JAMAIS un prix ni un stock. Si l'admin ne les donne pas, mets stock 0 / prix vide et demande-les.
+
+RECHERCHE — RÈGLE IMPORTANTE : l'API de recherche ne comprend que des mots-clés courts, jamais une phrase. Ne lui passe donc JAMAIS la demande de l'admin mot à mot. Quand l'admin décrit un rayon ou un site entier (« va dans tous les réfrigérateurs combinés Samsung Afrique du Nord (samsung.com/n_africa) », « ajoute toute la gamme lave-linge LG »), utilise discover_references avec sa phrase complète : cet outil réfléchit, ouvre vraiment les pages officielles de listing et te renvoie les références des modèles. Ensuite montre-lui la liste trouvée, demande le dossier + prix/stock si besoin, puis crée tout avec bulk_create_products. Tu peux aussi explorer toi-même : web_search (mots-clés courts) pour trouver la bonne page, puis open_page (gratuit) pour la lire et suivre ses liens. research_product ne sert qu'à UNE référence précise déjà connue.
 
 EN MASSE : si l'admin donne plusieurs références (même dans un long message), utilise bulk_create_products une seule fois avec toutes les références, plus la marque/le dossier/le prix/le stock communs qu'il a indiqués. Si le dossier ou le prix/stock commun manque et que l'admin veut publier tout de suite, demande-le en une seule question courte.
 
