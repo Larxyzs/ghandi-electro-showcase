@@ -1060,15 +1060,52 @@ export async function runCindyAgent(input: {
 
       let result: unknown;
       let failed = false;
-      try {
-        if (!tool) throw new Error(`Outil inconnu : ${name}`);
-        // Before the first real change of the conversation, keep a full backup
-        // so the admin can revert everything Cindy does in one click.
-        if (MUTATING_TOOLS.has(name)) await ensureSafetyPoint();
-        result = await tool.run(args, input.emit);
-      } catch (error) {
-        failed = true;
-        result = { error: error instanceof Error ? error.message : "Erreur inconnue" };
+      /** Auto-repair: on failure Cindy retries the same call, backing off a
+       *  little, until it works or the admin presses Stop. */
+      const attempts = 3;
+      for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        if (input.signal?.aborted) {
+          failed = true;
+          result = { error: "Arrêté par l'admin." };
+          break;
+        }
+        try {
+          if (!tool) throw new Error(`Outil inconnu : ${name}`);
+          // Before the first real change of the conversation, keep a full backup
+          // so the admin can revert everything Cindy does in one click.
+          if (MUTATING_TOOLS.has(name)) await ensureSafetyPoint();
+          result = await tool.run(args, input.emit);
+          failed = false;
+          break;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Erreur inconnue";
+          failed = true;
+          result = {
+            error: message,
+            attempts: attempt,
+            repair_hint:
+              "Diagnostique la cause de cette erreur, corrige les arguments (chemin de dossier, URL, référence) ou change de méthode, puis réessaie. Si ça échoue toujours, explique la cause à l'admin en une phrase et propose une solution.",
+          };
+          const retryable = !tool || attempt >= attempts || input.signal?.aborted;
+          if (retryable) break;
+          input.emit({
+            type: "activity",
+            id: `${activityId}-fix-${attempt}`,
+            kind: "action",
+            label: "Erreur détectée — je répare et je réessaie",
+            detail: message,
+            status: "running",
+          });
+          await new Promise((resolve) => setTimeout(resolve, 600 * attempt));
+          input.emit({
+            type: "activity",
+            id: `${activityId}-fix-${attempt}`,
+            kind: "action",
+            label: `Nouvelle tentative ${attempt + 1}/${attempts}`,
+            detail: message,
+            status: "done",
+          });
+        }
       }
 
       if (!failed && MUTATING_TOOLS.has(name)) {
@@ -1103,7 +1140,14 @@ export async function runCindyAgent(input: {
         tool_call_id: call.id,
         content: JSON.stringify(result).slice(0, 12000),
       });
+
+      if (input.signal?.aborted) {
+        input.emit({ type: "assistant", text: "Ok, j'arrête là." });
+        input.emit({ type: "done" });
+        return;
+      }
     }
+
   }
 
   input.emit({
