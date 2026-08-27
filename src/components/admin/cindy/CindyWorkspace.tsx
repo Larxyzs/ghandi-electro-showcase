@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Plus,
   RotateCcw,
+  Save,
   Search,
   Trash2,
 } from "lucide-react";
@@ -255,12 +256,13 @@ export function CindyWorkspace({
         </button>
 
         <div className="rounded-3xl border border-border bg-card p-2">
-          <div className="grid grid-cols-3 gap-1">
+          <div className="grid grid-cols-4 gap-1">
             {(
               [
                 ["sessions", "Recherches", Clock],
                 ["memory", "Mémoire", Database],
                 ["history", "Historique", History],
+                ["snapshots", "Sauvegardes", Save],
               ] as const
             ).map(([id, label, Icon]) => (
               <button
@@ -268,7 +270,7 @@ export function CindyWorkspace({
                 type="button"
                 onClick={() => setPane(id)}
                 className={cn(
-                  "flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition",
+                  "flex flex-col items-center justify-center gap-1 rounded-xl px-1.5 py-2 text-[11px] font-semibold transition",
                   pane === id ? "bg-brand-soft text-brand" : "text-foreground/60",
                 )}
               >
