@@ -973,7 +973,7 @@ export async function runCindyAgent(input: {
         }),
       },
       {
-        signal: input.signal,
+        ...(input.signal ? { signal: input.signal } : {}),
         onWait: ({ waitMs, attempt, status }) => {
           input.emit({
             type: "activity",
