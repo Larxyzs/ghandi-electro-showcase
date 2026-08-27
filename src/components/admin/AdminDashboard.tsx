@@ -80,10 +80,8 @@ export function AdminDashboard({
     ) => Promise<void>;
   };
   apiActions: {
-    load: () => Promise<{ provider: SearchProviderId; hasKey: boolean; keyPreview: string }>;
-    save: (input: { provider: SearchProviderId; key: string | null; test: boolean }) => Promise<{
-      test: { ok: boolean; results: number; message: string } | null;
-    }>;
+    load: () => Promise<SearchSettings>;
+    save: (input: SearchSaveInput) => Promise<SearchSaveResult>;
   };
   emailActions: {
     list: () => Promise<AdminEmail[]>;
