@@ -9,15 +9,44 @@
 export type AiProviderId = "gemini" | "lovable";
 
 export const AI_MODELS: Record<AiProviderId, { id: string; label: string }[]> = {
+  // Direct Gemini API (clé GEMINI_API_KEY) — toute la famille Gemini.
   gemini: [
+    { id: "gemini-3.7-flash", label: "Gemini 3.7 Flash (dernière génération)" },
+    { id: "gemini-3.6-flash", label: "Gemini 3.6 Flash" },
+    { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash" },
+    { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite" },
+    { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (preview, qualité max)" },
+    { id: "gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite (le plus économique)" },
+    { id: "gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash Lite (preview)" },
+    { id: "gemini-3-flash-preview", label: "Gemini 3 Flash (preview)" },
+    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro (qualité)" },
     { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (rapide)" },
     { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (économique)" },
-    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro (qualité)" },
-    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
+    { id: "gemini-flash-latest", label: "Gemini Flash (toujours la dernière)" },
+    { id: "gemini-flash-lite-latest", label: "Gemini Flash Lite (toujours la dernière)" },
+    { id: "gemini-pro-latest", label: "Gemini Pro (toujours la dernière)" },
+    { id: "gemini-omni-1.1-flash", label: "Gemini Omni 1.1 Flash" },
+    { id: "gemma-4-31b-it", label: "Gemma 4 31B (open)" },
+    { id: "gemma-4-26b-a4b-it", label: "Gemma 4 26B (open)" },
   ],
+  // Passerelle Lovable (crédits) — ids exacts du catalogue.
   lovable: [
-    { id: "openai/gpt-5.6-sol", label: "GPT-5.6 Sol" },
+    { id: "google/gemini-3.7-flash", label: "Gemini 3.7 Flash (gateway)" },
+    { id: "google/gemini-3.6-flash", label: "Gemini 3.6 Flash (gateway)" },
+    { id: "google/gemini-3.5-flash", label: "Gemini 3.5 Flash (gateway)" },
+    { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro preview (gateway)" },
+    { id: "google/gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite (gateway)" },
+    { id: "google/gemini-3-flash-preview", label: "Gemini 3 Flash preview (gateway)" },
+    { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro (gateway)" },
     { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash (gateway)" },
+    { id: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (gateway)" },
+    { id: "openai/gpt-5.6-sol", label: "GPT-5.6 Sol" },
+    { id: "openai/gpt-5.6-terra", label: "GPT-5.6 Terra" },
+    { id: "openai/gpt-5.6-luna", label: "GPT-5.6 Luna" },
+    { id: "openai/gpt-5.5", label: "GPT-5.5" },
+    { id: "openai/gpt-5.4", label: "GPT-5.4" },
+    { id: "openai/gpt-5.4-mini", label: "GPT-5.4 Mini" },
+    { id: "openai/gpt-5.4-nano", label: "GPT-5.4 Nano" },
   ],
 };
 
