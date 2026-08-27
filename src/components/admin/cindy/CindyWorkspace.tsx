@@ -48,9 +48,16 @@ export type CindyActions = {
     }[]
   >;
   forgetMemory: (id: string) => Promise<void>;
+  /** Full-site restore points, so any change can be rolled back. */
+  listSnapshots?: () => Promise<
+    { id: string; label: string; created_by: string; created_at: string }[]
+  >;
+  createSnapshot?: (label: string) => Promise<void>;
+  restoreSnapshot?: (id: string) => Promise<void>;
   /** Reloads the admin's view of the site after Cindy changed something. */
   refreshSite?: () => Promise<void> | void;
 };
+
 
 export function CindyWorkspace({
   data,
