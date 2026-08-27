@@ -956,6 +956,7 @@ export async function getSearchSettings() {
     aiModel: data?.ai_model ?? "gemini-2.5-flash",
     hasAiKey: Boolean(aiKey || aiEnvKey),
     aiKeyPreview: aiKey ? `••••${aiKey.slice(-4)}` : aiEnvKey ? "clé système" : "",
+    aiModels: (await import("./ai-config.server")).AI_MODELS,
   };
 }
 
