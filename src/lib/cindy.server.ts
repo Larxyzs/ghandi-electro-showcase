@@ -307,6 +307,99 @@ export async function readPage(
     /* ordinary links remain available as fallback */
   }
 
+  // Samsung's category pages only server-render the first product. The rest
+  // come from Samsung's own public product-finder feed after hydration. Read
+  // the feed configuration embedded in the page, resolve the category slug to
+  // its filter code, then add every returned PDP URL to the normal link pool.
+  // This stays deterministic and does not spend a search-provider request.
+  try {
+    const listingUrl = new URL(url);
+    if (/(^|\.)samsung\.com$/i.test(listingUrl.hostname)) {
+      const inputValue = (name: string) => {
+        const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const match = html.match(
+          new RegExp(
+            `<input[^>]+name=["']${escapedName}["'][^>]+value=["']([^"']*)["']|<input[^>]+value=["']([^"']*)["'][^>]+name=["']${escapedName}["']`,
+            "i",
+          ),
+        );
+        return (match?.[1] ?? match?.[2] ?? "").trim();
+      };
+      const type = inputValue("pfCategoryTypeCode");
+      const categorySlug = inputValue("pfDefaultParameter");
+      const siteCode = listingUrl.pathname.split("/").filter(Boolean)[0] ?? "";
+      const countryCode = inputValue("countryCode").toLowerCase();
+      if (type && categorySlug && siteCode) {
+        const endpoint = "https://searchapi.samsung.com/v6/front/b2c/product/finder/global";
+        const commonParams = new URLSearchParams({
+          type,
+          siteCode,
+          start: "1",
+          num: "30",
+          sort: "recommended",
+          keySummaryYN: "Y",
+          ...(countryCode ? { shopSiteCode: countryCode } : {}),
+        });
+        const filtersResponse = await fetch(
+          `${endpoint}?${new URLSearchParams({
+            ...Object.fromEntries(commonParams),
+            onlyFilterInfoYN: "Y",
+          })}`,
+        );
+        if (filtersResponse.ok) {
+          const filtersJson = (await filtersResponse.json()) as {
+            response?: {
+              resultData?: {
+                navGroups?: {
+                  productFinderFilter?: {
+                    filterRegName?: string;
+                    filterSearchCode?: string;
+                  }[];
+                }[];
+              };
+            };
+          };
+          const categoryFilter = filtersJson.response?.resultData?.navGroups
+            ?.flatMap((group) => group.productFinderFilter ?? [])
+            .find((filter) => filter.filterRegName === categorySlug)?.filterSearchCode;
+          if (categoryFilter) {
+            commonParams.set("onlyFilterInfoYN", "N");
+            commonParams.set("filter1", categoryFilter);
+            const productsResponse = await fetch(`${endpoint}?${commonParams}`);
+            if (productsResponse.ok) {
+              const productsJson = (await productsResponse.json()) as {
+                response?: {
+                  resultData?: {
+                    productList?: {
+                      modelList?: {
+                        pdpUrl?: string;
+                        originPdpUrl?: string;
+                        displayName?: string;
+                        modelCode?: string;
+                      }[];
+                    }[];
+                  };
+                };
+              };
+              for (const family of productsJson.response?.resultData?.productList ?? []) {
+                for (const model of family.modelList ?? []) {
+                  const productUrl = model.pdpUrl ?? model.originPdpUrl ?? "";
+                  if (!productUrl) continue;
+                  pushLink(
+                    productUrl,
+                    [model.displayName, model.modelCode].filter(Boolean).join(" · "),
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    // Manufacturer feeds are an enhancement; preserve HTML/search fallbacks.
+  }
+
   return { text, images: images.slice(0, 24), links };
 }
 
