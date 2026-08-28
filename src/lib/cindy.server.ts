@@ -785,30 +785,39 @@ function missingEssentials(product: ResearchedProduct) {
   return missing;
 }
 
-function rankHits(hits: SearchHit[], brandGuess: string, officialDomains: string[]) {
-  return [...hits].sort((a, b) => score(b) - score(a));
+/** Only official manufacturer pages are ever considered as a data source. */
+function officialOnly(hits: SearchHit[], brandGuess: string, officialDomains: string[]) {
+  const allowed = officialDomains.length ? officialDomains : ALL_OFFICIAL;
+  return hits
+    .filter((hit) => allowed.some((domain) => domainOf(hit.url).endsWith(domain)))
+    .filter((hit) => !/support|forum|review|avis|blog|community|news|press/i.test(hit.url))
+    .sort((a, b) => score(b) - score(a));
+
   function score(hit: SearchHit) {
-    const host = domainOf(hit.url);
     let value = 0;
-    if (officialDomains.some((d) => host.endsWith(d))) value += 100;
-    else if (isOfficial(hit.url, brandGuess)) value += 60;
-    if (/support|forum|review|avis|blog|youtube|facebook|pinterest/i.test(hit.url)) value -= 40;
-    if (/fiche|spec|technique|product|produit/i.test(hit.url)) value += 10;
+    if (officialDomains.some((d) => domainOf(hit.url).endsWith(d))) value += 100;
+    else if (isOfficial(hit.url, brandGuess)) value += 50;
+    if (/\/(?:products?|produits?|p)\//i.test(hit.url)) value += 15;
     return value;
   }
 }
 
 /**
- * Economical research: cache first, then ONE search, then read the best official
- * page and stop. A second search only runs when essential data is still missing.
- * Every emitted step corresponds to a network call that really happened.
+ * Exact-reference research, official sources only.
+ *
+ * "RB34T672EWW, Samsung" → brand Samsung + reference RB34T672EWW → the official
+ * Samsung product page → page data + the product's ORIGINAL gallery (all images).
+ * No marketplace, no retailer, no blog, no image generation, no guessing: when
+ * the official page for that exact reference is not found, Cindy says so.
  */
 export async function researchProduct(
   query: string,
   emit: (event: CindyEvent) => void,
   options: { force?: boolean } = {},
 ) {
-  const brandGuess = guessBrand(query);
+  const parsed = parseProductQuery(query);
+  const brandGuess = parsed.brand || guessBrand(query);
+  const reference = parsed.reference || query.trim();
   const officialDomains = brandGuess ? (OFFICIAL_DOMAINS[brandGuess] ?? []) : [];
   const key = cacheKeyOf(query);
   let searchesUsed = 0;
@@ -848,7 +857,7 @@ export async function researchProduct(
     emit({ type: "checklist", label: "Nom du produit", done: Boolean(product.name) });
     emit({ type: "checklist", label: "Caractéristiques", done: Boolean(product.characteristics) });
     emit({ type: "checklist", label: "Spécifications", done: product.specifications.length > 0 });
-    emit({ type: "checklist", label: "Images", done: product.images.length > 0 });
+    emit({ type: "checklist", label: "Images d'origine", done: product.images.length > 0 });
     emit({ type: "result", product, cached: true });
     emit({
       type: "message",
@@ -869,89 +878,116 @@ export async function researchProduct(
 
   emit({
     type: "message",
-    text: `Je fais une seule recherche sur « ${query} », j'ouvre la page officielle du fabricant et j'en extrais tout.`,
+    text: `Référence ${reference}${brandGuess ? ` — marque ${brandGuess}` : ""}. Je cherche uniquement la page officielle du fabricant, puis j'en extrais les informations et le diaporama d'images d'origine.`,
   });
 
-  // ---- 1. ONE exact-reference search ----
-  emit({ type: "activity", id: "s1", kind: "search", label: "Recherche (1)", detail: query, status: "running" });
-  const hits = await webSearch(
-    officialDomains.length ? `"${query}" site:${officialDomains[0]}` : `"${query}"`,
-    { max: 10 },
-  );
-  searchesUsed += 1;
-  const ranked = rankHits(hits, brandGuess, officialDomains);
+  // ---- 1. ONE exact-reference search, restricted to official domains ----
   emit({
     type: "activity",
     id: "s1",
     kind: "search",
-    label: "Recherche (1)",
-    detail: `${ranked.length} résultat(s) — je garde la meilleure page`,
-    status: ranked.length ? "done" : "error",
+    label: "Recherche officielle (1)",
+    detail: officialDomains.length ? `"${reference}" sur ${officialDomains[0]}` : `"${reference}"`,
+    status: "running",
+  });
+  const rawHits = await webSearch(
+    officialDomains.length ? `"${reference}" site:${officialDomains[0]}` : `"${reference}"`,
+    { max: 10 },
+  );
+  searchesUsed += 1;
+  let pool = officialOnly(rawHits, brandGuess, officialDomains);
+  emit({
+    type: "activity",
+    id: "s1",
+    kind: "search",
+    label: "Recherche officielle (1)",
+    detail: `${pool.length} page(s) officielle(s)`,
+    status: pool.length ? "done" : "error",
   });
 
-  let pool = ranked;
-  if (pool.length === 0 && officialDomains.length) {
-    // The site-restricted search found nothing: one open search instead.
+  if (pool.length === 0) {
+    // A second, still official-only attempt with the brand name spelled out.
     emit({
       type: "activity",
       id: "s1b",
       kind: "search",
-      label: "Recherche (2)",
-      detail: "Aucune page officielle, recherche ouverte",
+      label: "Recherche officielle (2)",
+      detail: `${brandGuess || ""} ${reference} site officiel`.trim(),
       status: "running",
     });
-    pool = rankHits(await webSearch(`"${query}" fiche technique`, { max: 10 }), brandGuess, []);
+    pool = officialOnly(
+      await webSearch(`${brandGuess} ${reference} site officiel`.trim(), { max: 10 }),
+      brandGuess,
+      officialDomains,
+    );
     searchesUsed += 1;
     emit({
       type: "activity",
       id: "s1b",
       kind: "search",
-      label: "Recherche (2)",
-      detail: `${pool.length} résultat(s)`,
+      label: "Recherche officielle (2)",
+      detail: `${pool.length} page(s) officielle(s)`,
       status: pool.length ? "done" : "error",
     });
   }
 
   if (pool.length === 0) {
-    emit({ type: "error", message: `Aucun résultat pour « ${query} ». Vérifiez la référence.` });
+    emit({
+      type: "error",
+      message: `Je n'ai pas trouvé la page officielle du fabricant pour « ${reference} ». Je n'utilise aucune autre source (revendeurs, marketplaces, blogs) : vérifiez la référence ou donnez-moi le lien officiel.`,
+    });
     return null;
   }
 
-  // ---- 2. Read the best page (direct fetch, no search) ----
+  // ---- 2. Read official pages until the exact reference is verified ----
   const sources: CindySource[] = [];
   const pages: { url: string; title: string; content: string }[] = [];
-  const images: string[] = [];
+  let gallery: string[] = [];
+  const rejected: string[] = [];
 
-  const readInto = async (hit: SearchHit, activityId: string) => {
+  for (const [index, hit] of pool.entries()) {
+    if (pages.length > 0) break;
+    const activityId = `p${index}`;
     emit({
       type: "activity",
       id: activityId,
       kind: "open",
-      label: "Ouverture",
+      label: "Ouverture de la page officielle",
       detail: domainOf(hit.url),
       status: "running",
     });
     try {
-      const page = await readPage(hit.url);
-      pages.push({ url: hit.url, title: hit.title, content: page.text || hit.content });
-      for (const img of page.images) if (!images.includes(img)) images.push(img);
+      const page = await readProductPage(hit.url, reference);
+      if (!page.matchesReference) {
+        rejected.push(domainOf(hit.url));
+        emit({
+          type: "activity",
+          id: activityId,
+          kind: "compare",
+          label: "Page écartée",
+          detail: `${domainOf(hit.url)} — la référence ${reference} n'y figure pas`,
+          status: "error",
+        });
+        continue;
+      }
+      pages.push({ url: hit.url, title: hit.title, content: page.text });
+      gallery = dedupeImages([...gallery, ...page.gallery]);
       sources.push({
         url: hit.url,
         domain: domainOf(hit.url),
         title: hit.title || domainOf(hit.url),
-        official: isOfficial(hit.url, brandGuess),
-        status: page.text.length > 800 ? "Page lue entièrement" : "Contenu limité",
+        official: true,
+        status: "Page officielle vérifiée",
       });
       emit({
         type: "activity",
         id: activityId,
-        kind: "read",
-        label: "Lecture",
-        detail: `${domainOf(hit.url)} — ${Math.round((page.text.length / 1000) * 10) / 10} k caractères, ${page.images.length} image(s)`,
+        kind: "images",
+        label: "Diaporama d'origine récupéré",
+        detail: `${domainOf(hit.url)} — ${page.gallery.length} image(s) du produit`,
         status: "done",
       });
       emit({ type: "source", source: sources[sources.length - 1]! });
-      return true;
     } catch {
       emit({
         type: "activity",
@@ -961,122 +997,66 @@ export async function researchProduct(
         detail: `${domainOf(hit.url)} illisible`,
         status: "error",
       });
-      return false;
     }
-  };
-
-  let index = 0;
-  while (index < pool.length && pages.length === 0) {
-    await readInto(pool[index]!, `p${index}`);
-    index += 1;
   }
 
   if (pages.length === 0) {
-    emit({ type: "error", message: "Impossible d'ouvrir la page produit. Réessayez plus tard." });
+    emit({
+      type: "error",
+      message: `Aucune page officielle ne correspond exactement à « ${reference} »${rejected.length ? ` (pages écartées : ${rejected.join(", ")})` : ""}. Je préfère m'arrêter plutôt que d'importer un modèle voisin.`,
+    });
     return null;
   }
 
-  // ---- 3. Extract everything from that page ----
+  // ---- 3. Extract everything from that official page ----
   emit({
     type: "activity",
     id: "x1",
     kind: "extract",
     label: "Extraction",
-    detail: "Toutes les informations de la page officielle",
+    detail: "Informations de la page officielle",
     status: "running",
   });
-  let product = await extractProductFromSources({ query, sources: pages, images: images.slice(0, 14) });
+  const product = await extractProductFromSources({ query: reference, sources: pages, images: gallery });
+  if (brandGuess && !product.brand) product.brand = brandGuess;
+  if (!product.model) product.model = reference;
   emit({
     type: "activity",
     id: "x1",
     kind: "extract",
     label: "Extraction",
-    detail: `${product.specifications.length} spécification(s), ${product.images.length} image(s)`,
+    detail: `${product.specifications.length} spécification(s), ${product.images.length} image(s) d'origine`,
     status: "done",
   });
 
-  // ---- 4. Only if essentials are still missing: one complementary search ----
   const missing = missingEssentials(product);
-  if (missing.length > 0) {
+  if (missing.length > 0)
     emit({
-      type: "activity",
-      id: "s2",
-      kind: "search",
-      label: `Recherche complémentaire`,
-      detail: `Manque : ${missing.join(", ")}`,
-      status: "running",
+      type: "message",
+      text: `Attention : sur la page officielle il me manque ${missing.join(", ")}. Je n'invente rien et je ne vais pas chercher ailleurs.`,
     });
-    try {
-      const extra = rankHits(
-        await webSearch(`"${query}" ${missing.join(" ")} fiche technique`, { max: 8 }),
-        brandGuess,
-        officialDomains,
-      ).filter((hit) => !pages.some((p) => p.url === hit.url));
-      searchesUsed += 1;
-      emit({
-        type: "activity",
-        id: "s2",
-        kind: "search",
-        label: "Recherche complémentaire",
-        detail: `${extra.length} résultat(s)`,
-        status: "done",
-      });
-      let added = 0;
-      for (const hit of extra) {
-        if (added >= 2) break;
-        if (await readInto(hit, `p2${added}`)) added += 1;
-      }
-      if (added > 0) {
-        emit({
-          type: "activity",
-          id: "x2",
-          kind: "extract",
-          label: "Extraction",
-          detail: "Complément d'informations",
-          status: "running",
-        });
-        product = await extractProductFromSources({ query, sources: pages, images: images.slice(0, 14) });
-        emit({
-          type: "activity",
-          id: "x2",
-          kind: "extract",
-          label: "Extraction",
-          detail: `${product.specifications.length} spécification(s), ${product.images.length} image(s)`,
-          status: "done",
-        });
-      }
-    } catch {
-      emit({
-        type: "activity",
-        id: "s2",
-        kind: "search",
-        label: "Recherche complémentaire",
-        detail: "Impossible",
-        status: "error",
-      });
-    }
-  }
 
   product.sources = sources.map((s) => ({ name: s.domain, url: s.url, official: s.official }));
 
+  emit({ type: "checklist", label: "Référence exacte vérifiée", done: true });
+  emit({ type: "checklist", label: "Source officielle", done: true });
   emit({ type: "checklist", label: "Nom du produit", done: Boolean(product.name) });
-  emit({ type: "checklist", label: "Modèle / référence", done: Boolean(product.model) });
   emit({ type: "checklist", label: "Caractéristiques", done: Boolean(product.characteristics) });
   emit({ type: "checklist", label: "Spécifications", done: product.specifications.length > 0 });
-  emit({ type: "checklist", label: "Images", done: product.images.length > 0 });
   emit({
     type: "checklist",
-    label: "Source officielle",
-    done: product.sources.some((s) => s.official),
+    label: `Images d'origine (${product.images.length})`,
+    done: product.images.length > 0,
   });
 
-  await cacheSave({ key, query, product, images: images.slice(0, 14), searchesUsed });
+  await cacheSave({ key, query, product, images: product.images, searchesUsed });
 
   emit({ type: "result", product, cached: false });
   emit({
     type: "message",
-    text: `Terminé avec ${searchesUsed} recherche${searchesUsed > 1 ? "s" : ""} web. Je garde cette fiche en mémoire : ce produit ne sera plus jamais recherché, sauf si vous me le demandez.`,
+    text: `Terminé avec ${searchesUsed} recherche${searchesUsed > 1 ? "s" : ""} web, uniquement sur ${sources[0]!.domain}. ${product.images.length} image(s) d'origine conservée(s). Je garde cette fiche en mémoire.`,
   });
 
   return product;
 }
+
