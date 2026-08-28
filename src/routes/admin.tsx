@@ -341,9 +341,15 @@ function AdminPage() {
             events: s.events as unknown[],
             updated_at: s.updated_at,
           })),
-        saveSession: async (input) => {
-          await saveCindySession({ data: { ...input, events: input.events } });
-        },
+        saveSession: async (input) =>
+          await saveCindySession({
+            data: {
+              id: input.id ?? null,
+              title: input.title,
+              query: input.query,
+              events: input.events,
+            },
+          }),
         deleteSession: async (id) => {
           await deleteCindySession({ data: { id } });
         },
