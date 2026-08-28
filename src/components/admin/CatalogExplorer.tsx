@@ -167,6 +167,65 @@ export function CatalogExplorer({
     setPending({ node, ...impact });
   };
 
+  /** Auto-save: persists the inline price/stock edits of the given articles. */
+  const commitEdits = async (ids: string[]) => {
+    const targets = ids.filter((id) => edits[id]);
+    if (targets.length === 0 || !current) return;
+    const payload = targets.flatMap((id) => {
+      const value = edits[id]!;
+      const product = data.products.find((item) => item.id === id);
+      if (!product) return [];
+      const price = value.price.trim() === "" ? null : Number(value.price);
+      const stock = Number(value.stock);
+      if (
+        (price === null ? product.price === null : price === product.price) &&
+        (Number.isFinite(stock) ? Math.max(0, Math.trunc(stock)) : 0) === product.stock
+      )
+        return [];
+      return [
+        {
+          id,
+          name: product.name,
+          brand: product.brand,
+          serial_number: product.serial_number,
+          stock: Number.isFinite(stock) ? Math.max(0, Math.trunc(stock)) : 0,
+          price: price !== null && Number.isFinite(price) ? price : null,
+          characteristics: product.characteristics,
+          featured: product.featured,
+        },
+      ];
+    });
+    setEdits((prev) => {
+      const next = { ...prev };
+      for (const id of targets) delete next[id];
+      return next;
+    });
+    if (payload.length === 0) return;
+    setSavingAll(true);
+    try {
+      if (actions.saveProductsBatch) {
+        await actions.saveProductsBatch(payload);
+      } else {
+        for (const item of payload) {
+          await actions.saveProduct({
+            ...item,
+            node_id: current.id,
+            price: item.price === null ? "" : String(item.price),
+            imageData: null,
+            imageName: null,
+            imageUrl: null,
+            removeImage: false,
+          } as unknown as ProductDraft & { node_id: string });
+        }
+      }
+      const saved = payload.map((item) => item.id);
+      setSavedIds(saved);
+      window.setTimeout(() => setSavedIds([]), 2000);
+    } finally {
+      setSavingAll(false);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
