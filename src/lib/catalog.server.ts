@@ -78,9 +78,12 @@ export async function fetchSiteData(): Promise<SiteData> {
   const rawNodes = nodesRes.data ?? [];
   const isPath = (value: string | null): value is string =>
     Boolean(value) && !value!.startsWith("http");
+  const galleryOf = (p: { gallery: unknown }) =>
+    Array.isArray(p.gallery) ? (p.gallery as string[]) : [];
   const paths = Array.from(
     new Set([
       ...rawProducts.map((p) => p.image_url).filter(isPath),
+      ...rawProducts.flatMap((p) => galleryOf(p)).filter(isPath),
       ...rawNodes.map((n) => n.image_url).filter(isPath),
     ]),
   );

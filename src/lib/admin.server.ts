@@ -530,7 +530,7 @@ export async function saveProduct(input: ProductInput) {
     characteristics: input.characteristics,
     featured: Boolean(input.featured),
     ...(input.specifications ? { specifications: input.specifications as Json } : {}),
-    ...(input.gallery ? { gallery: input.gallery } : {}),
+    ...(gallery ? { gallery } : {}),
     ...(input.marketing_sections ? { marketing_sections: input.marketing_sections as Json } : {}),
     ...(input.source_url !== undefined ? { source_url: input.source_url } : {}),
     ...(input.source_name !== undefined ? { source_name: input.source_name } : {}),
