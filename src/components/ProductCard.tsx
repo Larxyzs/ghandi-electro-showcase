@@ -1,5 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { PackageSearch, ShoppingCart } from "lucide-react";
+import { toast } from "sonner";
+
 import type { Product } from "@/lib/catalog-types";
 import { useI18n } from "@/lib/i18n";
 import { useCart } from "@/lib/cart";
