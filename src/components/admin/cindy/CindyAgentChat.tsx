@@ -12,7 +12,8 @@ type Activity = {
   status: "running" | "done" | "error";
 };
 
-type Turn = CindyChatMessage & { activities?: Activity[]; error?: string };
+export type CindyTurn = CindyChatMessage & { activities?: Activity[]; error?: string };
+type Turn = CindyTurn;
 
 const isRtl = (text: string) => /[\u0600-\u06ff]/.test(text);
 
@@ -42,11 +43,17 @@ function Answer({ text }: { text: string }) {
 export function CindyAgentChat({
   onChanged,
   suggestions,
+  initialTurns,
+  onTurns,
 }: {
   onChanged?: () => void;
   suggestions?: string[];
+  /** Restores a previous conversation (persisted server-side). */
+  initialTurns?: CindyTurn[];
+  /** Called whenever the conversation changes so it can be auto-saved. */
+  onTurns?: (turns: CindyTurn[]) => void;
 }) {
-  const [turns, setTurns] = useState<Turn[]>([]);
+  const [turns, setTurns] = useState<Turn[]>(initialTurns ?? []);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [live, setLive] = useState("");
@@ -71,7 +78,11 @@ export function CindyAgentChat({
       ...turns.map((turn) => ({ role: turn.role, content: turn.content })),
       { role: "user", content: text },
     ];
-    setTurns((prev) => [...prev, { role: "user", content: text }]);
+    setTurns((prev) => {
+      const next: Turn[] = [...prev, { role: "user" as const, content: text }];
+      onTurns?.(next);
+      return next;
+    });
     setInput("");
     setStreaming(true);
     setLive("");
@@ -144,15 +155,19 @@ export function CindyAgentChat({
 
     abortRef.current = null;
 
-    setTurns((prev) => [
-      ...prev,
-      {
-        role: "assistant",
-        content: answer.trim() || (failure ? "" : stopped ? "Ok, j'arrête là." : "C'est fait."),
-        ...(steps.length ? { activities: [...steps] } : {}),
-        ...(failure ? { error: failure } : {}),
-      },
-    ]);
+    setTurns((prev) => {
+      const next: Turn[] = [
+        ...prev,
+        {
+          role: "assistant" as const,
+          content: answer.trim() || (failure ? "" : stopped ? "Ok, j'arrête là." : "C'est fait."),
+          ...(steps.length ? { activities: [...steps] } : {}),
+          ...(failure ? { error: failure } : {}),
+        },
+      ];
+      onTurns?.(next);
+      return next;
+    });
     setLive("");
     setActivities([]);
     setStreaming(false);
