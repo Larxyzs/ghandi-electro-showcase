@@ -77,6 +77,7 @@ export function CatalogExplorer({
   const [creating, setCreating] = useState(false);
   const [edits, setEdits] = useState<Record<string, { price: string; stock: string }>>({});
   const [savingAll, setSavingAll] = useState(false);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
   const [renaming, setRenaming] = useState<CatalogNode | null>(null);
   const [editing, setEditing] = useState<{ product?: Product } | null>(null);
   const [quick, setQuick] = useState(false);
