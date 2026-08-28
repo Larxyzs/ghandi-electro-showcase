@@ -242,7 +242,7 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
     {
       name: "create_product",
       description:
-        "Crée un article dans un dossier (chemin complet ; les dossiers manquants sont créés). Le prix et le stock viennent uniquement de l'admin : si l'admin ne les a pas donnés, mets stock 0 et price null.",
+        "Crée un article dans un dossier (chemin complet ; les dossiers manquants sont créés). Le stock est toujours 0 à la création (l'admin l'ajuste ensuite). Le prix est celui affiché sur la page officielle du constructeur (Maroc / Afrique du Nord) ; s'il n'y en a pas, laisse price null.",
       properties: {
         folder_path: { type: "string" },
         name: { type: "string" },
@@ -369,7 +369,7 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
     {
       name: "research_product",
       description:
-        "Recherche une référence produit (mémoire d'abord, puis UNE recherche web sur le site officiel). Renvoie nom, marque, caractéristiques, spécifications, images et sources. Ne renvoie jamais de prix ni de stock.",
+        "Recherche une référence produit (mémoire d'abord, puis UNE recherche web sur le site officiel du fabricant, version Maroc / Afrique du Nord en priorité). Renvoie nom, marque, caractéristiques, spécifications, images, sources et le prix public affiché par le constructeur (null s'il n'est pas affiché). Le stock reste toujours 0 à l'import.",
       properties: { reference: { type: "string" }, force: B },
       required: ["reference", "force"],
       run: async (args, emit) => {
@@ -458,8 +458,10 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
 
               source_url: researched.sources[0]?.url ?? null,
               source_name: researched.sources[0]?.name ?? null,
+              // Stock is 0 until the admin counts it; the price is the
+              // manufacturer's own public price read on the official page.
               stock,
-              price,
+              price: price ?? researched.price ?? null,
               ...httpsImage(researched.images[0] ?? null),
             });
             report.push({ reference: ref, status: "created" });
@@ -585,7 +587,7 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
               source_url: product.url,
               source_name: product.sources[0]?.name ?? null,
               stock,
-              price,
+              price: price ?? product.price ?? null,
               ...httpsImage(product.images[0] ?? null),
             });
             report[index]!.status = "created";
@@ -1194,7 +1196,7 @@ TU AGIS VRAIMENT — ACCÈS COMPLET : tu as les mêmes droits qu'un admin. Tes o
 
 IMAGES — JAMAIS DE RETOUCHE IA : les images du catalogue doivent TOUJOURS rester les images d'origine du fabricant, récupérées dans le diaporama de la fiche produit officielle. Tu ne redessines, ne régénères et ne recadres JAMAIS une image avec un modèle d'image. check_images sert seulement à REGARDER une photo et signaler un problème à l'admin ; si une image est mauvaise, propose à l'admin une autre image d'origine du fabricant (set_image avec une URL https officielle). Le site affiche les images en entier (object-contain), donc un cadrage un peu large n'est pas un problème. Tu peux en revanche remplacer librement TOUT le diaporama d'un article : set_gallery (liste d'URLs https d'origine, la première devient l'image principale) ou refresh_product_media qui refait la recherche sur le site officiel et remet à jour le diaporama complet, les caractéristiques et les spécifications sans toucher au prix ni au stock. Chaque changement est enregistré automatiquement et reste annulable via les points de restauration.
 
-RECHERCHE PRODUIT — SOURCES OFFICIELLES UNIQUEMENT : quand l'admin écrit juste « RB34T672EWW, Samsung » ou « Samsung RB34T672EWW », c'est une référence exacte + une marque : appelle directement research_product avec ce texte. Tu n'utilises QUE le site officiel du fabricant (samsung.com, lg.com, bosch-home.com, …). Jamais Tangerois, Electroplanet, Jumia, Avito, un revendeur, une marketplace, un blog, Pinterest ou Google Images. Si la page officielle de cette référence exacte est introuvable, dis-le à l'admin au lieu de deviner ou d'importer un modèle voisin. Toutes les images du diaporama d'origine sont conservées, sans limite de nombre.
+RECHERCHE PRODUIT — SOURCES OFFICIELLES UNIQUEMENT : quand l'admin écrit juste « RB34T672EWW, Samsung » ou « Samsung RB34T672EWW », c'est une référence exacte + une marque : appelle directement research_product avec ce texte. Tu n'utilises QUE le site officiel du fabricant, et EN PRIORITÉ sa version Maroc puis Afrique du Nord (samsung.com/n_africa, lg.com/africa, bosch-home.ma, …) : c'est cette version qui donne les bons modèles et le bon prix public. Passe sur une autre version (Europe/monde) uniquement si la version Maroc/Afrique du Nord n'existe pas, et signale-le. Jamais Tangerois, Electroplanet, Jumia, Avito, un revendeur, une marketplace, un blog, Pinterest ou Google Images. Si la page officielle de cette référence exacte est introuvable, dis-le à l'admin au lieu de deviner ou d'importer un modèle voisin. Toutes les images du diaporama d'origine sont conservées, sans limite de nombre.
 
 
 ACCÈS TOTAL AUX DONNÉES : bulk_update_products change d'un coup tous les articles d'un rayon (prix/stock donnés par l'admin, marque, caractéristiques, mise en avant). read_data et write_data te donnent l'accès direct aux données du site (articles, dossiers, commandes, recherches populaires, réglages/couleurs) quand aucun outil dédié ne suffit — sauf les clés d'API et les mots de passe, qui restent interdits. Une sauvegarde est créée automatiquement avant ces changements.
@@ -1205,7 +1207,7 @@ CONFIDENTIALITÉ : les données clients (nom, téléphone, adresse) restent dans
 
 APRÈS CHAQUE ACTION : explique simplement ce que tu as fait, en une à trois phrases + une petite liste si nécessaire ("J'ai créé le dossier X, ajouté 3 articles, mis le stock à 5"). Si quelque chose a échoué, dis-le clairement et propose la suite.
 
-INFOS COMMERCIALES : tu n'invents JAMAIS un prix ni un stock. Si l'admin ne les donne pas, mets stock 0 / prix vide et demande-les.
+INFOS COMMERCIALES : tu n'invents JAMAIS un prix ni un stock. À chaque import, le stock est mis à 0 (l'admin ajustera) et le prix est celui affiché sur la page officielle du constructeur (Maroc / Afrique du Nord) ; si aucun prix n'est affiché, laisse le prix vide et dis-le à l'admin. Ne prends jamais un prix chez un revendeur ou une marketplace.
 
 LIEN D'UNE PAGE = import_from_page : dès que l'admin t'envoie une URL de page contenant plusieurs produits (« voilà le lien, prends tout ce qu'il y a dessus »), utilise import_from_page avec cette URL. L'outil ouvre la page, clique lui-même sur chaque fiche produit, lit chaque fiche et récupère toutes les infos, puis crée les articles dans le dossier indiqué (doublons signalés, jamais recréés). Si l'admin n'a pas donné dossier/prix/stock, appelle-le d'abord avec create=false pour lui montrer la liste trouvée, puis demande dossier + prix/stock en une seule question courte, puis relance avec create=true.
 

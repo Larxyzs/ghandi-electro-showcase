@@ -39,6 +39,34 @@ function isOfficial(url: string, brandGuess: string) {
   return ALL_OFFICIAL.some((d) => host.endsWith(d));
 }
 
+/**
+ * Ghandi Home Electro sells in Morocco: the manufacturer page we import from
+ * must be the Moroccan / North-African one whenever it exists (right models,
+ * right specifications, right public price in MAD).
+ */
+const REGION_HOST_SUFFIXES = [".ma", ".dz", ".tn", ".ly", ".eg", ".africa"];
+const REGION_PATH_HINTS =
+  /(^|[/_.-])(ma|maroc|morocco|dz|algerie|algeria|tn|tunisie|tunisia|africa|afrique|north[-_]?africa|n[-_]?africa|maghreb|levant|mea)([/_.-]|$)/i;
+
+/** 2 = Morocco, 1 = other North Africa / Africa-FR, 0 = anywhere else. */
+export function regionRank(url: string) {
+  const host = domainOf(url).toLowerCase();
+  let path = "";
+  try {
+    path = new URL(url).pathname.toLowerCase();
+  } catch {
+    path = url.toLowerCase();
+  }
+  const moroccan =
+    host.endsWith(".ma") ||
+    /(^|[/_.-])(ma|maroc|morocco)([/_.-]|$)/i.test(path) ||
+    /_ma([/_.-]|$)/i.test(path);
+  if (moroccan) return 2;
+  if (REGION_HOST_SUFFIXES.some((suffix) => host.endsWith(suffix)) || REGION_PATH_HINTS.test(path))
+    return 1;
+  return 0;
+}
+
 function guessBrand(query: string) {
   const lower = query.toLowerCase();
   for (const brand of Object.keys(OFFICIAL_DOMAINS)) {
@@ -103,18 +131,18 @@ export async function webSearch(
     res = await fetch(`https://google.serper.dev/${endpoint}`, {
       method: "POST",
       headers: { "X-API-KEY": key, "Content-Type": "application/json" },
-      body: JSON.stringify({ q: query, num: max }),
+      body: JSON.stringify({ q: query, num: max, gl: "ma", hl: "fr", location: "Morocco" }),
     });
   } else if (provider === "brave") {
     res = await fetch(
-      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${max}`,
+      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${max}&country=MA&search_lang=fr`,
       { headers: { "X-Subscription-Token": key, Accept: "application/json" } },
     );
   } else {
     res = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ query, search_depth: "basic", max_results: max }),
+      body: JSON.stringify({ query, search_depth: "basic", max_results: max, country: "morocco" }),
     });
   }
 
@@ -528,6 +556,80 @@ export function extractGalleryImages(html: string, baseUrl: string, reference: s
 }
 
 /**
+ * Reads the manufacturer's own public price from the official page:
+ * JSON-LD `offers.price` first (the manufacturer's structured data), then the
+ * usual price meta tags, then a MAD/DH amount written in the page text.
+ * Nothing is invented: when the official page shows no price, this returns null.
+ */
+export function extractOfficialPrice(html: string): { price: number | null; currency: string } {
+  const clean = (raw: string) => {
+    const value = raw.replace(/\s|\u00a0/g, "").replace(/[^0-9.,]/g, "");
+    if (!value) return null;
+    // "12 499,00" / "12,499.00" → 12499
+    const normalized = value.replace(/,(\d{1,2})$/, ".$1").replace(/[,\s](?=\d{3})/g, "");
+    const parsed = Number(normalized.replace(/,/g, ""));
+    return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
+  };
+
+  let price: number | null = null;
+  let currency = "";
+
+  const visit = (value: unknown) => {
+    if (price !== null) return;
+    if (Array.isArray(value)) return value.forEach(visit);
+    if (!value || typeof value !== "object") return;
+    const item = value as Record<string, unknown>;
+    const candidate = item["price"] ?? item["lowPrice"] ?? item["highPrice"];
+    if (candidate !== undefined && candidate !== null) {
+      const parsed = clean(String(candidate));
+      if (parsed) {
+        price = parsed;
+        currency = String(item["priceCurrency"] ?? currency ?? "");
+        return;
+      }
+    }
+    Object.values(item).forEach(visit);
+  };
+  for (const match of html.matchAll(
+    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+  )) {
+    try {
+      visit(JSON.parse((match[1] ?? "").trim()));
+    } catch {
+      /* ignore invalid structured data */
+    }
+    if (price !== null) break;
+  }
+
+  if (price === null) {
+    const meta = html.match(
+      /<meta[^>]+(?:property|name|itemprop)=["'](?:product:price:amount|og:price:amount|price)["'][^>]+content=["']([^"']+)["']/i,
+    );
+    if (meta) price = clean(meta[1] ?? "");
+    const metaCurrency = html.match(
+      /<meta[^>]+(?:property|name|itemprop)=["'](?:product:price:currency|og:price:currency|priceCurrency)["'][^>]+content=["']([^"']+)["']/i,
+    );
+    if (metaCurrency) currency = currency || (metaCurrency[1] ?? "");
+  }
+
+  if (price === null) {
+    const text = html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ");
+    const inText = text.match(
+      /(\d[\d\s.,\u00a0]{2,12})\s*(?:MAD|DHS?|DH|Dirhams?)\b|(?:MAD|DHS?|DH)\s*(\d[\d\s.,\u00a0]{2,12})/i,
+    );
+    if (inText) {
+      price = clean(inText[1] ?? inText[2] ?? "");
+      currency = currency || "MAD";
+    }
+  }
+
+  const normalizedCurrency = /^(MAD|DH|DHS)$/i.test(currency.trim())
+    ? "MAD"
+    : currency.trim().toUpperCase();
+  return { price, currency: price === null ? "" : normalizedCurrency || "MAD" };
+}
+
+/**
  * Reads one official product page: page text, its own gallery, and whether the
  * exact requested reference really appears on it (identity verification).
  */
@@ -554,7 +656,16 @@ export async function readProductPage(url: string, reference: string) {
   const matchesReference =
     ref.length < 4 || alnum(text).includes(ref) || alnum(decodeURIComponent(url)).includes(ref);
 
-  return { html, text, gallery: extractGalleryImages(html, url, reference), matchesReference };
+  const { price, currency } = extractOfficialPrice(html);
+
+  return {
+    html,
+    text,
+    gallery: extractGalleryImages(html, url, reference),
+    matchesReference,
+    price,
+    currency,
+  };
 }
 
 
@@ -628,6 +739,9 @@ export async function extractProductFromSources(input: {
   query: string;
   sources: { url: string; title: string; content: string }[];
   images: string[];
+  /** Public price read from the official page (never invented by the model). */
+  price?: number | null;
+  currency?: string;
 }): Promise<ResearchedProduct> {
   const { aiSetup, aiFailure, aiFetchWithRetry } = await import("./ai-config.server");
   const ai = await aiSetup();
@@ -696,6 +810,10 @@ export async function extractProductFromSources(input: {
     specifications: parsed.specifications ?? [],
     // Original manufacturer slideshow images, all of them, deduplicated only.
     images: dedupeImages(input.images),
+    // Stock is always 0 on import (the admin owns availability); the price is
+    // the manufacturer's own public price, read from the official page.
+    price: input.price ?? null,
+    currency: input.currency ?? "",
     marketing_sections: [],
     sources: [],
     confidence: parsed.confidence ?? "medium",
@@ -795,7 +913,7 @@ function officialOnly(hits: SearchHit[], brandGuess: string, officialDomains: st
     .sort((a, b) => score(b) - score(a));
 
   function score(hit: SearchHit) {
-    let value = 0;
+    let value = regionRank(hit.url) * 200;
     if (officialDomains.some((d) => domainOf(hit.url).endsWith(d))) value += 100;
     else if (isOfficial(hit.url, brandGuess)) value += 50;
     if (/\/(?:products?|produits?|p)\//i.test(hit.url)) value += 15;
@@ -888,11 +1006,16 @@ export async function researchProduct(
     id: "s1",
     kind: "search",
     label: "Recherche officielle (1)",
-    detail: officialDomains.length ? `"${reference}" sur ${officialDomains[0]}` : `"${reference}"`,
+    detail: officialDomains.length
+      ? `"${reference}" sur ${officialDomains[0]} (Maroc / Afrique du Nord)`
+      : `"${reference}" (Maroc / Afrique du Nord)`,
     status: "running",
   });
+  // Morocco / North Africa first: same reference, but the regional official page.
   const rawHits = await webSearch(
-    officialDomains.length ? `"${reference}" site:${officialDomains[0]}` : `"${reference}"`,
+    officialDomains.length
+      ? `"${reference}" site:${officialDomains[0]} Maroc`
+      : `"${reference}" site officiel Maroc`,
     { max: 10 },
   );
   searchesUsed += 1;
@@ -944,6 +1067,8 @@ export async function researchProduct(
   const sources: CindySource[] = [];
   const pages: { url: string; title: string; content: string }[] = [];
   let gallery: string[] = [];
+  let officialPrice: number | null = null;
+  let officialCurrency = "";
   const rejected: string[] = [];
 
   for (const [index, hit] of pool.entries()) {
@@ -973,6 +1098,10 @@ export async function researchProduct(
       }
       pages.push({ url: hit.url, title: hit.title, content: page.text });
       gallery = dedupeImages([...gallery, ...page.gallery]);
+      if (officialPrice === null && page.price !== null) {
+        officialPrice = page.price;
+        officialCurrency = page.currency;
+      }
       sources.push({
         url: hit.url,
         domain: domainOf(hit.url),
@@ -1018,7 +1147,13 @@ export async function researchProduct(
     detail: "Informations de la page officielle",
     status: "running",
   });
-  const product = await extractProductFromSources({ query: reference, sources: pages, images: gallery });
+  const product = await extractProductFromSources({
+    query: reference,
+    sources: pages,
+    images: gallery,
+    price: officialPrice,
+    currency: officialCurrency,
+  });
   if (brandGuess && !product.brand) product.brand = brandGuess;
   if (!product.model) product.model = reference;
   emit({
@@ -1041,6 +1176,23 @@ export async function researchProduct(
 
   emit({ type: "checklist", label: "Référence exacte vérifiée", done: true });
   emit({ type: "checklist", label: "Source officielle", done: true });
+  emit({
+    type: "checklist",
+    label:
+      regionRank(sources[0]!.url) >= 2
+        ? "Page officielle Maroc"
+        : regionRank(sources[0]!.url) === 1
+          ? "Page officielle Afrique du Nord"
+          : "Page officielle (aucune version Maroc trouvée)",
+    done: regionRank(sources[0]!.url) >= 1,
+  });
+  emit({
+    type: "checklist",
+    label: product.price === null
+      ? "Prix constructeur non affiché sur la page"
+      : `Prix constructeur ${product.price} ${product.currency || "MAD"}`,
+    done: product.price !== null,
+  });
   emit({ type: "checklist", label: "Nom du produit", done: Boolean(product.name) });
   emit({ type: "checklist", label: "Caractéristiques", done: Boolean(product.characteristics) });
   emit({ type: "checklist", label: "Spécifications", done: product.specifications.length > 0 });
