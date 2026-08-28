@@ -476,6 +476,13 @@ export function CatalogExplorer({
                             },
                           }))
                         }
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void commitEdits([product.id]);
+                          }
+                        }}
+                        onBlur={() => void commitEdits([product.id])}
                         className="w-24 rounded-lg border border-border bg-background px-2 py-1 text-xs font-semibold text-foreground"
                       />
                     </label>
@@ -495,9 +502,19 @@ export function CatalogExplorer({
                             },
                           }))
                         }
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void commitEdits([product.id]);
+                          }
+                        }}
+                        onBlur={() => void commitEdits([product.id])}
                         className="w-20 rounded-lg border border-border bg-background px-2 py-1 text-xs font-semibold text-foreground"
                       />
                     </label>
+                    {savedIds.includes(product.id) && (
+                      <span className="text-[11px] font-semibold text-brand">Enregistré ✓</span>
+                    )}
                   </div>
                 </div>
                 <button
