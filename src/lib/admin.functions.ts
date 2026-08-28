@@ -145,7 +145,7 @@ export type AdminProductInput = {
   price: number | null;
   characteristics: string;
   specifications?: { label: string; value: string }[];
-  gallery?: string[];
+  gallery?: (string | { imageData: string; imageName: string })[];
   marketing_sections?: import("@/integrations/supabase/types").Json[];
   source_url?: string | null;
   source_name?: string | null;

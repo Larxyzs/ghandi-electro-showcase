@@ -453,7 +453,8 @@ export type ProductInput = {
   /** Product characteristics (formerly "description"). */
   characteristics: string;
   specifications?: { label: string; value: string }[];
-  gallery?: string[];
+  /** Slideshow images: existing URL/path strings, or new uploads to store. */
+  gallery?: (string | { imageData: string; imageName: string })[];
   marketing_sections?: Json[];
   source_url?: string | null;
   source_name?: string | null;
