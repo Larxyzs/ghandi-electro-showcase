@@ -888,7 +888,7 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
               id: `img-${target.id}`,
               kind: "images",
               label: `${target.label} : ${verdict?.ok ? "image correcte" : "à améliorer"}`,
-              detail: verdict?.issues.join(", ") || undefined,
+              ...(verdict?.issues.length ? { detail: verdict.issues.join(", ") } : {}),
               status: "done",
             });
             out.push({ label: target.label, kind: target.kind, ...(verdict ?? { ok: false }) });
