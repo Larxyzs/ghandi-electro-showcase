@@ -205,6 +205,24 @@ function ProductDetail() {
                 </p>
               </div>
             )}
+
+            {/* Admin-only: link back to the official manufacturer page. */}
+            {admin && product.source_url && (
+              <div className="mt-8 rounded-2xl border border-dashed border-brand/40 bg-brand-soft/40 p-4">
+                <p className="text-[0.7rem] font-semibold tracking-wide text-brand-deep uppercase">
+                  Réservé aux administrateurs
+                </p>
+                <a
+                  href={product.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-brand hover:underline"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Page officielle{product.source_name ? ` — ${product.source_name}` : ""}
+                </a>
+              </div>
+            )}
           </div>
         </div>
 
