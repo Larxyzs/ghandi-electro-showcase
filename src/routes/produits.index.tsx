@@ -3,6 +3,8 @@ import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
 import { ChevronRight, PackageSearch, Search, X } from "lucide-react";
 import { SiteLayout } from "@/components/SiteLayout";
 import { Reveal } from "@/components/Reveal";
+import { useLiveEdit } from "@/lib/live-edit";
+import { FolderLiveEditor } from "@/components/live/FolderLiveEditor";
 import { ProductCard } from "@/components/ProductCard";
 import { useI18n } from "@/lib/i18n";
 import {
@@ -55,6 +57,7 @@ function ProductsPage() {
   const [maxPrice, setMaxPrice] = useState("");
   const [availability, setAvailability] = useState<"all" | "in" | "out">("all");
 
+  const { editing } = useLiveEdit();
   const categories = useMemo(() => childrenOf(data.nodes, null), [data.nodes]);
   const types = useMemo(
     () =>
@@ -114,6 +117,8 @@ function ProductsPage() {
           <h1 className="text-4xl font-bold sm:text-5xl">{t("products.title")}</h1>
           <p className="mt-4 max-w-xl text-foreground/65">{t("products.subtitle")}</p>
         </Reveal>
+
+        {editing && <FolderLiveEditor node={null} />}
 
         {categories.length > 0 && (
           <Reveal delay={80} className="mt-8 flex flex-wrap gap-3">
