@@ -428,6 +428,142 @@ export function ProductForm({
         </div>
       </div>
 
+      <div className="mt-5 rounded-2xl border border-border bg-background p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold">Diaporama du produit</p>
+            <p className="text-xs text-foreground/55">
+              Chaque image du diaporama : modifiez le lien, changez l'ordre ou supprimez-la.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <input
+              ref={galleryFileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                addGalleryFiles(Array.from(e.target.files ?? []));
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => galleryFileRef.current?.click()}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-xs font-semibold hover:border-brand hover:text-brand"
+            >
+              <ImagePlus className="h-3.5 w-3.5" /> Téléverser
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                updateSlides([
+                  ...slides,
+                  { key: `${Date.now()}-url`, value: "", preview: "" },
+                ])
+              }
+              className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-brand/40 px-4 py-2 text-xs font-semibold text-brand hover:bg-brand-soft"
+            >
+              <Plus className="h-3.5 w-3.5" /> Ajouter un lien
+            </button>
+          </div>
+        </div>
+
+        {slides.length === 0 ? (
+          <p className="mt-3 text-sm text-foreground/55">
+            Aucune image dans le diaporama (seule l'image principale est affichée).
+          </p>
+        ) : (
+          <ul className="mt-4 space-y-3">
+            {slides.map((slide, index) => (
+              <li
+                key={slide.key}
+                className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-3"
+              >
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-border bg-background">
+                  {slide.preview ? (
+                    <img src={slide.preview} alt="" className="h-full w-full object-contain" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-foreground/30">
+                      <ImagePlus className="h-5 w-5" />
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-[12rem] flex-1">
+                  <p className="text-xs font-semibold text-foreground/50">Image {index + 1}</p>
+                  {slide.upload ? (
+                    <p className="mt-1 truncate text-sm text-foreground/70">
+                      Nouveau fichier : {slide.upload.imageName}
+                    </p>
+                  ) : (
+                    <input
+                      className={`mt-1 ${field}`}
+                      value={slide.value}
+                      placeholder="https://…/image.jpg"
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        updateSlides(
+                          slides.map((s, i) =>
+                            i === index
+                              ? {
+                                  ...s,
+                                  value,
+                                  preview: value.trim().startsWith("http")
+                                    ? value.trim()
+                                    : s.preview,
+                                }
+                              : s,
+                          ),
+                        );
+                      }}
+                    />
+                  )}
+                </div>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    aria-label="Déplacer avant"
+                    disabled={index === 0}
+                    onClick={() => {
+                      const next = [...slides];
+                      const [item] = next.splice(index, 1);
+                      next.splice(index - 1, 0, item!);
+                      updateSlides(next);
+                    }}
+                    className="rounded-full border border-border p-2 text-foreground/60 hover:border-brand hover:text-brand disabled:opacity-30"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Déplacer après"
+                    disabled={index === slides.length - 1}
+                    onClick={() => {
+                      const next = [...slides];
+                      const [item] = next.splice(index, 1);
+                      next.splice(index + 1, 0, item!);
+                      updateSlides(next);
+                    }}
+                    className="rounded-full border border-border p-2 text-foreground/60 hover:border-brand hover:text-brand disabled:opacity-30"
+                  >
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Supprimer l'image"
+                    onClick={() => updateSlides(slides.filter((_, i) => i !== index))}
+                    className="rounded-full border border-destructive/30 p-2 text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       {product?.source_url && (
         <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-dashed border-brand/40 bg-background px-4 py-3">
           <p className="text-xs font-semibold tracking-wide text-brand-deep uppercase">
