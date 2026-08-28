@@ -15,6 +15,7 @@ import {
   Mail,
 } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import type { SiteData, SiteSettings } from "@/lib/catalog-types";
 import { CatalogExplorer, type CatalogActions } from "@/components/admin/CatalogExplorer";
 import { StaffPanel } from "@/components/admin/StaffPanel";
@@ -130,6 +131,7 @@ export function AdminDashboard({
           </div>
           <div className="flex items-center gap-2">
             {busy && <Loader2 className="h-4 w-4 animate-spin text-brand" />}
+            <LanguageSwitcher />
             <Link
               to="/"
               className="hidden items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold hover:border-brand hover:text-brand sm:flex"

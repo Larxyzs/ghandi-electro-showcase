@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { createFileRoute, Link, notFound, useLoaderData } from "@tanstack/react-router";
-import { ArrowLeft, Minus, Phone, Plus, ShoppingCart } from "lucide-react";
+import { ArrowLeft, ExternalLink, Minus, Phone, Plus, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { SiteLayout } from "@/components/SiteLayout";
 import { ProductGallery } from "@/components/ProductGallery";
 import { useI18n } from "@/lib/i18n";
+import { useAdminIdentity } from "@/lib/use-admin";
 import { pathOf, type SiteData } from "@/lib/catalog-types";
 import { COMPANY, productWhatsappMessage, whatsappLink } from "@/lib/company";
 import { useCart } from "@/lib/cart";
@@ -46,6 +47,7 @@ function ProductDetail() {
   const { t } = useI18n();
   const { add } = useCart();
   const [qty, setQty] = useState(1);
+  const admin = useAdminIdentity();
 
   const { productId } = Route.useParams();
   const data = useLoaderData({ from: "__root__" }) as SiteData;
@@ -201,6 +203,24 @@ function ProductDetail() {
                 <p className="mt-3 leading-relaxed whitespace-pre-line text-foreground/75">
                   {product.characteristics}
                 </p>
+              </div>
+            )}
+
+            {/* Admin-only: link back to the official manufacturer page. */}
+            {admin && product.source_url && (
+              <div className="mt-8 rounded-2xl border border-dashed border-brand/40 bg-brand-soft/40 p-4">
+                <p className="text-[0.7rem] font-semibold tracking-wide text-brand-deep uppercase">
+                  Réservé aux administrateurs
+                </p>
+                <a
+                  href={product.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-brand hover:underline"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Page officielle{product.source_name ? ` — ${product.source_name}` : ""}
+                </a>
               </div>
             )}
           </div>

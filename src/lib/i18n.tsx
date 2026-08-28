@@ -408,17 +408,30 @@ type I18nValue = {
 
 const I18nContext = createContext<I18nValue | null>(null);
 
+/** Reads the language cookie (survives localStorage clearing / other tabs). */
+function readCookieLang(): LangCode | null {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${STORAGE_KEY}=([^;]*)`));
+  const value = match?.[1] ? decodeURIComponent(match[1]) : null;
+  return value && value in DICTS ? (value as LangCode) : null;
+}
+
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<LangCode>("fr");
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY) as LangCode | null;
+    const stored = (window.localStorage.getItem(STORAGE_KEY) as LangCode | null) ?? readCookieLang();
     if (stored && stored in DICTS) setLangState(stored);
   }, []);
 
   const setLang = useCallback((next: LangCode) => {
     setLangState(next);
-    window.localStorage.setItem(STORAGE_KEY, next);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, next);
+    } catch {
+      /* private mode */
+    }
+    // 10 years — the choice must stick "forever" on this browser.
+    document.cookie = `${STORAGE_KEY}=${next}; path=/; max-age=${60 * 60 * 24 * 3650}; samesite=lax`;
   }, []);
 
   const dir = LANGUAGES.find((l) => l.code === lang)?.dir === "rtl" ? "rtl" : "ltr";

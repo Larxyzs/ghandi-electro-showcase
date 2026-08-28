@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { Menu, Phone, X, MapPin, ShoppingCart } from "lucide-react";
+import { Menu, Phone, X, MapPin, ShoppingCart, ShieldCheck } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { HeaderSearch } from "@/components/HeaderSearch";
@@ -8,6 +8,7 @@ import { WhatsAppFloating } from "@/components/WhatsAppFloating";
 import { CartDrawer } from "@/components/CartDrawer";
 import { useCart } from "@/lib/cart";
 import { useI18n } from "@/lib/i18n";
+import { useAdminIdentity } from "@/lib/use-admin";
 import { COMPANY } from "@/lib/company";
 
 
@@ -43,6 +44,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const { count } = useCart();
+  const admin = useAdminIdentity();
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -64,6 +66,15 @@ export function SiteLayout({ children }: { children: ReactNode }) {
 
           <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
             <HeaderSearch />
+            {admin && (
+              <Link
+                to="/admin"
+                title={`Administration · ${admin.username}`}
+                className="hidden items-center gap-1.5 rounded-full border border-brand/40 bg-brand-soft px-3.5 py-2 text-sm font-semibold text-brand-deep transition-colors hover:border-brand sm:inline-flex"
+              >
+                <ShieldCheck className="h-4 w-4" /> Admin
+              </Link>
+            )}
             <LanguageSwitcher />
             <button
               type="button"
@@ -100,6 +111,15 @@ export function SiteLayout({ children }: { children: ReactNode }) {
           <div className="border-t border-border bg-background px-5 py-5 md:hidden">
             <nav className="flex flex-col gap-4">
               <NavLinks onNavigate={() => setOpen(false)} />
+              {admin && (
+                <Link
+                  to="/admin"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2 text-sm font-semibold text-brand-deep"
+                >
+                  <ShieldCheck className="h-4 w-4" /> Administration
+                </Link>
+              )}
               <a
                 href={COMPANY.phoneHref}
                 className="mt-2 flex items-center gap-2 text-sm font-semibold text-brand"

@@ -12,7 +12,8 @@ function sessionConfig() {
   return {
     password: process.env["ADMIN_SESSION_SECRET"]!,
     name: "ghe-admin",
-    maxAge: 60 * 60 * 24 * 60,
+    // Stay signed in on this browser essentially forever (10 years).
+    maxAge: 60 * 60 * 24 * 3650,
     cookie: {
       httpOnly: true,
       // The preview runs inside an iframe (third-party context), so the cookie
