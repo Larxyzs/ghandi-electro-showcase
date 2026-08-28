@@ -77,6 +77,7 @@ export function CatalogExplorer({
   const [creating, setCreating] = useState(false);
   const [edits, setEdits] = useState<Record<string, { price: string; stock: string }>>({});
   const [savingAll, setSavingAll] = useState(false);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
   const [renaming, setRenaming] = useState<CatalogNode | null>(null);
   const [editing, setEditing] = useState<{ product?: Product } | null>(null);
   const [quick, setQuick] = useState(false);
@@ -165,6 +166,65 @@ export function CatalogExplorer({
   const askDelete = async (node: CatalogNode) => {
     const impact = await actions.nodeImpact(node.id);
     setPending({ node, ...impact });
+  };
+
+  /** Auto-save: persists the inline price/stock edits of the given articles. */
+  const commitEdits = async (ids: string[]) => {
+    const targets = ids.filter((id) => edits[id]);
+    if (targets.length === 0 || !current) return;
+    const payload = targets.flatMap((id) => {
+      const value = edits[id]!;
+      const product = data.products.find((item) => item.id === id);
+      if (!product) return [];
+      const price = value.price.trim() === "" ? null : Number(value.price);
+      const stock = Number(value.stock);
+      if (
+        (price === null ? product.price === null : price === product.price) &&
+        (Number.isFinite(stock) ? Math.max(0, Math.trunc(stock)) : 0) === product.stock
+      )
+        return [];
+      return [
+        {
+          id,
+          name: product.name,
+          brand: product.brand,
+          serial_number: product.serial_number,
+          stock: Number.isFinite(stock) ? Math.max(0, Math.trunc(stock)) : 0,
+          price: price !== null && Number.isFinite(price) ? price : null,
+          characteristics: product.characteristics,
+          featured: product.featured,
+        },
+      ];
+    });
+    setEdits((prev) => {
+      const next = { ...prev };
+      for (const id of targets) delete next[id];
+      return next;
+    });
+    if (payload.length === 0) return;
+    setSavingAll(true);
+    try {
+      if (actions.saveProductsBatch) {
+        await actions.saveProductsBatch(payload);
+      } else {
+        for (const item of payload) {
+          await actions.saveProduct({
+            ...item,
+            node_id: current.id,
+            price: item.price === null ? "" : String(item.price),
+            imageData: null,
+            imageName: null,
+            imageUrl: null,
+            removeImage: false,
+          } as unknown as ProductDraft & { node_id: string });
+        }
+      }
+      const saved = payload.map((item) => item.id);
+      setSavedIds(saved);
+      window.setTimeout(() => setSavedIds([]), 2000);
+    } finally {
+      setSavingAll(false);
+    }
   };
 
 
@@ -476,6 +536,13 @@ export function CatalogExplorer({
                             },
                           }))
                         }
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void commitEdits([product.id]);
+                          }
+                        }}
+                        onBlur={() => void commitEdits([product.id])}
                         className="w-24 rounded-lg border border-border bg-background px-2 py-1 text-xs font-semibold text-foreground"
                       />
                     </label>
@@ -495,9 +562,19 @@ export function CatalogExplorer({
                             },
                           }))
                         }
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void commitEdits([product.id]);
+                          }
+                        }}
+                        onBlur={() => void commitEdits([product.id])}
                         className="w-20 rounded-lg border border-border bg-background px-2 py-1 text-xs font-semibold text-foreground"
                       />
                     </label>
+                    {savedIds.includes(product.id) && (
+                      <span className="text-[11px] font-semibold text-brand">Enregistré ✓</span>
+                    )}
                   </div>
                 </div>
                 <button
@@ -527,52 +604,13 @@ export function CatalogExplorer({
           {Object.keys(edits).length > 0 && (
             <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-brand/30 bg-brand-soft/40 p-3">
               <p className="flex-1 text-xs font-semibold text-brand-deep">
-                {Object.keys(edits).length} article(s) modifié(s) — prix et stock non enregistrés.
+                {Object.keys(edits).length} article(s) en cours de modification — enregistrement
+                automatique dès que vous appuyez sur Entrée ou quittez le champ.
               </p>
               <button
                 type="button"
                 disabled={savingAll}
-                onClick={async () => {
-                  setSavingAll(true);
-                  try {
-                    const payload = Object.entries(edits).flatMap(([id, value]) => {
-                      const product = products.find((item) => item.id === id);
-                      if (!product) return [];
-                      const price = value.price.trim() === "" ? null : Number(value.price);
-                      const stock = Number(value.stock);
-                      return [
-                        {
-                          id,
-                          name: product.name,
-                          brand: product.brand,
-                          serial_number: product.serial_number,
-                          stock: Number.isFinite(stock) ? Math.max(0, Math.trunc(stock)) : 0,
-                          price: price !== null && Number.isFinite(price) ? price : null,
-                          characteristics: product.characteristics,
-                          featured: product.featured,
-                        },
-                      ];
-                    });
-                    if (actions.saveProductsBatch) {
-                      await actions.saveProductsBatch(payload);
-                    } else {
-                      for (const item of payload) {
-                        await actions.saveProduct({
-                          ...item,
-                          node_id: current.id,
-                          price: item.price === null ? "" : String(item.price),
-                          imageData: null,
-                          imageName: null,
-                          imageUrl: null,
-                          removeImage: false,
-                        } as unknown as ProductDraft & { node_id: string });
-                      }
-                    }
-                    setEdits({});
-                  } finally {
-                    setSavingAll(false);
-                  }
-                }}
+                onClick={() => void commitEdits(Object.keys(edits))}
                 className="inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
               >
                 {savingAll && <Loader2 className="h-4 w-4 animate-spin" />} Enregistrer tout
