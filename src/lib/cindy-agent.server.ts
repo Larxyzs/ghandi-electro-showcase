@@ -458,8 +458,10 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
 
               source_url: researched.sources[0]?.url ?? null,
               source_name: researched.sources[0]?.name ?? null,
+              // Stock is 0 until the admin counts it; the price is the
+              // manufacturer's own public price read on the official page.
               stock,
-              price,
+              price: price ?? researched.price ?? null,
               ...httpsImage(researched.images[0] ?? null),
             });
             report.push({ reference: ref, status: "created" });
@@ -585,7 +587,7 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
               source_url: product.url,
               source_name: product.sources[0]?.name ?? null,
               stock,
-              price,
+              price: price ?? product.price ?? null,
               ...httpsImage(product.images[0] ?? null),
             });
             report[index]!.status = "created";

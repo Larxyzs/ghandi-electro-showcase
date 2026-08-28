@@ -44,7 +44,7 @@ export function CindyReview({
   const [brand, setBrand] = useState(product.brand);
   const [reference, setReference] = useState(product.model);
   const [characteristics, setCharacteristics] = useState(product.characteristics);
-  const [price, setPrice] = useState("");
+  const [price, setPrice] = useState(product.price === null ? "" : String(product.price));
   const [stock, setStock] = useState("0");
   const [images, setImages] = useState<string[]>(product.images);
   const [cover, setCover] = useState<string | null>(product.images[0] ?? null);

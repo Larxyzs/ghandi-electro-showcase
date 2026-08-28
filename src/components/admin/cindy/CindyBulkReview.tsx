@@ -70,7 +70,7 @@ function buildRows(items: CindyBulkItem[], products: Product[], defaultNodeId: s
         sourceUrl: (product.sources.find((s) => s.official) ?? product.sources[0])?.url ?? null,
         sourceName: (product.sources.find((s) => s.official) ?? product.sources[0])?.name ?? null,
         official: product.sources.some((s) => s.official),
-        price: "",
+        price: product.price === null ? "" : String(product.price),
         stock: "0",
         nodeId: defaultNodeId,
         duplicate,
