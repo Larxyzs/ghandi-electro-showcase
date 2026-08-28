@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { Menu, Phone, X, MapPin, ShoppingCart } from "lucide-react";
+import { Menu, Phone, X, MapPin, ShoppingCart, ShieldCheck } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { HeaderSearch } from "@/components/HeaderSearch";
@@ -8,6 +8,7 @@ import { WhatsAppFloating } from "@/components/WhatsAppFloating";
 import { CartDrawer } from "@/components/CartDrawer";
 import { useCart } from "@/lib/cart";
 import { useI18n } from "@/lib/i18n";
+import { useAdminIdentity } from "@/lib/use-admin";
 import { COMPANY } from "@/lib/company";
 
 
