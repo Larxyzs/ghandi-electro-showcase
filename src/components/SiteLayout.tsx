@@ -44,6 +44,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const { count } = useCart();
+  const admin = useAdminIdentity();
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -65,6 +66,15 @@ export function SiteLayout({ children }: { children: ReactNode }) {
 
           <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
             <HeaderSearch />
+            {admin && (
+              <Link
+                to="/admin"
+                title={`Administration · ${admin.username}`}
+                className="hidden items-center gap-1.5 rounded-full border border-brand/40 bg-brand-soft px-3.5 py-2 text-sm font-semibold text-brand-deep transition-colors hover:border-brand sm:inline-flex"
+              >
+                <ShieldCheck className="h-4 w-4" /> Admin
+              </Link>
+            )}
             <LanguageSwitcher />
             <button
               type="button"
