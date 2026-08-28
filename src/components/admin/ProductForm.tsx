@@ -286,7 +286,7 @@ export function ProductForm({
         <div className="mt-4 flex items-center gap-4">
           <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-border bg-background">
             {preview ? (
-              <img src={preview} alt="" className="h-full w-full object-cover" />
+              <img src={preview} alt="" className="h-full w-full object-contain" />
             ) : (
               <div className="flex h-full items-center justify-center text-foreground/30">
                 <ImagePlus className="h-6 w-6" />

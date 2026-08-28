@@ -355,7 +355,7 @@ export function CatalogExplorer({
             >
               <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-brand-soft text-brand-deep">
                 {node.image_url ? (
-                  <img src={node.image_url} alt="" className="h-full w-full object-cover" />
+                  <img src={node.image_url} alt="" className="h-full w-full object-contain" />
                 ) : (
                   <Icon className="h-5 w-5" />
                 )}
@@ -444,7 +444,7 @@ export function CatalogExplorer({
               >
                 <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-brand-soft/60">
                   {product.image_url ? (
-                    <img src={product.image_url} alt="" className="h-full w-full object-cover" />
+                    <img src={product.image_url} alt="" className="h-full w-full object-contain" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-brand/40">
                       <Package className="h-5 w-5" />

@@ -143,7 +143,7 @@ function PanierPage() {
                 >
                   <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-brand-soft/50">
                     {item.image_url ? (
-                      <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
+                      <img src={item.image_url} alt={item.name} className="h-full w-full object-contain" />
                     ) : (
                       <div className="flex h-full items-center justify-center text-brand/40">
                         <PackageSearch className="h-6 w-6" />
