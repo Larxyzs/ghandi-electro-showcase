@@ -1071,7 +1071,7 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
         if (!READABLE_TABLES.includes(table)) throw new Error(`Table non autorisée : ${table}.`);
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const columns = table === "site_settings" ? PUBLIC_SETTINGS_COLUMNS : "*";
-        let query = supabaseAdmin
+        let query = looseDb(supabaseAdmin)
           .from(table)
           .select(columns)
           .limit(Math.min(200, Math.max(1, Math.floor(num(args, "limit") ?? 50))));
@@ -1103,7 +1103,7 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
         const { createSnapshot } = await import("./admin.server");
         await createSnapshot("Avant modification directe");
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await looseDb(supabaseAdmin)
           .from(table)
           .update(changes)
           .eq("id", str(args, "id"))
@@ -1114,6 +1114,26 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
       },
     },
   ];
+}
+
+/* --------------------- untyped table access (Cindy) ---------------------- */
+
+type LooseResult = Promise<{ data: Json[] | null; error: { message: string } | null }>;
+type LooseBuilder = LooseResult & {
+  select: (columns: string) => LooseBuilder;
+  update: (values: Json) => LooseBuilder;
+  eq: (column: string, value: unknown) => LooseBuilder;
+  in: (column: string, values: unknown[]) => LooseBuilder;
+  limit: (count: number) => LooseBuilder;
+};
+
+/**
+ * Cindy can touch any table in the app schema, so her generic read/write tools
+ * bypass the generated per-table types (table names are validated against the
+ * allow-lists below instead).
+ */
+function looseDb(client: unknown): { from: (table: string) => LooseBuilder } {
+  return client as { from: (table: string) => LooseBuilder };
 }
 
 const READABLE_TABLES = [
