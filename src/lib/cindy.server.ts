@@ -415,17 +415,7 @@ export function cacheKeyOf(query: string) {
 const EXTRACTION_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: [
-    "brand",
-    "name",
-    "model",
-    "characteristics",
-    "specifications",
-    "images",
-    "marketing_sections",
-    "confidence",
-    "notes",
-  ],
+  required: ["brand", "name", "model", "characteristics", "specifications", "confidence", "notes"],
   properties: {
     brand: { type: "string" },
     name: { type: "string" },
@@ -440,73 +430,16 @@ const EXTRACTION_SCHEMA = {
         properties: { label: { type: "string" }, value: { type: "string" } },
       },
     },
-    images: { type: "array", items: { type: "string" } },
-    marketing_sections: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["type", "title", "body", "image", "images"],
-        properties: {
-          type: { type: "string", enum: ["image_text", "feature", "overlay", "full_image", "specs"] },
-          title: { type: "string" },
-          body: { type: "string" },
-          image: { type: "string" },
-          images: { type: "array", items: { type: "string" } },
-        },
-      },
-    },
     confidence: { type: "string", enum: ["high", "medium", "low"] },
     notes: { type: "string" },
   },
 } as const;
 
-type RawSection = {
-  type: string;
-  title: string;
-  body: string;
-  image: string;
-  images: string[];
-};
-
-function normalizeSections(raw: RawSection[], images: string[]): MarketingSection[] {
-  const out: MarketingSection[] = [];
-  raw.forEach((section, index) => {
-    const image = section.image || images[index % Math.max(images.length, 1)] || "";
-    switch (section.type) {
-      case "image_text":
-        if (image && section.title)
-          out.push({
-            type: "image_text",
-            image,
-            title: section.title,
-            body: section.body,
-            reverse: index % 2 === 1,
-          });
-        break;
-      case "overlay":
-        if (image && section.title)
-          out.push({ type: "overlay", image, title: section.title, body: section.body });
-        break;
-      case "full_image":
-        if (image)
-          out.push({
-            type: "full_image",
-            image,
-            ...(section.title ? { title: section.title } : {}),
-            ...(section.body ? { body: section.body } : {}),
-          });
-        break;
-      case "specs":
-        out.push({ type: "specs", ...(section.title ? { title: section.title } : {}) });
-        break;
-      default:
-        if (section.title) out.push({ type: "feature", title: section.title, body: section.body });
-    }
-  });
-  return out;
-}
-
+/**
+ * Turns the official page text into structured product data.
+ * Images are NEVER chosen by the model: the gallery passed in (scraped from the
+ * product's own slideshow) is used as-is, in order, without any limit.
+ */
 export async function extractProductFromSources(input: {
   query: string;
   sources: { url: string; title: string; content: string }[];
@@ -518,19 +451,18 @@ export async function extractProductFromSources(input: {
   const corpus = input.sources
     .map(
       (s, i) =>
-        `### SOURCE ${i + 1}\nURL: ${s.url}\nTITRE: ${s.title}\nCONTENU:\n${s.content.slice(0, 12000)}`,
+        `### SOURCE ${i + 1}\nURL: ${s.url}\nTITRE: ${s.title}\nCONTENU:\n${s.content.slice(0, 14000)}`,
     )
     .join("\n\n");
 
   const system =
     "Tu es Cindy, assistante de recherche produit pour un magasin d'électroménager marocain. " +
-    "Tu extrais UNIQUEMENT des informations présentes dans les sources fournies. " +
+    "Tu extrais UNIQUEMENT des informations présentes dans les sources fournies (pages officielles du fabricant). " +
     "N'invente jamais une donnée: si une information est absente, ne la mets pas. " +
     "N'inclus JAMAIS de prix, de stock ou d'information commerciale. " +
     "Réponds en JSON. Rédige en français. Les 'characteristics' sont une liste courte à puces (une par ligne, préfixée par '- '). " +
-    "Les 'specifications' sont des paires label/valeur techniques (capacité, dimensions, classe énergétique, consommation, niveau sonore, etc.). " +
-    "Les 'marketing_sections' sont 2 à 5 blocs de présentation premium basés sur les vraies fonctionnalités du produit; " +
-    "utilise uniquement les URLs d'images fournies. Termine toujours par un bloc de type 'specs'.";
+    "Les 'specifications' sont TOUTES les paires label/valeur techniques trouvées (capacité, dimensions, classe énergétique, consommation, niveau sonore, etc.). " +
+    "'model' est la référence exacte du modèle telle qu'écrite sur la page officielle.";
 
   const res = await aiFetchWithRetry(ai.url, {
     method: "POST",
@@ -541,7 +473,7 @@ export async function extractProductFromSources(input: {
         { role: "system", content: system },
         {
           role: "user",
-          content: `Référence demandée par l'admin: "${input.query}"\n\nImages disponibles (URLs réelles):\n${input.images.slice(0, 8).join("\n") || "(aucune)"}\n\n${corpus}`,
+          content: `Référence demandée par l'admin: "${input.query}"\n\n${corpus}`,
         },
       ],
       response_format: {
@@ -568,15 +500,9 @@ export async function extractProductFromSources(input: {
     model: string;
     characteristics: string;
     specifications: ProductSpec[];
-    images: string[];
-    marketing_sections: RawSection[];
     confidence: "high" | "medium" | "low";
     notes: string;
   };
-
-  const allowed = new Set(input.images);
-  const images = (parsed.images ?? []).filter((u) => allowed.has(u));
-  const finalImages = images.length ? images : input.images.slice(0, 6);
 
   return {
     brand: parsed.brand ?? "",
@@ -584,13 +510,15 @@ export async function extractProductFromSources(input: {
     model: parsed.model ?? "",
     characteristics: parsed.characteristics ?? "",
     specifications: parsed.specifications ?? [],
-    images: finalImages,
-    marketing_sections: normalizeSections(parsed.marketing_sections ?? [], finalImages),
+    // Original manufacturer slideshow images, all of them, deduplicated only.
+    images: dedupeImages(input.images),
+    marketing_sections: [],
     sources: [],
     confidence: parsed.confidence ?? "medium",
     notes: parsed.notes ?? "",
   };
 }
+
 
 // ===================== Research cache (Supabase) =====================
 
