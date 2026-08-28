@@ -34,7 +34,8 @@ export const Route = createFileRoute("/api/admin/cindy-agent")({
             : message === "AI_NOT_CONFIGURED"
               ? "L'assistant IA n'est pas configuré."
               : message === "AI_RATE_LIMITED"
-                ? "Trop de requêtes d'un coup, réessayez dans un instant."
+                ? "L'IA est saturée : j'ai patienté plusieurs fois sans succès. Relancez dans une minute, je reprends là où j'en étais."
+
                 : message === "AI_CREDITS"
                   ? "Crédits IA épuisés."
                   : `Une erreur est survenue (${message}).`;
