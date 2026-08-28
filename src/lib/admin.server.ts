@@ -453,7 +453,8 @@ export type ProductInput = {
   /** Product characteristics (formerly "description"). */
   characteristics: string;
   specifications?: { label: string; value: string }[];
-  gallery?: string[];
+  /** Slideshow images: existing URL/path strings, or new uploads to store. */
+  gallery?: (string | { imageData: string; imageName: string })[];
   marketing_sections?: Json[];
   source_url?: string | null;
   source_name?: string | null;
@@ -506,6 +507,19 @@ export async function saveProduct(input: ProductInput) {
     imagePath = null;
   }
 
+  let gallery: string[] | undefined = undefined;
+  if (input.gallery) {
+    gallery = [];
+    for (const entry of input.gallery) {
+      if (typeof entry === "string") {
+        const value = entry.trim();
+        if (value) gallery.push(value);
+      } else if (entry?.imageData && entry?.imageName) {
+        gallery.push(await storeImage(db, entry.imageData, entry.imageName));
+      }
+    }
+  }
+
   const base = {
     node_id: input.node_id,
     name: input.name.trim(),
@@ -516,7 +530,7 @@ export async function saveProduct(input: ProductInput) {
     characteristics: input.characteristics,
     featured: Boolean(input.featured),
     ...(input.specifications ? { specifications: input.specifications as Json } : {}),
-    ...(input.gallery ? { gallery: input.gallery } : {}),
+    ...(gallery ? { gallery } : {}),
     ...(input.marketing_sections ? { marketing_sections: input.marketing_sections as Json } : {}),
     ...(input.source_url !== undefined ? { source_url: input.source_url } : {}),
     ...(input.source_name !== undefined ? { source_name: input.source_name } : {}),
