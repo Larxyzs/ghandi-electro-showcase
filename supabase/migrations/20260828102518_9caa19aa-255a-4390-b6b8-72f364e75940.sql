@@ -1,0 +1,2 @@
+GRANT SELECT (id, primary_color, secondary_color, text_color, site_mode, search_provider, search_model, ai_provider, ai_model, updated_at) ON TABLE public.site_settings TO anon;
+GRANT SELECT (id, primary_color, secondary_color, text_color, site_mode, search_provider, search_model, ai_provider, ai_model, updated_at) ON TABLE public.site_settings TO authenticated;
