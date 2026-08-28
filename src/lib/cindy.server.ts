@@ -554,8 +554,9 @@ export async function readProductPage(url: string, reference: string) {
   const matchesReference =
     ref.length < 4 || alnum(text).includes(ref) || alnum(decodeURIComponent(url)).includes(ref);
 
-  return { text, gallery: extractGalleryImages(html, url, reference), matchesReference };
+  return { html, text, gallery: extractGalleryImages(html, url, reference), matchesReference };
 }
+
 
 /**
  * Understands short admin input like "RB34T672EWW, Samsung" or "Samsung RB34T672EWW":
