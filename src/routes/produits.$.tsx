@@ -1,5 +1,6 @@
+import { useMemo, useState } from "react";
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
-import { ChevronRight, Home, PackageSearch, SlidersHorizontal } from "lucide-react";
+import { ChevronRight, Home, PackageSearch, Search, SlidersHorizontal, X } from "lucide-react";
 import { SiteLayout } from "@/components/SiteLayout";
 import { Reveal } from "@/components/Reveal";
 import { ProductCard } from "@/components/ProductCard";
@@ -8,6 +9,7 @@ import {
   childrenOf,
   findChildBySlug,
   productsIn,
+  searchProducts,
   type CatalogNode,
   type SiteData,
 } from "@/lib/catalog-types";
