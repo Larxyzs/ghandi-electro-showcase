@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Clock,
   Database,
@@ -12,7 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { CindyChat, CindyAvatar } from "./CindyChat";
-import { CindyAgentChat } from "./CindyAgentChat";
+import { CindyAgentChat, type CindyTurn } from "./CindyAgentChat";
 import { CindyReview, type CindyImportPayload } from "./CindyReview";
 import { CindyBulkReview } from "./CindyBulkReview";
 import type { CindyBulkItem, CindyEvent, ResearchedProduct } from "@/lib/cindy-types";
@@ -20,11 +20,19 @@ import type { SiteData } from "@/lib/catalog-types";
 import { cn } from "@/lib/utils";
 
 
+/** Marks a stored session as a conversation (vs. a product research run). */
+const CHAT_MARKER = "__chat__";
+
 export type CindyActions = {
   listSessions: () => Promise<
     { id: string; title: string; query: string; events: unknown[]; updated_at: string }[]
   >;
-  saveSession: (input: { title: string; query: string; events: unknown[] }) => Promise<void>;
+  saveSession: (input: {
+    id?: string | null;
+    title: string;
+    query: string;
+    events: unknown[];
+  }) => Promise<{ id: string }>;
   deleteSession: (id: string) => Promise<void>;
   importProduct: (payload: CindyImportPayload) => Promise<void>;
   listActions: () => Promise<
@@ -86,6 +94,10 @@ export function CindyWorkspace({
   const [mode, setMode] = useState<"chat" | "research">("chat");
   const [loading, setLoading] = useState(true);
   const [replay, setReplay] = useState<{ query: string; events: CindyEvent[] } | null>(null);
+  /** Persisted conversation with Cindy: survives closing the tab. */
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [chatTurns, setChatTurns] = useState<CindyTurn[] | null>(null);
+  const chatIdRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -97,6 +109,17 @@ export function CindyWorkspace({
         actions.listSnapshots?.() ?? Promise.resolve([]),
       ]);
       setSessions(s);
+      // Restore the latest conversation once, so the tab can be closed safely.
+      if (chatTurns === null) {
+        const latestChat = s.find((row) => row.query === CHAT_MARKER);
+        if (latestChat) {
+          chatIdRef.current = latestChat.id;
+          setChatId(latestChat.id);
+          setChatTurns(latestChat.events as CindyTurn[]);
+        } else {
+          setChatTurns([]);
+        }
+      }
       setHistory(h);
       setMemory(m);
       setSnapshots(snaps);
@@ -107,7 +130,28 @@ export function CindyWorkspace({
 
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Auto-saves the conversation after every message, in the background. */
+  const persistChat = async (turns: CindyTurn[]) => {
+    setChatTurns(turns);
+    if (turns.length === 0) return;
+    const first = turns.find((turn) => turn.role === "user")?.content ?? "Discussion";
+    const { id } = await actions.saveSession({
+      id: chatIdRef.current,
+      title: first.slice(0, 70),
+      query: CHAT_MARKER,
+      events: turns as unknown[],
+    });
+    chatIdRef.current = id;
+    setChatId(id);
+    void refresh();
+  };
+
+  const visibleSessions = sessions.filter((row) =>
+    mode === "chat" ? row.query === CHAT_MARKER : row.query !== CHAT_MARKER,
+  );
 
 
   const onEvents = async (events: CindyEvent[], query: string) => {
@@ -141,12 +185,21 @@ export function CindyWorkspace({
         </div>
 
         {mode === "chat" ? (
-          <CindyAgentChat
-            onChanged={() => {
-              void actions.refreshSite?.();
-              void refresh();
-            }}
-          />
+          chatTurns === null ? (
+            <div className="grid h-[70vh] place-items-center rounded-3xl border border-border bg-card">
+              <Loader2 className="h-5 w-5 animate-spin text-brand" />
+            </div>
+          ) : (
+            <CindyAgentChat
+              key={chatId ?? "new"}
+              initialTurns={chatTurns}
+              onTurns={(turns) => void persistChat(turns)}
+              onChanged={() => {
+                void actions.refreshSite?.();
+                void refresh();
+              }}
+            />
+          )
         ) : bulk ? (
           <CindyBulkReview
             items={bulk}
@@ -247,19 +300,23 @@ export function CindyWorkspace({
             setBulk(null);
             setRetryQuery(null);
             setChatKey((k) => k + 1);
-
+            if (mode === "chat") {
+              chatIdRef.current = null;
+              setChatId(null);
+              setChatTurns([]);
+            }
           }}
           className="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-primary-foreground"
           style={{ background: "var(--gradient-brand)" }}
         >
-          <Plus className="h-4 w-4" /> Nouvelle recherche
+          <Plus className="h-4 w-4" /> {mode === "chat" ? "Nouvelle discussion" : "Nouvelle recherche"}
         </button>
 
         <div className="rounded-3xl border border-border bg-card p-2">
           <div className="grid grid-cols-4 gap-1">
             {(
               [
-                ["sessions", "Recherches", Clock],
+                ["sessions", mode === "chat" ? "Discussions" : "Recherches", Clock],
                 ["memory", "Mémoire", Database],
                 ["history", "Historique", History],
                 ["snapshots", "Sauvegardes", Save],
@@ -282,15 +339,17 @@ export function CindyWorkspace({
           <div className="mt-2 max-h-[52vh] space-y-1.5 overflow-y-auto p-1">
             {loading && <Loader2 className="mx-auto my-6 h-4 w-4 animate-spin text-brand" />}
 
-            {!loading && pane === "sessions" && sessions.length === 0 && (
+            {!loading && pane === "sessions" && visibleSessions.length === 0 && (
               <p className="px-2 py-6 text-center text-xs text-foreground/50">
-                Aucune recherche pour l'instant.
+                {mode === "chat"
+                  ? "Aucune discussion pour l'instant."
+                  : "Aucune recherche pour l'instant."}
               </p>
             )}
 
             {!loading &&
               pane === "sessions" &&
-              sessions.map((session) => (
+              visibleSessions.map((session) => (
                 <div
                   key={session.id}
                   className="group flex items-center gap-2 rounded-xl px-2.5 py-2 hover:bg-brand-soft/40"
@@ -298,13 +357,24 @@ export function CindyWorkspace({
                   <CindyAvatar className="h-7 w-7 rounded-xl" />
                   <button
                     type="button"
-                    onClick={() =>
+                    onClick={() => {
+                      if (session.query === CHAT_MARKER) {
+                        chatIdRef.current = session.id;
+                        setChatId(session.id);
+                        setChatTurns(session.events as CindyTurn[]);
+                        setMode("chat");
+                        setReplay(null);
+                        return;
+                      }
                       setReplay({
                         query: session.query || session.title,
                         events: session.events as CindyEvent[],
-                      })
-                    }
-                    className="min-w-0 flex-1 text-start"
+                      });
+                    }}
+                    className={cn(
+                      "min-w-0 flex-1 text-start",
+                      session.id === chatId && "text-brand",
+                    )}
                   >
                     <span className="block truncate text-xs font-semibold">{session.title}</span>
                     <span className="block text-[11px] text-foreground/50">
@@ -315,6 +385,11 @@ export function CindyWorkspace({
                     type="button"
                     onClick={async () => {
                       await actions.deleteSession(session.id);
+                      if (session.id === chatIdRef.current) {
+                        chatIdRef.current = null;
+                        setChatId(null);
+                        setChatTurns([]);
+                      }
                       void refresh();
                     }}
                     className="hidden text-foreground/40 hover:text-destructive group-hover:block"
