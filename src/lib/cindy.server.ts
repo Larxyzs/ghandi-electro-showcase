@@ -556,6 +556,80 @@ export function extractGalleryImages(html: string, baseUrl: string, reference: s
 }
 
 /**
+ * Reads the manufacturer's own public price from the official page:
+ * JSON-LD `offers.price` first (the manufacturer's structured data), then the
+ * usual price meta tags, then a MAD/DH amount written in the page text.
+ * Nothing is invented: when the official page shows no price, this returns null.
+ */
+export function extractOfficialPrice(html: string): { price: number | null; currency: string } {
+  const clean = (raw: string) => {
+    const value = raw.replace(/\s|\u00a0/g, "").replace(/[^0-9.,]/g, "");
+    if (!value) return null;
+    // "12 499,00" / "12,499.00" → 12499
+    const normalized = value.replace(/,(\d{1,2})$/, ".$1").replace(/[,\s](?=\d{3})/g, "");
+    const parsed = Number(normalized.replace(/,/g, ""));
+    return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : null;
+  };
+
+  let price: number | null = null;
+  let currency = "";
+
+  const visit = (value: unknown) => {
+    if (price !== null) return;
+    if (Array.isArray(value)) return value.forEach(visit);
+    if (!value || typeof value !== "object") return;
+    const item = value as Record<string, unknown>;
+    const candidate = item["price"] ?? item["lowPrice"] ?? item["highPrice"];
+    if (candidate !== undefined && candidate !== null) {
+      const parsed = clean(String(candidate));
+      if (parsed) {
+        price = parsed;
+        currency = String(item["priceCurrency"] ?? currency ?? "");
+        return;
+      }
+    }
+    Object.values(item).forEach(visit);
+  };
+  for (const match of html.matchAll(
+    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+  )) {
+    try {
+      visit(JSON.parse((match[1] ?? "").trim()));
+    } catch {
+      /* ignore invalid structured data */
+    }
+    if (price !== null) break;
+  }
+
+  if (price === null) {
+    const meta = html.match(
+      /<meta[^>]+(?:property|name|itemprop)=["'](?:product:price:amount|og:price:amount|price)["'][^>]+content=["']([^"']+)["']/i,
+    );
+    if (meta) price = clean(meta[1] ?? "");
+    const metaCurrency = html.match(
+      /<meta[^>]+(?:property|name|itemprop)=["'](?:product:price:currency|og:price:currency|priceCurrency)["'][^>]+content=["']([^"']+)["']/i,
+    );
+    if (metaCurrency) currency = currency || (metaCurrency[1] ?? "");
+  }
+
+  if (price === null) {
+    const text = html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ");
+    const inText = text.match(
+      /(\d[\d\s.,\u00a0]{2,12})\s*(?:MAD|DHS?|DH|Dirhams?)\b|(?:MAD|DHS?|DH)\s*(\d[\d\s.,\u00a0]{2,12})/i,
+    );
+    if (inText) {
+      price = clean(inText[1] ?? inText[2] ?? "");
+      currency = currency || "MAD";
+    }
+  }
+
+  const normalizedCurrency = /^(MAD|DH|DHS)$/i.test(currency.trim())
+    ? "MAD"
+    : currency.trim().toUpperCase();
+  return { price, currency: price === null ? "" : normalizedCurrency || "MAD" };
+}
+
+/**
  * Reads one official product page: page text, its own gallery, and whether the
  * exact requested reference really appears on it (identity verification).
  */
@@ -582,7 +656,16 @@ export async function readProductPage(url: string, reference: string) {
   const matchesReference =
     ref.length < 4 || alnum(text).includes(ref) || alnum(decodeURIComponent(url)).includes(ref);
 
-  return { html, text, gallery: extractGalleryImages(html, url, reference), matchesReference };
+  const { price, currency } = extractOfficialPrice(html);
+
+  return {
+    html,
+    text,
+    gallery: extractGalleryImages(html, url, reference),
+    matchesReference,
+    price,
+    currency,
+  };
 }
 
 
@@ -656,6 +739,9 @@ export async function extractProductFromSources(input: {
   query: string;
   sources: { url: string; title: string; content: string }[];
   images: string[];
+  /** Public price read from the official page (never invented by the model). */
+  price?: number | null;
+  currency?: string;
 }): Promise<ResearchedProduct> {
   const { aiSetup, aiFailure, aiFetchWithRetry } = await import("./ai-config.server");
   const ai = await aiSetup();
@@ -724,6 +810,10 @@ export async function extractProductFromSources(input: {
     specifications: parsed.specifications ?? [],
     // Original manufacturer slideshow images, all of them, deduplicated only.
     images: dedupeImages(input.images),
+    // Stock is always 0 on import (the admin owns availability); the price is
+    // the manufacturer's own public price, read from the official page.
+    price: input.price ?? null,
+    currency: input.currency ?? "",
     marketing_sections: [],
     sources: [],
     confidence: parsed.confidence ?? "medium",
