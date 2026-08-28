@@ -1,5 +1,14 @@
 import { useRef, useState } from "react";
-import { ExternalLink, ImagePlus, Loader2, Trash2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ExternalLink,
+  ImagePlus,
+  Loader2,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { LEVEL_LABELS, type NodeLevel, type Product } from "@/lib/catalog-types";
 import { BRAND_NAMES } from "@/lib/brands";
 import { ImagePicker } from "@/components/admin/ImagePicker";
