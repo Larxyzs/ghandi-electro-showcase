@@ -118,6 +118,38 @@ function BrowsePage() {
           </Link>
         </Reveal>
 
+        {!missing && (
+          <div className="mt-6 flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2.5 focus-within:border-brand/60 focus-within:ring-2 focus-within:ring-brand/20">
+            <Search className="h-4 w-4 shrink-0 text-foreground/45" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={`Rechercher dans ${current?.name ?? "le catalogue"} — nom ou référence`}
+              aria-label="Rechercher dans ce rayon"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+            />
+            {term && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                aria-label="Effacer la recherche"
+                className="text-foreground/45 hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {term && !missing && (
+          <p className="mt-3 text-sm text-foreground/60">
+            {products.length} produit{products.length === 1 ? "" : "s"} trouvé
+            {products.length === 1 ? "" : "s"}
+            {folders.length > 0 && ` · ${folders.length} rayon${folders.length === 1 ? "" : "s"}`}
+          </p>
+        )}
+
         {missing && (
           <p className="mt-10 rounded-3xl border border-dashed border-border bg-card px-6 py-16 text-center text-sm text-foreground/60">
             Ce rayon n'existe pas ou plus.{" "}
@@ -141,24 +173,30 @@ function BrowsePage() {
           </div>
         )}
 
-        {current && current.level >= 3 && (products.length > 0 || folders.length === 0) && (
-          <div className="mt-12">
-            {products.length === 0 ? (
-              <div className="flex flex-col items-center gap-4 rounded-[2rem] border border-dashed border-border bg-brand-soft/40 px-8 py-20 text-center">
-                <PackageSearch className="h-9 w-9 text-brand" />
-                <p className="text-foreground/70">Aucun produit dans ce modèle pour le moment.</p>
-              </div>
-            ) : (
-              <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
-                {products.map((p, i) => (
-                  <Reveal key={p.id} delay={(i % 3) * 110}>
-                    <ProductCard product={p} />
-                  </Reveal>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {!missing &&
+          (term || (current && current.level >= 3)) &&
+          (products.length > 0 || folders.length === 0) && (
+            <div className="mt-12">
+              {products.length === 0 ? (
+                <div className="flex flex-col items-center gap-4 rounded-[2rem] border border-dashed border-border bg-brand-soft/40 px-8 py-20 text-center">
+                  <PackageSearch className="h-9 w-9 text-brand" />
+                  <p className="text-foreground/70">
+                    {term
+                      ? "Aucun produit ne correspond à votre recherche."
+                      : "Aucun produit dans ce modèle pour le moment."}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
+                  {products.map((p, i) => (
+                    <Reveal key={p.id} delay={(i % 3) * 110}>
+                      <ProductCard product={p} />
+                    </Reveal>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
       </section>
     </SiteLayout>
   );
