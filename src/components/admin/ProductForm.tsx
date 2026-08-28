@@ -26,6 +26,18 @@ export type ProductDraft = {
   imageName?: string | null | undefined;
   imageUrl?: string | null | undefined;
   removeImage?: boolean | undefined;
+  /** Slideshow images: kept values (paths/URLs) and new uploads. */
+  gallery?: (string | { imageData: string; imageName: string })[] | undefined;
+};
+
+/** One editable slideshow slide. */
+type GallerySlide = {
+  key: string;
+  /** Stored value kept as-is (storage path or https URL); empty for a new upload. */
+  value: string;
+  /** What to show in the thumbnail. */
+  preview: string;
+  upload?: { imageData: string; imageName: string };
 };
 
 /** A folder (Catégorie → Type → Produit → Format) created on the fly: name + image. */
