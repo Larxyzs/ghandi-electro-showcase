@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { Menu, Phone, X, MapPin, ShoppingCart, ShieldCheck } from "lucide-react";
+import { Menu, Phone, X, MapPin, ShoppingCart, ShieldCheck, Pencil } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { HeaderSearch } from "@/components/HeaderSearch";
@@ -8,7 +8,8 @@ import { WhatsAppFloating } from "@/components/WhatsAppFloating";
 import { CartDrawer } from "@/components/CartDrawer";
 import { useCart } from "@/lib/cart";
 import { useI18n } from "@/lib/i18n";
-import { useAdminIdentity } from "@/lib/use-admin";
+import { LiveEditProvider, useLiveEdit } from "@/lib/live-edit";
+import { CindyDock } from "@/components/live/CindyDock";
 import { COMPANY } from "@/lib/company";
 
 
@@ -40,11 +41,19 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function SiteLayout({ children }: { children: ReactNode }) {
+  return (
+    <LiveEditProvider>
+      <SiteShell>{children}</SiteShell>
+    </LiveEditProvider>
+  );
+}
+
+function SiteShell({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const { count } = useCart();
-  const admin = useAdminIdentity();
+  const { admin, editing, toggle } = useLiveEdit();
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -66,6 +75,20 @@ export function SiteLayout({ children }: { children: ReactNode }) {
 
           <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
             <HeaderSearch />
+            {admin && (
+              <button
+                type="button"
+                onClick={toggle}
+                title="Éditer le site directement sur la page"
+                className={
+                  editing
+                    ? "hidden items-center gap-1.5 rounded-full border border-brand bg-brand px-3.5 py-2 text-sm font-semibold text-primary-foreground sm:inline-flex"
+                    : "hidden items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-sm font-semibold text-foreground/75 transition-colors hover:border-brand hover:text-brand sm:inline-flex"
+                }
+              >
+                <Pencil className="h-4 w-4" /> {editing ? "Édition ON" : "Éditer"}
+              </button>
+            )}
             {admin && (
               <Link
                 to="/admin"
@@ -134,6 +157,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
       <main className="flex-1">{children}</main>
 
       <WhatsAppFloating />
+      <CindyDock />
       <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
 
       <footer className="mt-24 border-t border-border bg-brand-soft/60">
