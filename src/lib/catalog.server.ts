@@ -107,7 +107,10 @@ export async function fetchSiteData(): Promise<SiteData> {
       image_path: p.image_url ?? null,
       image_url: resolve(p.image_url),
       specifications: Array.isArray(p.specifications) ? (p.specifications as ProductSpec[]) : [],
-      gallery: Array.isArray(p.gallery) ? (p.gallery as string[]) : [],
+      gallery_paths: galleryOf(p),
+      gallery: galleryOf(p)
+        .map((value) => resolve(value))
+        .filter((value): value is string => Boolean(value)),
       marketing_sections: Array.isArray(p.marketing_sections)
         ? (p.marketing_sections as MarketingSection[])
         : [],

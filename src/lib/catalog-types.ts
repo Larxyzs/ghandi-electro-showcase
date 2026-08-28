@@ -47,7 +47,10 @@ export type Product = {
   /** Product characteristics (formerly "description"). */
   characteristics: string;
   specifications: ProductSpec[];
+  /** Ready-to-render slideshow URLs (signed when stored in the bucket). */
   gallery: string[];
+  /** Raw stored slideshow values (storage paths or https URLs) — admin editing. */
+  gallery_paths?: string[];
   marketing_sections: MarketingSection[];
   source_url: string | null;
   source_name: string | null;
