@@ -78,10 +78,11 @@ export function CindyAgentChat({
       ...turns.map((turn) => ({ role: turn.role, content: turn.content })),
       { role: "user", content: text },
     ];
+    let base: Turn[] = [];
     setTurns((prev) => {
-      const next: Turn[] = [...prev, { role: "user" as const, content: text }];
-      onTurns?.(next);
-      return next;
+      base = [...prev, { role: "user" as const, content: text }];
+      onTurns?.(base);
+      return base;
     });
     setInput("");
     setStreaming(true);
@@ -95,6 +96,23 @@ export function CindyAgentChat({
     const controller = new AbortController();
     abortRef.current = controller;
     let stopped = false;
+
+    // Cindy can work for minutes. Persist the answer-so-far every few seconds so
+    // closing or reloading the tab never leaves an empty conversation behind.
+    let lastSave = Date.now();
+    const saveProgress = (force = false) => {
+      if (!force && Date.now() - lastSave < 4000) return;
+      lastSave = Date.now();
+      onTurns?.([
+        ...base,
+        {
+          role: "assistant" as const,
+          content: answer.trim(),
+          ...(steps.length ? { activities: [...steps] } : {}),
+        },
+      ]);
+    };
+
 
     try {
       const res = await fetch("/api/admin/cindy-agent", {
@@ -146,6 +164,7 @@ export function CindyAgentChat({
           } else if (event.type === "error") {
             failure = event.message;
           }
+          saveProgress();
         }
       }
     } catch (error) {
