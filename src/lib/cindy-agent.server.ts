@@ -957,6 +957,80 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
       },
     },
     {
+      name: "set_gallery",
+      description:
+        "Remplace le diaporama (galerie) d'un article par une liste d'images https d'origine du fabricant. La première image devient l'image principale. Ne jamais utiliser d'images de revendeurs ni d'images retouchées.",
+      properties: {
+        product: { type: "string" },
+        images: { type: "array", items: { type: "string" } },
+      },
+      required: ["product", "images"],
+      run: async (args, emit) => {
+        const raw = Array.isArray(args["images"]) ? args["images"] : [];
+        const images = Array.from(
+          new Set(raw.map((v) => String(v).trim()).filter((v) => /^https:\/\//i.test(v))),
+        );
+        if (images.length === 0) throw new Error("Aucune image https valide fournie.");
+        const product = await findProduct(str(args, "product"));
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { error } = await looseDb(supabaseAdmin)
+          .from("products")
+          .update({ gallery: images, image_url: images[0]! } as unknown as Json)
+          .eq("id", product.id);
+        if (error) throw new Error(error.message);
+        emit({ type: "changed" });
+        return { ok: true, product: product.name, images: images.length };
+      },
+    },
+    {
+      name: "refresh_product_media",
+      description:
+        "Refait la recherche sur le site officiel du fabricant pour un article existant et remet à jour son diaporama complet (galerie + image principale) avec les images d'origine, ainsi que ses caractéristiques et spécifications. Ne touche jamais au prix ni au stock.",
+      properties: { product: { type: "string" }, force: B },
+      required: ["product", "force"],
+      run: async (args, emit) => {
+        const product = await findProduct(str(args, "product"));
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: full } = await supabaseAdmin
+          .from("products")
+          .select("*")
+          .eq("id", product.id)
+          .single();
+        const reference = [full!.brand, full!.serial_number || full!.name]
+          .filter(Boolean)
+          .join(" ")
+          .trim();
+        const { researchProduct } = await import("./cindy.server");
+        const researched = await researchProduct(
+          reference,
+          (event: CindyEvent) => emit(event as CindyAgentEvent),
+          { force: args["force"] === true },
+        );
+        if (!researched) throw new Error(`Fiche officielle introuvable pour « ${reference} ».`);
+        const images = researched.images.filter((url) => /^https:\/\//i.test(url));
+        const patch: Json = {
+          characteristics: researched.characteristics || (full!.characteristics ?? ""),
+          specifications: researched.specifications as unknown as Json,
+        };
+        if (images.length > 0) {
+          patch["gallery"] = images as unknown as Json;
+          patch["image_url"] = images[0]!;
+        }
+        const { error } = await looseDb(supabaseAdmin)
+          .from("products")
+          .update(patch)
+          .eq("id", product.id);
+        if (error) throw new Error(error.message);
+        emit({ type: "changed" });
+        return {
+          ok: true,
+          product: full!.name,
+          images: images.length,
+          sources: researched.sources.map((s) => s.url).slice(0, 3),
+        };
+      },
+    },
+    {
       name: "bulk_update_products",
       description:
         "Modifie d'un coup TOUS les articles d'un dossier et de ses sous-dossiers (prix, stock, marque, caractéristiques, mise en avant). Les champs null ne changent pas. Le prix et le stock ne viennent QUE de l'admin.",
