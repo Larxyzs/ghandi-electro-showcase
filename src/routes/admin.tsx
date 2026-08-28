@@ -328,6 +328,7 @@ function AdminPage() {
                 imageName: draft.imageName ?? null,
                 imageUrl: draft.imageUrl ?? null,
                 removeImage: Boolean(draft.removeImage),
+                ...(draft.gallery ? { gallery: draft.gallery } : {}),
               },
             }),
           ),
