@@ -330,6 +330,8 @@ export async function crawlListingPage(input: {
             query: `${item.label || "Produit"} — référence exacte à extraire depuis l'URL officielle : ${item.url}`,
             sources: [{ url: item.url, title: item.label || item.url, content: page.text }],
             images: page.gallery,
+            price: page.price,
+            currency: page.currency,
           });
           break;
         } catch (error) {

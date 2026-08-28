@@ -1006,11 +1006,16 @@ export async function researchProduct(
     id: "s1",
     kind: "search",
     label: "Recherche officielle (1)",
-    detail: officialDomains.length ? `"${reference}" sur ${officialDomains[0]}` : `"${reference}"`,
+    detail: officialDomains.length
+      ? `"${reference}" sur ${officialDomains[0]} (Maroc / Afrique du Nord)`
+      : `"${reference}" (Maroc / Afrique du Nord)`,
     status: "running",
   });
+  // Morocco / North Africa first: same reference, but the regional official page.
   const rawHits = await webSearch(
-    officialDomains.length ? `"${reference}" site:${officialDomains[0]}` : `"${reference}"`,
+    officialDomains.length
+      ? `"${reference}" site:${officialDomains[0]} Maroc`
+      : `"${reference}" site officiel Maroc`,
     { max: 10 },
   );
   searchesUsed += 1;
@@ -1062,6 +1067,8 @@ export async function researchProduct(
   const sources: CindySource[] = [];
   const pages: { url: string; title: string; content: string }[] = [];
   let gallery: string[] = [];
+  let officialPrice: number | null = null;
+  let officialCurrency = "";
   const rejected: string[] = [];
 
   for (const [index, hit] of pool.entries()) {
@@ -1091,6 +1098,10 @@ export async function researchProduct(
       }
       pages.push({ url: hit.url, title: hit.title, content: page.text });
       gallery = dedupeImages([...gallery, ...page.gallery]);
+      if (officialPrice === null && page.price !== null) {
+        officialPrice = page.price;
+        officialCurrency = page.currency;
+      }
       sources.push({
         url: hit.url,
         domain: domainOf(hit.url),
@@ -1136,7 +1147,13 @@ export async function researchProduct(
     detail: "Informations de la page officielle",
     status: "running",
   });
-  const product = await extractProductFromSources({ query: reference, sources: pages, images: gallery });
+  const product = await extractProductFromSources({
+    query: reference,
+    sources: pages,
+    images: gallery,
+    price: officialPrice,
+    currency: officialCurrency,
+  });
   if (brandGuess && !product.brand) product.brand = brandGuess;
   if (!product.model) product.model = reference;
   emit({
@@ -1159,6 +1176,23 @@ export async function researchProduct(
 
   emit({ type: "checklist", label: "Référence exacte vérifiée", done: true });
   emit({ type: "checklist", label: "Source officielle", done: true });
+  emit({
+    type: "checklist",
+    label:
+      regionRank(sources[0]!.url) >= 2
+        ? "Page officielle Maroc"
+        : regionRank(sources[0]!.url) === 1
+          ? "Page officielle Afrique du Nord"
+          : "Page officielle (aucune version Maroc trouvée)",
+    done: regionRank(sources[0]!.url) >= 1,
+  });
+  emit({
+    type: "checklist",
+    label: product.price === null
+      ? "Prix constructeur non affiché sur la page"
+      : `Prix constructeur ${product.price} ${product.currency || "MAD"}`,
+    done: product.price !== null,
+  });
   emit({ type: "checklist", label: "Nom du produit", done: Boolean(product.name) });
   emit({ type: "checklist", label: "Caractéristiques", done: Boolean(product.characteristics) });
   emit({ type: "checklist", label: "Spécifications", done: product.specifications.length > 0 });
