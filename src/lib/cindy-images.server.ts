@@ -1,16 +1,12 @@
 /**
- * Cindy — real image editing.
+ * Cindy — read-only image audit.
  *
- * She can look at every catalog image (products and folders), judge it with a
- * vision model, and actually re-render a better version (whole appliance
- * visible, centered, clean white background, square framing) with an image
- * model. The result is uploaded to storage and written back on the row, so the
- * live site changes immediately.
+ * She can look at every catalog image (products and folders) with a vision
+ * model and report what is wrong with it, so the admin can replace it with
+ * another ORIGINAL manufacturer picture. Cindy never regenerates or reframes an
+ * appliance photo with an image model.
  */
 import { aiFetchWithRetry, aiFailure, aiSetup } from "./ai-config.server";
-
-const IMAGE_MODEL_GEMINI = "gemini-3.1-flash-image";
-const IMAGE_MODEL_GATEWAY = "google/gemini-3.1-flash-image";
 
 export type ImageTarget = {
   kind: "product" | "node";
@@ -25,12 +21,6 @@ export type ImageVerdict = {
   advice: string;
 };
 
-export type ImageFixResult = {
-  label: string;
-  kind: "product" | "node";
-  status: "improved" | "already_good" | "skipped" | "failed";
-  detail: string;
-};
 
 /* ------------------------------ collection ------------------------------ */
 
