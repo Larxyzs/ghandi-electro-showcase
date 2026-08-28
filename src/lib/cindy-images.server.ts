@@ -225,7 +225,7 @@ export async function reframeImage(
   const res = await aiFetchWithRetry(
     url,
     { method: "POST", headers: setup.headers, body: JSON.stringify(body) },
-    { signal },
+    signal ? { signal } : {},
   );
   if (!res.ok) throw await aiFailure(res);
   const json = (await res.json()) as Record<string, unknown>;
