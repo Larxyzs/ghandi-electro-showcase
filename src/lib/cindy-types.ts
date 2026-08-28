@@ -28,6 +28,9 @@ export type ResearchedProduct = {
   characteristics: string;
   specifications: ProductSpec[];
   images: string[];
+  /** Public price shown on the manufacturer's official (Morocco / North Africa) page. */
+  price: number | null;
+  currency: string;
   marketing_sections: MarketingSection[];
   sources: { name: string; url: string; official: boolean }[];
   confidence: "high" | "medium" | "low";
