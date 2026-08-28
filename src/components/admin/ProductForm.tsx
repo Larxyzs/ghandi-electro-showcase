@@ -90,6 +90,54 @@ export function ProductForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const galleryFileRef = useRef<HTMLInputElement>(null);
+
+  const [slides, setSlides] = useState<GallerySlide[]>(() => {
+    const raw = product?.gallery_paths ?? product?.gallery ?? [];
+    const shown = product?.gallery ?? [];
+    return raw.map((value, index) => ({
+      key: `${index}-${value}`,
+      value,
+      preview: value.startsWith("http") ? value : (shown[index] ?? ""),
+    }));
+  });
+
+  const galleryPayload = (list: GallerySlide[]) =>
+    list
+      .map((slide) => (slide.upload ? slide.upload : slide.value.trim()))
+      .filter((entry) => (typeof entry === "string" ? entry.length > 0 : true));
+
+  const updateSlides = (next: GallerySlide[]) => {
+    setSlides(next);
+    setDraft((d) => ({ ...d, gallery: galleryPayload(next) }));
+  };
+
+  const addGalleryFiles = (files: File[]) => {
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError(`« ${file.name} » dépasse 5 Mo.`);
+        continue;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const data = String(reader.result);
+        setSlides((prev) => {
+          const next = [
+            ...prev,
+            {
+              key: `${Date.now()}-${file.name}`,
+              value: "",
+              preview: data,
+              upload: { imageData: data, imageName: file.name },
+            },
+          ];
+          setDraft((d) => ({ ...d, gallery: galleryPayload(next) }));
+          return next;
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const set = <K extends keyof ProductDraft>(key: K, value: ProductDraft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
