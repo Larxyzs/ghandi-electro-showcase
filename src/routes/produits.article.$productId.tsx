@@ -45,6 +45,8 @@ export const Route = createFileRoute("/produits/article/$productId")({
 function ProductDetail() {
   const { t } = useI18n();
   const { add } = useCart();
+  const [qty, setQty] = useState(1);
+
   const { productId } = Route.useParams();
   const data = useLoaderData({ from: "__root__" }) as SiteData;
   const product = data.products.find((p) => p.id === productId);
