@@ -30,19 +30,20 @@ export function ProductCard({ product }: { product: Product }) {
       params={{ productId: product.id }}
       className="group flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-2 hover:border-brand/40"
     >
-      <div className="relative aspect-4/3 overflow-hidden bg-brand-soft/50">
+      <div className="relative aspect-square overflow-hidden bg-[oklch(1_0_0)]">
         {product.image_url ? (
           <img
             src={product.image_url}
             alt={product.name}
             loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="h-full w-full object-contain p-4 transition-transform duration-500 group-hover:scale-[1.04]"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-brand/40">
             <PackageSearch className="h-10 w-10" />
           </div>
         )}
+
         <span
           className={cn(
             "absolute top-3 end-3 rounded-full px-3 py-1 text-[0.7rem] font-semibold",
