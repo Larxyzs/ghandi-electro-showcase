@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ImagePlus, Loader2, Trash2, X } from "lucide-react";
+import { ExternalLink, ImagePlus, Loader2, Trash2, X } from "lucide-react";
 import { LEVEL_LABELS, type NodeLevel, type Product } from "@/lib/catalog-types";
 import { BRAND_NAMES } from "@/lib/brands";
 import { ImagePicker } from "@/components/admin/ImagePicker";
@@ -358,6 +358,23 @@ export function ProductForm({
           )}
         </div>
       </div>
+
+      {product?.source_url && (
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-dashed border-brand/40 bg-background px-4 py-3">
+          <p className="text-xs font-semibold tracking-wide text-brand-deep uppercase">
+            Page officielle du constructeur
+          </p>
+          <a
+            href={product.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand hover:underline"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            {product.source_name || "Ouvrir la page originale"}
+          </a>
+        </div>
+      )}
 
       {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
 
