@@ -187,49 +187,79 @@ export async function reframeImage(
     ? `${instruction.trim()} Garde exactement le même produit (modèle, couleurs, matériaux) et n'ajoute aucun texte ni logo.`
     : defaultInstruction(label, issues);
 
-  const url =
-    setup.provider === "gemini"
-      ? `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL_GEMINI}:generateContent`
-      : "https://ai.gateway.lovable.dev/v1/images/generations";
+  // Routes, in order of preference: the configured provider first, then the
+  // other one when a key exists (image quotas differ from chat quotas).
+  const routes: { kind: "gemini" | "gateway"; key: string }[] = [];
+  if (setup.provider === "gemini") {
+    routes.push({ kind: "gemini", key: setup.key });
+    const gateway = (process.env["LOVABLE_API_KEY"] ?? "").trim();
+    if (gateway) routes.push({ kind: "gateway", key: gateway });
+  } else {
+    routes.push({ kind: "gateway", key: setup.key });
+    const gemini = (process.env["GEMINI_API_KEY"] ?? "").trim();
+    if (gemini) routes.push({ kind: "gemini", key: gemini });
+  }
 
-  const body =
-    setup.provider === "gemini"
-      ? {
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { text: prompt },
-                { inlineData: { mimeType: image.mime, data: image.base64 } },
-              ],
-            },
-          ],
-        }
-      : {
-          model: IMAGE_MODEL_GATEWAY,
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                {
-                  type: "image_url",
-                  image_url: { url: `data:${image.mime};base64,${image.base64}` },
-                },
-              ],
-            },
-          ],
-          modalities: ["image", "text"],
-        };
+  let lastError: Error | null = null;
+  for (const route of routes) {
+    const url =
+      route.kind === "gemini"
+        ? `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL_GEMINI}:generateContent`
+        : "https://ai.gateway.lovable.dev/v1/images/generations";
+    const headers: Record<string, string> =
+      route.kind === "gemini"
+        ? { "Content-Type": "application/json", "x-goog-api-key": route.key }
+        : {
+            "Content-Type": "application/json",
+            "Lovable-API-Key": route.key,
+            "X-Lovable-AIG-SDK": "fetch",
+          };
+    const body =
+      route.kind === "gemini"
+        ? {
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { text: prompt },
+                  { inlineData: { mimeType: image.mime, data: image.base64 } },
+                ],
+              },
+            ],
+          }
+        : {
+            model: IMAGE_MODEL_GATEWAY,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: prompt },
+                  {
+                    type: "image_url",
+                    image_url: { url: `data:${image.mime};base64,${image.base64}` },
+                  },
+                ],
+              },
+            ],
+            modalities: ["image", "text"],
+          };
 
-  const res = await aiFetchWithRetry(
-    url,
-    { method: "POST", headers: setup.headers, body: JSON.stringify(body) },
-    { signal },
-  );
-  if (!res.ok) throw await aiFailure(res);
-  const json = (await res.json()) as Record<string, unknown>;
-  return extractImageDataUrl(json);
+    const res = await aiFetchWithRetry(
+      url,
+      { method: "POST", headers, body: JSON.stringify(body) },
+      { attempts: 3, ...(signal ? { signal } : {}) },
+    );
+    if (!res.ok) {
+      lastError = await aiFailure(res);
+      continue;
+    }
+    const json = (await res.json()) as Record<string, unknown>;
+    const dataUrl = extractImageDataUrl(json);
+    if (dataUrl) return dataUrl;
+    lastError = new Error("IMAGE_MODEL_NO_OUTPUT");
+  }
+  if (lastError) throw lastError;
+  return null;
 }
 
 function extractImageDataUrl(json: Record<string, unknown>): string | null {
