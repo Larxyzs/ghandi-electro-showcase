@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { SiteLayout } from "@/components/SiteLayout";
 import { ProductGallery } from "@/components/ProductGallery";
 import { useI18n } from "@/lib/i18n";
-import { useAdminIdentity } from "@/lib/use-admin";
+import { useLiveEdit } from "@/lib/live-edit";
+import { ProductLiveEditor } from "@/components/live/ProductLiveEditor";
 import { pathOf, type SiteData } from "@/lib/catalog-types";
 import { COMPANY, productWhatsappMessage, whatsappLink } from "@/lib/company";
 import { useCart } from "@/lib/cart";
@@ -47,7 +48,7 @@ function ProductDetail() {
   const { t } = useI18n();
   const { add } = useCart();
   const [qty, setQty] = useState(1);
-  const admin = useAdminIdentity();
+  const { admin, editing, setEditing } = useLiveEdit();
 
   const { productId } = Route.useParams();
   const data = useLoaderData({ from: "__root__" }) as SiteData;
@@ -225,6 +226,14 @@ function ProductDetail() {
             )}
           </div>
         </div>
+
+        {editing && product && (
+          <ProductLiveEditor
+            product={product}
+            nodes={data.nodes}
+            onClose={() => setEditing(false)}
+          />
+        )}
 
         {specs.length > 0 && (
           <div className="mt-12 border-t border-border pt-8">
