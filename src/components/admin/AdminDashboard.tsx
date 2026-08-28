@@ -15,6 +15,7 @@ import {
   Mail,
 } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import type { SiteData, SiteSettings } from "@/lib/catalog-types";
 import { CatalogExplorer, type CatalogActions } from "@/components/admin/CatalogExplorer";
 import { StaffPanel } from "@/components/admin/StaffPanel";
