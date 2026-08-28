@@ -847,8 +847,298 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
         }));
       },
     },
+    {
+      name: "check_images",
+      description:
+        "Regarde VRAIMENT les images (vision IA) d'un dossier et de tous ses sous-dossiers, et dit pour chacune si le cadrage/la qualité vont ou ce qui cloche. Ne modifie rien. folder_path vide = tout le site.",
+      properties: {
+        folder_path: S,
+        include_folders: B,
+        limit: N,
+      },
+      required: ["folder_path", "include_folders", "limit"],
+      run: async (args, emit) => {
+        const { collectImageTargets, inspectImage } = await import("./cindy-images.server");
+        const path = str(args, "folder_path");
+        const root = path ? (await resolvePath(path, false)).id : null;
+        const targets = (
+          await collectImageTargets(root, {
+            includeFolders: args["include_folders"] === true,
+            includeProducts: true,
+          })
+        ).slice(0, Math.max(1, Math.floor(num(args, "limit") ?? 40)));
+        const out: unknown[] = [];
+        for (const target of targets) {
+          if (signal?.aborted) break;
+          if (!target.imagePath) {
+            out.push({ label: target.label, kind: target.kind, ok: false, issues: ["aucune image"] });
+            continue;
+          }
+          emit({
+            type: "activity",
+            id: `img-${target.id}`,
+            kind: "images",
+            label: `J'examine l'image de « ${target.label} »`,
+            status: "running",
+          });
+          try {
+            const verdict = await inspectImage(target.imagePath);
+            emit({
+              type: "activity",
+              id: `img-${target.id}`,
+              kind: "images",
+              label: `${target.label} : ${verdict?.ok ? "image correcte" : "à améliorer"}`,
+              detail: verdict?.issues.join(", ") || undefined,
+              status: "done",
+            });
+            out.push({ label: target.label, kind: target.kind, ...(verdict ?? { ok: false }) });
+          } catch (error) {
+            emit({
+              type: "activity",
+              id: `img-${target.id}`,
+              kind: "images",
+              label: `Image illisible : ${target.label}`,
+              status: "error",
+            });
+            out.push({
+              label: target.label,
+              kind: target.kind,
+              ok: false,
+              issues: [error instanceof Error ? error.message : "erreur"],
+            });
+          }
+        }
+        return out;
+      },
+    },
+    {
+      name: "fix_images",
+      description:
+        "AMÉLIORE VRAIMENT LES IMAGES : pour un dossier (et tous ses sous-dossiers) ou pour un article précis, Cindy regarde chaque image, puis la refait avec un modèle d'image — appareil entier visible, centré, à la bonne échelle, fond blanc propre, format carré — et remplace l'image sur le site. instruction = consigne libre de l'admin (ex. « qu'on voie tout le frigo »). force=true refait toutes les images sans juger d'abord. folder_path vide + product vide = tout le site.",
+      properties: {
+        folder_path: S,
+        product: S,
+        include_folders: B,
+        force: B,
+        instruction: S,
+        limit: N,
+      },
+      required: ["folder_path", "product", "include_folders", "force", "instruction", "limit"],
+      run: async (args, emit) => {
+        const { collectImageTargets, fixImages } = await import("./cindy-images.server");
+        const { createSnapshot } = await import("./admin.server");
+        const productRef = str(args, "product");
+        const path = str(args, "folder_path");
+        let targets;
+        if (productRef) {
+          const product = await findProduct(productRef);
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { data } = await supabaseAdmin
+            .from("products")
+            .select("id, name, image_url")
+            .eq("id", product.id)
+            .single();
+          targets = [
+            {
+              kind: "product" as const,
+              id: data!.id,
+              label: data!.name,
+              imagePath: data!.image_url,
+            },
+          ];
+        } else {
+          const root = path ? (await resolvePath(path, false)).id : null;
+          targets = await collectImageTargets(root, {
+            includeFolders: args["include_folders"] === true,
+            includeProducts: true,
+          });
+        }
+        targets = targets.slice(0, Math.max(1, Math.floor(num(args, "limit") ?? 30)));
+        await createSnapshot("Avant retouche des images");
+
+        const results = await fixImages(targets, {
+          force: args["force"] === true,
+          instruction: str(args, "instruction"),
+          ...(signal ? { signal } : {}),
+          onProgress: (message) =>
+            emit({
+              type: "activity",
+              id: `fix-${message.slice(0, 40)}`,
+              kind: "images",
+              label: message,
+              status: "running",
+            }),
+        });
+        emit({ type: "changed" });
+        const improved = results.filter((r) => r.status === "improved").length;
+        emit({
+          type: "activity",
+          id: "fix-done",
+          kind: "images",
+          label: `${improved} image(s) refaite(s) sur ${results.length}`,
+          status: "done",
+        });
+        return { improved, total: results.length, results };
+      },
+    },
+    {
+      name: "set_image",
+      description:
+        "Met une image précise (URL https) sur un article ou un dossier du catalogue. kind = 'product' ou 'folder'.",
+      properties: { kind: { type: "string" }, target: { type: "string" }, image_url: { type: "string" } },
+      required: ["kind", "target", "image_url"],
+      run: async (args, emit) => {
+        const url = str(args, "image_url");
+        if (!/^https:\/\//i.test(url)) throw new Error("L'URL de l'image doit commencer par https.");
+        const kind = str(args, "kind");
+        if (kind === "folder") {
+          const node = await findNode(str(args, "target"));
+          const { renameNode } = await import("./admin.server");
+          await renameNode(node.id, node.name, { imageUrl: url });
+          emit({ type: "changed" });
+          return { ok: true, folder: node.name };
+        }
+        const product = await findProduct(str(args, "target"));
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: full } = await supabaseAdmin
+          .from("products")
+          .select("*")
+          .eq("id", product.id)
+          .single();
+        const { saveProduct } = await import("./admin.server");
+        await saveProduct({
+          id: full!.id,
+          node_id: full!.node_id,
+          name: full!.name,
+          brand: full!.brand ?? "",
+          serial_number: full!.serial_number ?? "",
+          characteristics: full!.characteristics ?? "",
+          stock: full!.stock,
+          price: full!.price,
+          featured: Boolean(full!.featured),
+          imageUrl: url,
+        });
+        emit({ type: "changed" });
+        return { ok: true, product: full!.name };
+      },
+    },
+    {
+      name: "bulk_update_products",
+      description:
+        "Modifie d'un coup TOUS les articles d'un dossier et de ses sous-dossiers (prix, stock, marque, caractéristiques, mise en avant). Les champs null ne changent pas. Le prix et le stock ne viennent QUE de l'admin.",
+      properties: {
+        folder_path: { type: "string" },
+        price: N,
+        stock: N,
+        brand: S,
+        characteristics: S,
+        featured: B,
+      },
+      required: ["folder_path", "price", "stock", "brand", "characteristics", "featured"],
+      run: async (args, emit) => {
+        const node = await resolvePath(str(args, "folder_path"), false);
+        const { subtreeNodeIds } = await import("./cindy-images.server");
+        const ids = await subtreeNodeIds(node.id);
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const patch: Json = {};
+        const price = num(args, "price");
+        const stock = num(args, "stock");
+        if (price !== null) patch["price"] = price;
+        if (stock !== null) patch["stock"] = Math.max(0, Math.floor(stock));
+        if (str(args, "brand")) patch["brand"] = str(args, "brand");
+        if (str(args, "characteristics")) patch["characteristics"] = str(args, "characteristics");
+        if (args["featured"] === true || args["featured"] === false)
+          patch["featured"] = args["featured"];
+        if (Object.keys(patch).length === 0) throw new Error("Rien à modifier.");
+        const { data, error } = await supabaseAdmin
+          .from("products")
+          .update(patch)
+          .in("node_id", ids)
+          .select("id");
+        if (error) throw new Error(error.message);
+        emit({ type: "changed" });
+        return { updated: (data ?? []).length, folder: pathString((await loadCatalog()).nodes, node.id) };
+      },
+    },
+    {
+      name: "read_data",
+      description:
+        "Lit directement les données du site (table 'products', 'catalog_nodes', 'orders', 'popular_searches', 'site_settings', 'site_snapshots', 'cindy_actions'). filter = colonne=valeur (facultatif). Sert quand aucun autre outil ne suffit.",
+      properties: { table: { type: "string" }, filter: S, limit: N },
+      required: ["table", "filter", "limit"],
+      run: async (args) => {
+        const table = str(args, "table");
+        if (!READABLE_TABLES.includes(table)) throw new Error(`Table non autorisée : ${table}.`);
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const columns = table === "site_settings" ? PUBLIC_SETTINGS_COLUMNS : "*";
+        let query = supabaseAdmin
+          .from(table)
+          .select(columns)
+          .limit(Math.min(200, Math.max(1, Math.floor(num(args, "limit") ?? 50))));
+        const filter = str(args, "filter");
+        if (filter.includes("=")) {
+          const [column, ...rest] = filter.split("=");
+          query = query.eq(column!.trim(), rest.join("=").trim());
+        }
+        const { data, error } = await query;
+        if (error) throw new Error(error.message);
+        return data;
+      },
+    },
+    {
+      name: "write_data",
+      description:
+        "Modifie directement une ligne de données du site quand aucun outil dédié ne convient (table 'products', 'catalog_nodes', 'orders', 'popular_searches', 'site_settings'). changes = objet colonne/valeur. Les clés d'API et les mots de passe sont interdits.",
+      properties: { table: { type: "string" }, id: { type: "string" }, changes: { type: "object" } },
+      required: ["table", "id", "changes"],
+      run: async (args, emit) => {
+        const table = str(args, "table");
+        if (!WRITABLE_TABLES.includes(table)) throw new Error(`Table non modifiable : ${table}.`);
+        const changes = (args["changes"] ?? {}) as Json;
+        for (const key of Object.keys(changes)) {
+          if (FORBIDDEN_COLUMNS.some((forbidden) => key.includes(forbidden)))
+            throw new Error(`Colonne protégée : ${key}.`);
+        }
+        if (Object.keys(changes).length === 0) throw new Error("Aucune modification fournie.");
+        const { createSnapshot } = await import("./admin.server");
+        await createSnapshot("Avant modification directe");
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data, error } = await supabaseAdmin
+          .from(table)
+          .update(changes)
+          .eq("id", str(args, "id"))
+          .select("id");
+        if (error) throw new Error(error.message);
+        emit({ type: "changed" });
+        return { updated: (data ?? []).length };
+      },
+    },
   ];
 }
+
+const READABLE_TABLES = [
+  "products",
+  "catalog_nodes",
+  "orders",
+  "popular_searches",
+  "site_settings",
+  "site_snapshots",
+  "cindy_actions",
+];
+
+const WRITABLE_TABLES = [
+  "products",
+  "catalog_nodes",
+  "orders",
+  "popular_searches",
+  "site_settings",
+];
+
+const FORBIDDEN_COLUMNS = ["api_key", "password", "hash", "token", "secret"];
+
+const PUBLIC_SETTINGS_COLUMNS =
+  "id, primary_color, secondary_color, text_color, site_mode, search_provider, search_model, ai_provider, ai_model, updated_at";
+
 
 
 function summarize(product: ResearchedProduct) {
