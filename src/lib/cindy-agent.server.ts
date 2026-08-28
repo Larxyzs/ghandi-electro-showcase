@@ -1284,6 +1284,7 @@ export async function runCindyAgent(input: {
       input.emit({ type: "done" });
       return;
     }
+    const waitIds: string[] = [];
     const res = await aiFetchWithRetry(
       ai.url,
       {
@@ -1298,15 +1299,20 @@ export async function runCindyAgent(input: {
         }),
       },
       {
+        // Rate limits on the free Gemini tier can last a couple of minutes:
+        // keep waiting patiently instead of giving up after a few seconds.
+        attempts: 10,
         ...(input.signal ? { signal: input.signal } : {}),
         onWait: ({ waitMs, attempt, status }) => {
+          const id = `wait-${step}-${attempt}`;
+          waitIds.push(id);
           input.emit({
             type: "activity",
-            id: `wait-${step}-${attempt}`,
+            id,
             kind: "read",
             label:
               status === 429
-                ? `Limite d'IA atteinte — je patiente ${Math.round(waitMs / 1000)}s puis je reprends`
+                ? `Limite d'IA atteinte — je patiente ${Math.round(waitMs / 1000)}s puis je reprends (essai ${attempt}/10)`
                 : `Service IA momentanément indisponible — nouvelle tentative dans ${Math.round(waitMs / 1000)}s`,
             status: "running",
           });
@@ -1314,7 +1320,19 @@ export async function runCindyAgent(input: {
       },
     );
 
+    // Never leave a "waiting…" step spinning forever.
+    for (const id of waitIds) {
+      input.emit({
+        type: "activity",
+        id,
+        kind: "read",
+        label: res.ok ? "Reprise après la pause IA" : "Pause IA terminée",
+        status: res.ok ? "done" : "error",
+      });
+    }
+
     if (!res.ok || !res.body) throw await aiFailure(res);
+
 
 
     const reader = res.body.getReader();
