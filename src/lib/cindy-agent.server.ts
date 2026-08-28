@@ -1050,7 +1050,7 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
         if (args["featured"] === true || args["featured"] === false)
           patch["featured"] = args["featured"];
         if (Object.keys(patch).length === 0) throw new Error("Rien à modifier.");
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await looseDb(supabaseAdmin)
           .from("products")
           .update(patch)
           .in("node_id", ids)
