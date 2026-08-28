@@ -453,8 +453,9 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
               serial_number: researched.model || ref,
               characteristics: researched.characteristics,
               specifications: researched.specifications,
-              gallery: researched.images.slice(0, 8),
-              marketing_sections: researched.marketing_sections as never,
+              gallery: researched.images,
+              marketing_sections: [] as never,
+
               source_url: researched.sources[0]?.url ?? null,
               source_name: researched.sources[0]?.name ?? null,
               stock,
@@ -578,8 +579,9 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
               serial_number: product.model || reference,
               characteristics: product.characteristics,
               specifications: product.specifications,
-              gallery: product.images.slice(0, 8),
-              marketing_sections: product.marketing_sections as never,
+              gallery: product.images,
+              marketing_sections: [] as never,
+
               source_url: product.url,
               source_name: product.sources[0]?.name ?? null,
               stock,
@@ -913,76 +915,7 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
       },
     },
     {
-      name: "fix_images",
-      description:
-        "AMÉLIORE VRAIMENT LES IMAGES : pour un dossier (et tous ses sous-dossiers) ou pour un article précis, Cindy regarde chaque image, puis la refait avec un modèle d'image — appareil entier visible, centré, à la bonne échelle, fond blanc propre, format carré — et remplace l'image sur le site. instruction = consigne libre de l'admin (ex. « qu'on voie tout le frigo »). force=true refait toutes les images sans juger d'abord. folder_path vide + product vide = tout le site.",
-      properties: {
-        folder_path: S,
-        product: S,
-        include_folders: B,
-        force: B,
-        instruction: S,
-        limit: N,
-      },
-      required: ["folder_path", "product", "include_folders", "force", "instruction", "limit"],
-      run: async (args, emit) => {
-        const { collectImageTargets, fixImages } = await import("./cindy-images.server");
-        const { createSnapshot } = await import("./admin.server");
-        const productRef = str(args, "product");
-        const path = str(args, "folder_path");
-        let targets;
-        if (productRef) {
-          const product = await findProduct(productRef);
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { data } = await supabaseAdmin
-            .from("products")
-            .select("id, name, image_url")
-            .eq("id", product.id)
-            .single();
-          targets = [
-            {
-              kind: "product" as const,
-              id: data!.id,
-              label: data!.name,
-              imagePath: data!.image_url,
-            },
-          ];
-        } else {
-          const root = path ? (await resolvePath(path, false)).id : null;
-          targets = await collectImageTargets(root, {
-            includeFolders: args["include_folders"] === true,
-            includeProducts: true,
-          });
-        }
-        targets = targets.slice(0, Math.max(1, Math.floor(num(args, "limit") ?? 30)));
-        await createSnapshot("Avant retouche des images");
 
-        const results = await fixImages(targets, {
-          force: args["force"] === true,
-          instruction: str(args, "instruction"),
-          ...(signal ? { signal } : {}),
-          onProgress: (message) =>
-            emit({
-              type: "activity",
-              id: `fix-${message.slice(0, 40)}`,
-              kind: "images",
-              label: message,
-              status: "running",
-            }),
-        });
-        emit({ type: "changed" });
-        const improved = results.filter((r) => r.status === "improved").length;
-        emit({
-          type: "activity",
-          id: "fix-done",
-          kind: "images",
-          label: `${improved} image(s) refaite(s) sur ${results.length}`,
-          status: "done",
-        });
-        return { improved, total: results.length, results };
-      },
-    },
-    {
       name: "set_image",
       description:
         "Met une image précise (URL https) sur un article ou un dossier du catalogue. kind = 'product' ou 'folder'.",
