@@ -111,6 +111,15 @@ export function SiteLayout({ children }: { children: ReactNode }) {
           <div className="border-t border-border bg-background px-5 py-5 md:hidden">
             <nav className="flex flex-col gap-4">
               <NavLinks onNavigate={() => setOpen(false)} />
+              {admin && (
+                <Link
+                  to="/admin"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2 text-sm font-semibold text-brand-deep"
+                >
+                  <ShieldCheck className="h-4 w-4" /> Administration
+                </Link>
+              )}
               <a
                 href={COMPANY.phoneHref}
                 className="mt-2 flex items-center gap-2 text-sm font-semibold text-brand"
