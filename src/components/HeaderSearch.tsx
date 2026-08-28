@@ -124,7 +124,7 @@ export function HeaderSearch() {
                 >
                   <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-brand-soft/70 text-brand/50">
                     {p.image_url ? (
-                      <img src={p.image_url} alt="" className="h-full w-full object-cover" />
+                      <img src={p.image_url} alt="" className="h-full w-full object-contain" />
                     ) : (
                       <PackageSearch className="h-4 w-4" />
                     )}

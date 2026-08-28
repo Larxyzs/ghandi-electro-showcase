@@ -35,7 +35,7 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
                 >
                   <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-brand-soft/50">
                     {item.image_url ? (
-                      <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
+                      <img src={item.image_url} alt={item.name} className="h-full w-full object-contain" />
                     ) : null}
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col">

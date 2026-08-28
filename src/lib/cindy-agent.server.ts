@@ -453,8 +453,9 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
               serial_number: researched.model || ref,
               characteristics: researched.characteristics,
               specifications: researched.specifications,
-              gallery: researched.images.slice(0, 8),
-              marketing_sections: researched.marketing_sections as never,
+              gallery: researched.images,
+              marketing_sections: [] as never,
+
               source_url: researched.sources[0]?.url ?? null,
               source_name: researched.sources[0]?.name ?? null,
               stock,
@@ -578,8 +579,9 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
               serial_number: product.model || reference,
               characteristics: product.characteristics,
               specifications: product.specifications,
-              gallery: product.images.slice(0, 8),
-              marketing_sections: product.marketing_sections as never,
+              gallery: product.images,
+              marketing_sections: [] as never,
+
               source_url: product.url,
               source_name: product.sources[0]?.name ?? null,
               stock,
@@ -913,76 +915,7 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
       },
     },
     {
-      name: "fix_images",
-      description:
-        "AMÉLIORE VRAIMENT LES IMAGES : pour un dossier (et tous ses sous-dossiers) ou pour un article précis, Cindy regarde chaque image, puis la refait avec un modèle d'image — appareil entier visible, centré, à la bonne échelle, fond blanc propre, format carré — et remplace l'image sur le site. instruction = consigne libre de l'admin (ex. « qu'on voie tout le frigo »). force=true refait toutes les images sans juger d'abord. folder_path vide + product vide = tout le site.",
-      properties: {
-        folder_path: S,
-        product: S,
-        include_folders: B,
-        force: B,
-        instruction: S,
-        limit: N,
-      },
-      required: ["folder_path", "product", "include_folders", "force", "instruction", "limit"],
-      run: async (args, emit) => {
-        const { collectImageTargets, fixImages } = await import("./cindy-images.server");
-        const { createSnapshot } = await import("./admin.server");
-        const productRef = str(args, "product");
-        const path = str(args, "folder_path");
-        let targets;
-        if (productRef) {
-          const product = await findProduct(productRef);
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { data } = await supabaseAdmin
-            .from("products")
-            .select("id, name, image_url")
-            .eq("id", product.id)
-            .single();
-          targets = [
-            {
-              kind: "product" as const,
-              id: data!.id,
-              label: data!.name,
-              imagePath: data!.image_url,
-            },
-          ];
-        } else {
-          const root = path ? (await resolvePath(path, false)).id : null;
-          targets = await collectImageTargets(root, {
-            includeFolders: args["include_folders"] === true,
-            includeProducts: true,
-          });
-        }
-        targets = targets.slice(0, Math.max(1, Math.floor(num(args, "limit") ?? 30)));
-        await createSnapshot("Avant retouche des images");
 
-        const results = await fixImages(targets, {
-          force: args["force"] === true,
-          instruction: str(args, "instruction"),
-          ...(signal ? { signal } : {}),
-          onProgress: (message) =>
-            emit({
-              type: "activity",
-              id: `fix-${message.slice(0, 40)}`,
-              kind: "images",
-              label: message,
-              status: "running",
-            }),
-        });
-        emit({ type: "changed" });
-        const improved = results.filter((r) => r.status === "improved").length;
-        emit({
-          type: "activity",
-          id: "fix-done",
-          kind: "images",
-          label: `${improved} image(s) refaite(s) sur ${results.length}`,
-          status: "done",
-        });
-        return { improved, total: results.length, results };
-      },
-    },
-    {
       name: "set_image",
       description:
         "Met une image précise (URL https) sur un article ou un dossier du catalogue. kind = 'product' ou 'folder'.",
@@ -1185,7 +1118,10 @@ TON : vraie conversation, chaleureuse et brève. Pas de jargon technique, pas d'
 
 TU AGIS VRAIMENT — ACCÈS COMPLET : tu as les mêmes droits qu'un admin. Tes outils modifient le site en direct : dossiers du catalogue (création, renommage, images, déplacement, ordre, suppression), articles (création, modification, prix/stock donnés par l'admin, images, mise en avant, déplacement, suppression), recherche produit et création en masse, couleurs et design du site, mode du site, recherches populaires, commandes clients (lecture et statut), historique des actions, et points de restauration. Quand l'admin demande un changement, fais-le avec les outils au lieu d'expliquer comment faire. Lis l'état du site avec get_site_overview quand tu as besoin de contexte.
 
-IMAGES — TU LES RETOUCHES POUR DE VRAI : avec check_images tu REGARDES les photos (cadrage, échelle, fond, netteté) et avec fix_images tu les REFAIS : appareil entier visible, centré, à la bonne échelle, fond blanc propre, format carré. fix_images accepte un chemin de dossier (« Gros Électroménager > Froid > Réfrigérateurs > Combinées ») et traite alors TOUS les articles du dossier et de ses sous-dossiers, ou un article précis, ou tout le site si rien n'est précisé. Passe la consigne de l'admin dans « instruction » (ex. « qu'on voie tout le frigo »). Ne dis jamais que tu ne peux pas modifier une image : lance fix_images, puis résume combien d'images ont été refaites et lesquelles ont échoué. set_image sert quand l'admin donne une URL précise.
+IMAGES — JAMAIS DE RETOUCHE IA : les images du catalogue doivent TOUJOURS rester les images d'origine du fabricant, récupérées dans le diaporama de la fiche produit officielle. Tu ne redessines, ne régénères et ne recadres JAMAIS une image avec un modèle d'image. check_images sert seulement à REGARDER une photo et signaler un problème à l'admin ; si une image est mauvaise, propose à l'admin une autre image d'origine du fabricant (set_image avec une URL https officielle). Le site affiche les images en entier (object-contain), donc un cadrage un peu large n'est pas un problème.
+
+RECHERCHE PRODUIT — SOURCES OFFICIELLES UNIQUEMENT : quand l'admin écrit juste « RB34T672EWW, Samsung » ou « Samsung RB34T672EWW », c'est une référence exacte + une marque : appelle directement research_product avec ce texte. Tu n'utilises QUE le site officiel du fabricant (samsung.com, lg.com, bosch-home.com, …). Jamais Tangerois, Electroplanet, Jumia, Avito, un revendeur, une marketplace, un blog, Pinterest ou Google Images. Si la page officielle de cette référence exacte est introuvable, dis-le à l'admin au lieu de deviner ou d'importer un modèle voisin. Toutes les images du diaporama d'origine sont conservées, sans limite de nombre.
+
 
 ACCÈS TOTAL AUX DONNÉES : bulk_update_products change d'un coup tous les articles d'un rayon (prix/stock donnés par l'admin, marque, caractéristiques, mise en avant). read_data et write_data te donnent l'accès direct aux données du site (articles, dossiers, commandes, recherches populaires, réglages/couleurs) quand aucun outil dédié ne suffit — sauf les clés d'API et les mots de passe, qui restent interdits. Une sauvegarde est créée automatiquement avant ces changements.
 

@@ -403,6 +403,189 @@ export async function readPage(
   return { text, images: images.slice(0, 24), links };
 }
 
+/* ===================== Product gallery (official slideshow) ==================== */
+
+const alnum = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
+/** Same picture served at several sizes/queries counts once. */
+export function dedupeImages(urls: string[]) {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of urls) {
+    const url = (raw ?? "").trim();
+    if (!/^https?:\/\//i.test(url)) continue;
+    let key = url.toLowerCase();
+    try {
+      const parsed = new URL(url);
+      key = `${parsed.hostname}${parsed.pathname}`.toLowerCase();
+    } catch {
+      /* keep the raw key */
+    }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(url);
+  }
+  return out;
+}
+
+/** Junk that is never part of a product's own slideshow. */
+const NON_GALLERY =
+  /(logo|icon|sprite|favicon|banner|promo|promotion|hero-?banner|advert|badge|award|social|arrow|chevron|placeholder|pixel|tracking|thumbnail-nav|related|recommend|you-?may|cross-?sell|blog|newsletter|footer|header|menu|nav-|payment|flag)/i;
+
+/**
+ * Extracts ONLY the images that belong to this exact product's gallery:
+ *  1. the product's JSON-LD `image` array (the manufacturer's own gallery data)
+ *  2. og:image
+ *  3. any <img>/<source> whose URL carries the exact model reference
+ * Nothing else on the page is collected — no banners, no recommended products.
+ */
+export function extractGalleryImages(html: string, baseUrl: string, reference: string): string[] {
+  const ref = alnum(reference);
+  const abs = (raw: string) => {
+    try {
+      const url = new URL(raw.trim().replace(/&amp;/g, "&"), baseUrl).toString();
+      if (!/^https?:\/\//.test(url)) return "";
+      if (/\.(svg|gif)(\?|$)/i.test(url)) return "";
+      if (NON_GALLERY.test(url)) return "";
+      return url;
+    } catch {
+      return "";
+    }
+  };
+
+  const fromJsonLd: string[] = [];
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) return value.forEach(visit);
+    if (!value || typeof value !== "object") return;
+    const item = value as Record<string, unknown>;
+    const types = (Array.isArray(item["@type"]) ? item["@type"] : [item["@type"]]).map((t) =>
+      String(t ?? "").toLowerCase(),
+    );
+    if (types.includes("product")) {
+      const identity = alnum(
+        [item["sku"], item["mpn"], item["model"], item["name"]].map((v) => String(v ?? "")).join(" "),
+      );
+      if (!ref || !identity || identity.includes(ref)) {
+        const images = item["image"];
+        const list = Array.isArray(images) ? images : [images];
+        for (const entry of list) {
+          const url =
+            typeof entry === "string"
+              ? entry
+              : String((entry as Record<string, unknown> | null)?.["url"] ?? "");
+          const resolved = abs(url);
+          if (resolved) fromJsonLd.push(resolved);
+        }
+      }
+    }
+    Object.values(item).forEach(visit);
+  };
+  for (const match of html.matchAll(
+    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+  )) {
+    try {
+      visit(JSON.parse((match[1] ?? "").trim()));
+    } catch {
+      /* ignore invalid structured data */
+    }
+  }
+
+  const og: string[] = [];
+  for (const m of html.matchAll(
+    /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/gi,
+  )) {
+    const url = abs(m[1] ?? "");
+    if (url) og.push(url);
+  }
+
+  // Manufacturer galleries name their files after the model reference
+  // (…/rb34t672eww-ef-…jpg), which is the most reliable product-only signal.
+  const byReference: string[] = [];
+  if (ref.length >= 4) {
+    const candidates: string[] = [];
+    for (const m of html.matchAll(
+      /(?:data-src|data-original|data-zoom-image|srcset|src)=["']([^"']+)["']/gi,
+    )) {
+      const raw = (m[1] ?? "").split(",")[0]?.trim().split(/\s+/)[0] ?? "";
+      candidates.push(raw);
+    }
+    for (const m of html.matchAll(/https?:(?:\\\/\\\/|\/\/)[^"'\s\\<>]+\.(?:jpe?g|png|webp)/gi)) {
+      candidates.push((m[0] ?? "").replace(/\\\//g, "/"));
+    }
+    for (const candidate of candidates) {
+      const url = abs(candidate);
+      if (!url) continue;
+      if (alnum(decodeURIComponent(url)).includes(ref)) byReference.push(url);
+    }
+  }
+
+  return dedupeImages([...fromJsonLd, ...byReference, ...og]);
+}
+
+/**
+ * Reads one official product page: page text, its own gallery, and whether the
+ * exact requested reference really appears on it (identity verification).
+ */
+export async function readProductPage(url: string, reference: string) {
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
+      "Accept-Language": "fr,en;q=0.8",
+    },
+  });
+  if (!res.ok) throw new Error(`PAGE_FAILED: ${res.status}`);
+  const html = await res.text();
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/[ \t\u00a0]+/g, " ")
+    .trim();
+
+  const ref = alnum(reference);
+  const matchesReference =
+    ref.length < 4 || alnum(text).includes(ref) || alnum(decodeURIComponent(url)).includes(ref);
+
+  return { html, text, gallery: extractGalleryImages(html, url, reference), matchesReference };
+}
+
+
+/**
+ * Understands short admin input like "RB34T672EWW, Samsung" or "Samsung RB34T672EWW":
+ * the brand token is matched against the known manufacturers, the remaining
+ * alphanumeric token that looks like a model code becomes the exact reference.
+ */
+export function parseProductQuery(query: string): { brand: string; reference: string } {
+  const tokens = query
+    .split(/[,;\n]+|\s+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  let brand = "";
+  const rest: string[] = [];
+  for (const token of tokens) {
+    const key = token.toLowerCase().replace(/[^a-z]/g, "");
+    if (!brand && key && OFFICIAL_DOMAINS[key]) {
+      brand = key;
+      continue;
+    }
+    rest.push(token);
+  }
+  const looksLikeModel = (token: string) => {
+    const value = token.replace(/[^A-Za-z0-9-]/g, "");
+    return value.length >= 4 && /\d/.test(value) && /[A-Za-z]/.test(value);
+  };
+  const reference = rest.find(looksLikeModel) ?? rest.join(" ").trim();
+  return { brand, reference };
+}
+
 /** Stable cache key: brand/model characters only, so casing and spacing never miss. */
 export function cacheKeyOf(query: string) {
   return query
@@ -412,20 +595,11 @@ export function cacheKeyOf(query: string) {
     .replace(/[^a-z0-9]/g, "");
 }
 
+
 const EXTRACTION_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: [
-    "brand",
-    "name",
-    "model",
-    "characteristics",
-    "specifications",
-    "images",
-    "marketing_sections",
-    "confidence",
-    "notes",
-  ],
+  required: ["brand", "name", "model", "characteristics", "specifications", "confidence", "notes"],
   properties: {
     brand: { type: "string" },
     name: { type: "string" },
@@ -440,73 +614,16 @@ const EXTRACTION_SCHEMA = {
         properties: { label: { type: "string" }, value: { type: "string" } },
       },
     },
-    images: { type: "array", items: { type: "string" } },
-    marketing_sections: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["type", "title", "body", "image", "images"],
-        properties: {
-          type: { type: "string", enum: ["image_text", "feature", "overlay", "full_image", "specs"] },
-          title: { type: "string" },
-          body: { type: "string" },
-          image: { type: "string" },
-          images: { type: "array", items: { type: "string" } },
-        },
-      },
-    },
     confidence: { type: "string", enum: ["high", "medium", "low"] },
     notes: { type: "string" },
   },
 } as const;
 
-type RawSection = {
-  type: string;
-  title: string;
-  body: string;
-  image: string;
-  images: string[];
-};
-
-function normalizeSections(raw: RawSection[], images: string[]): MarketingSection[] {
-  const out: MarketingSection[] = [];
-  raw.forEach((section, index) => {
-    const image = section.image || images[index % Math.max(images.length, 1)] || "";
-    switch (section.type) {
-      case "image_text":
-        if (image && section.title)
-          out.push({
-            type: "image_text",
-            image,
-            title: section.title,
-            body: section.body,
-            reverse: index % 2 === 1,
-          });
-        break;
-      case "overlay":
-        if (image && section.title)
-          out.push({ type: "overlay", image, title: section.title, body: section.body });
-        break;
-      case "full_image":
-        if (image)
-          out.push({
-            type: "full_image",
-            image,
-            ...(section.title ? { title: section.title } : {}),
-            ...(section.body ? { body: section.body } : {}),
-          });
-        break;
-      case "specs":
-        out.push({ type: "specs", ...(section.title ? { title: section.title } : {}) });
-        break;
-      default:
-        if (section.title) out.push({ type: "feature", title: section.title, body: section.body });
-    }
-  });
-  return out;
-}
-
+/**
+ * Turns the official page text into structured product data.
+ * Images are NEVER chosen by the model: the gallery passed in (scraped from the
+ * product's own slideshow) is used as-is, in order, without any limit.
+ */
 export async function extractProductFromSources(input: {
   query: string;
   sources: { url: string; title: string; content: string }[];
@@ -518,19 +635,18 @@ export async function extractProductFromSources(input: {
   const corpus = input.sources
     .map(
       (s, i) =>
-        `### SOURCE ${i + 1}\nURL: ${s.url}\nTITRE: ${s.title}\nCONTENU:\n${s.content.slice(0, 12000)}`,
+        `### SOURCE ${i + 1}\nURL: ${s.url}\nTITRE: ${s.title}\nCONTENU:\n${s.content.slice(0, 14000)}`,
     )
     .join("\n\n");
 
   const system =
     "Tu es Cindy, assistante de recherche produit pour un magasin d'électroménager marocain. " +
-    "Tu extrais UNIQUEMENT des informations présentes dans les sources fournies. " +
+    "Tu extrais UNIQUEMENT des informations présentes dans les sources fournies (pages officielles du fabricant). " +
     "N'invente jamais une donnée: si une information est absente, ne la mets pas. " +
     "N'inclus JAMAIS de prix, de stock ou d'information commerciale. " +
     "Réponds en JSON. Rédige en français. Les 'characteristics' sont une liste courte à puces (une par ligne, préfixée par '- '). " +
-    "Les 'specifications' sont des paires label/valeur techniques (capacité, dimensions, classe énergétique, consommation, niveau sonore, etc.). " +
-    "Les 'marketing_sections' sont 2 à 5 blocs de présentation premium basés sur les vraies fonctionnalités du produit; " +
-    "utilise uniquement les URLs d'images fournies. Termine toujours par un bloc de type 'specs'.";
+    "Les 'specifications' sont TOUTES les paires label/valeur techniques trouvées (capacité, dimensions, classe énergétique, consommation, niveau sonore, etc.). " +
+    "'model' est la référence exacte du modèle telle qu'écrite sur la page officielle.";
 
   const res = await aiFetchWithRetry(ai.url, {
     method: "POST",
@@ -541,7 +657,7 @@ export async function extractProductFromSources(input: {
         { role: "system", content: system },
         {
           role: "user",
-          content: `Référence demandée par l'admin: "${input.query}"\n\nImages disponibles (URLs réelles):\n${input.images.slice(0, 8).join("\n") || "(aucune)"}\n\n${corpus}`,
+          content: `Référence demandée par l'admin: "${input.query}"\n\n${corpus}`,
         },
       ],
       response_format: {
@@ -568,15 +684,9 @@ export async function extractProductFromSources(input: {
     model: string;
     characteristics: string;
     specifications: ProductSpec[];
-    images: string[];
-    marketing_sections: RawSection[];
     confidence: "high" | "medium" | "low";
     notes: string;
   };
-
-  const allowed = new Set(input.images);
-  const images = (parsed.images ?? []).filter((u) => allowed.has(u));
-  const finalImages = images.length ? images : input.images.slice(0, 6);
 
   return {
     brand: parsed.brand ?? "",
@@ -584,13 +694,15 @@ export async function extractProductFromSources(input: {
     model: parsed.model ?? "",
     characteristics: parsed.characteristics ?? "",
     specifications: parsed.specifications ?? [],
-    images: finalImages,
-    marketing_sections: normalizeSections(parsed.marketing_sections ?? [], finalImages),
+    // Original manufacturer slideshow images, all of them, deduplicated only.
+    images: dedupeImages(input.images),
+    marketing_sections: [],
     sources: [],
     confidence: parsed.confidence ?? "medium",
     notes: parsed.notes ?? "",
   };
 }
+
 
 // ===================== Research cache (Supabase) =====================
 
@@ -674,30 +786,39 @@ function missingEssentials(product: ResearchedProduct) {
   return missing;
 }
 
-function rankHits(hits: SearchHit[], brandGuess: string, officialDomains: string[]) {
-  return [...hits].sort((a, b) => score(b) - score(a));
+/** Only official manufacturer pages are ever considered as a data source. */
+function officialOnly(hits: SearchHit[], brandGuess: string, officialDomains: string[]) {
+  const allowed = officialDomains.length ? officialDomains : ALL_OFFICIAL;
+  return hits
+    .filter((hit) => allowed.some((domain) => domainOf(hit.url).endsWith(domain)))
+    .filter((hit) => !/support|forum|review|avis|blog|community|news|press/i.test(hit.url))
+    .sort((a, b) => score(b) - score(a));
+
   function score(hit: SearchHit) {
-    const host = domainOf(hit.url);
     let value = 0;
-    if (officialDomains.some((d) => host.endsWith(d))) value += 100;
-    else if (isOfficial(hit.url, brandGuess)) value += 60;
-    if (/support|forum|review|avis|blog|youtube|facebook|pinterest/i.test(hit.url)) value -= 40;
-    if (/fiche|spec|technique|product|produit/i.test(hit.url)) value += 10;
+    if (officialDomains.some((d) => domainOf(hit.url).endsWith(d))) value += 100;
+    else if (isOfficial(hit.url, brandGuess)) value += 50;
+    if (/\/(?:products?|produits?|p)\//i.test(hit.url)) value += 15;
     return value;
   }
 }
 
 /**
- * Economical research: cache first, then ONE search, then read the best official
- * page and stop. A second search only runs when essential data is still missing.
- * Every emitted step corresponds to a network call that really happened.
+ * Exact-reference research, official sources only.
+ *
+ * "RB34T672EWW, Samsung" → brand Samsung + reference RB34T672EWW → the official
+ * Samsung product page → page data + the product's ORIGINAL gallery (all images).
+ * No marketplace, no retailer, no blog, no image generation, no guessing: when
+ * the official page for that exact reference is not found, Cindy says so.
  */
 export async function researchProduct(
   query: string,
   emit: (event: CindyEvent) => void,
   options: { force?: boolean } = {},
 ) {
-  const brandGuess = guessBrand(query);
+  const parsed = parseProductQuery(query);
+  const brandGuess = parsed.brand || guessBrand(query);
+  const reference = parsed.reference || query.trim();
   const officialDomains = brandGuess ? (OFFICIAL_DOMAINS[brandGuess] ?? []) : [];
   const key = cacheKeyOf(query);
   let searchesUsed = 0;
@@ -737,7 +858,7 @@ export async function researchProduct(
     emit({ type: "checklist", label: "Nom du produit", done: Boolean(product.name) });
     emit({ type: "checklist", label: "Caractéristiques", done: Boolean(product.characteristics) });
     emit({ type: "checklist", label: "Spécifications", done: product.specifications.length > 0 });
-    emit({ type: "checklist", label: "Images", done: product.images.length > 0 });
+    emit({ type: "checklist", label: "Images d'origine", done: product.images.length > 0 });
     emit({ type: "result", product, cached: true });
     emit({
       type: "message",
@@ -758,89 +879,116 @@ export async function researchProduct(
 
   emit({
     type: "message",
-    text: `Je fais une seule recherche sur « ${query} », j'ouvre la page officielle du fabricant et j'en extrais tout.`,
+    text: `Référence ${reference}${brandGuess ? ` — marque ${brandGuess}` : ""}. Je cherche uniquement la page officielle du fabricant, puis j'en extrais les informations et le diaporama d'images d'origine.`,
   });
 
-  // ---- 1. ONE exact-reference search ----
-  emit({ type: "activity", id: "s1", kind: "search", label: "Recherche (1)", detail: query, status: "running" });
-  const hits = await webSearch(
-    officialDomains.length ? `"${query}" site:${officialDomains[0]}` : `"${query}"`,
-    { max: 10 },
-  );
-  searchesUsed += 1;
-  const ranked = rankHits(hits, brandGuess, officialDomains);
+  // ---- 1. ONE exact-reference search, restricted to official domains ----
   emit({
     type: "activity",
     id: "s1",
     kind: "search",
-    label: "Recherche (1)",
-    detail: `${ranked.length} résultat(s) — je garde la meilleure page`,
-    status: ranked.length ? "done" : "error",
+    label: "Recherche officielle (1)",
+    detail: officialDomains.length ? `"${reference}" sur ${officialDomains[0]}` : `"${reference}"`,
+    status: "running",
+  });
+  const rawHits = await webSearch(
+    officialDomains.length ? `"${reference}" site:${officialDomains[0]}` : `"${reference}"`,
+    { max: 10 },
+  );
+  searchesUsed += 1;
+  let pool = officialOnly(rawHits, brandGuess, officialDomains);
+  emit({
+    type: "activity",
+    id: "s1",
+    kind: "search",
+    label: "Recherche officielle (1)",
+    detail: `${pool.length} page(s) officielle(s)`,
+    status: pool.length ? "done" : "error",
   });
 
-  let pool = ranked;
-  if (pool.length === 0 && officialDomains.length) {
-    // The site-restricted search found nothing: one open search instead.
+  if (pool.length === 0) {
+    // A second, still official-only attempt with the brand name spelled out.
     emit({
       type: "activity",
       id: "s1b",
       kind: "search",
-      label: "Recherche (2)",
-      detail: "Aucune page officielle, recherche ouverte",
+      label: "Recherche officielle (2)",
+      detail: `${brandGuess || ""} ${reference} site officiel`.trim(),
       status: "running",
     });
-    pool = rankHits(await webSearch(`"${query}" fiche technique`, { max: 10 }), brandGuess, []);
+    pool = officialOnly(
+      await webSearch(`${brandGuess} ${reference} site officiel`.trim(), { max: 10 }),
+      brandGuess,
+      officialDomains,
+    );
     searchesUsed += 1;
     emit({
       type: "activity",
       id: "s1b",
       kind: "search",
-      label: "Recherche (2)",
-      detail: `${pool.length} résultat(s)`,
+      label: "Recherche officielle (2)",
+      detail: `${pool.length} page(s) officielle(s)`,
       status: pool.length ? "done" : "error",
     });
   }
 
   if (pool.length === 0) {
-    emit({ type: "error", message: `Aucun résultat pour « ${query} ». Vérifiez la référence.` });
+    emit({
+      type: "error",
+      message: `Je n'ai pas trouvé la page officielle du fabricant pour « ${reference} ». Je n'utilise aucune autre source (revendeurs, marketplaces, blogs) : vérifiez la référence ou donnez-moi le lien officiel.`,
+    });
     return null;
   }
 
-  // ---- 2. Read the best page (direct fetch, no search) ----
+  // ---- 2. Read official pages until the exact reference is verified ----
   const sources: CindySource[] = [];
   const pages: { url: string; title: string; content: string }[] = [];
-  const images: string[] = [];
+  let gallery: string[] = [];
+  const rejected: string[] = [];
 
-  const readInto = async (hit: SearchHit, activityId: string) => {
+  for (const [index, hit] of pool.entries()) {
+    if (pages.length > 0) break;
+    const activityId = `p${index}`;
     emit({
       type: "activity",
       id: activityId,
       kind: "open",
-      label: "Ouverture",
+      label: "Ouverture de la page officielle",
       detail: domainOf(hit.url),
       status: "running",
     });
     try {
-      const page = await readPage(hit.url);
-      pages.push({ url: hit.url, title: hit.title, content: page.text || hit.content });
-      for (const img of page.images) if (!images.includes(img)) images.push(img);
+      const page = await readProductPage(hit.url, reference);
+      if (!page.matchesReference) {
+        rejected.push(domainOf(hit.url));
+        emit({
+          type: "activity",
+          id: activityId,
+          kind: "compare",
+          label: "Page écartée",
+          detail: `${domainOf(hit.url)} — la référence ${reference} n'y figure pas`,
+          status: "error",
+        });
+        continue;
+      }
+      pages.push({ url: hit.url, title: hit.title, content: page.text });
+      gallery = dedupeImages([...gallery, ...page.gallery]);
       sources.push({
         url: hit.url,
         domain: domainOf(hit.url),
         title: hit.title || domainOf(hit.url),
-        official: isOfficial(hit.url, brandGuess),
-        status: page.text.length > 800 ? "Page lue entièrement" : "Contenu limité",
+        official: true,
+        status: "Page officielle vérifiée",
       });
       emit({
         type: "activity",
         id: activityId,
-        kind: "read",
-        label: "Lecture",
-        detail: `${domainOf(hit.url)} — ${Math.round((page.text.length / 1000) * 10) / 10} k caractères, ${page.images.length} image(s)`,
+        kind: "images",
+        label: "Diaporama d'origine récupéré",
+        detail: `${domainOf(hit.url)} — ${page.gallery.length} image(s) du produit`,
         status: "done",
       });
       emit({ type: "source", source: sources[sources.length - 1]! });
-      return true;
     } catch {
       emit({
         type: "activity",
@@ -850,122 +998,66 @@ export async function researchProduct(
         detail: `${domainOf(hit.url)} illisible`,
         status: "error",
       });
-      return false;
     }
-  };
-
-  let index = 0;
-  while (index < pool.length && pages.length === 0) {
-    await readInto(pool[index]!, `p${index}`);
-    index += 1;
   }
 
   if (pages.length === 0) {
-    emit({ type: "error", message: "Impossible d'ouvrir la page produit. Réessayez plus tard." });
+    emit({
+      type: "error",
+      message: `Aucune page officielle ne correspond exactement à « ${reference} »${rejected.length ? ` (pages écartées : ${rejected.join(", ")})` : ""}. Je préfère m'arrêter plutôt que d'importer un modèle voisin.`,
+    });
     return null;
   }
 
-  // ---- 3. Extract everything from that page ----
+  // ---- 3. Extract everything from that official page ----
   emit({
     type: "activity",
     id: "x1",
     kind: "extract",
     label: "Extraction",
-    detail: "Toutes les informations de la page officielle",
+    detail: "Informations de la page officielle",
     status: "running",
   });
-  let product = await extractProductFromSources({ query, sources: pages, images: images.slice(0, 14) });
+  const product = await extractProductFromSources({ query: reference, sources: pages, images: gallery });
+  if (brandGuess && !product.brand) product.brand = brandGuess;
+  if (!product.model) product.model = reference;
   emit({
     type: "activity",
     id: "x1",
     kind: "extract",
     label: "Extraction",
-    detail: `${product.specifications.length} spécification(s), ${product.images.length} image(s)`,
+    detail: `${product.specifications.length} spécification(s), ${product.images.length} image(s) d'origine`,
     status: "done",
   });
 
-  // ---- 4. Only if essentials are still missing: one complementary search ----
   const missing = missingEssentials(product);
-  if (missing.length > 0) {
+  if (missing.length > 0)
     emit({
-      type: "activity",
-      id: "s2",
-      kind: "search",
-      label: `Recherche complémentaire`,
-      detail: `Manque : ${missing.join(", ")}`,
-      status: "running",
+      type: "message",
+      text: `Attention : sur la page officielle il me manque ${missing.join(", ")}. Je n'invente rien et je ne vais pas chercher ailleurs.`,
     });
-    try {
-      const extra = rankHits(
-        await webSearch(`"${query}" ${missing.join(" ")} fiche technique`, { max: 8 }),
-        brandGuess,
-        officialDomains,
-      ).filter((hit) => !pages.some((p) => p.url === hit.url));
-      searchesUsed += 1;
-      emit({
-        type: "activity",
-        id: "s2",
-        kind: "search",
-        label: "Recherche complémentaire",
-        detail: `${extra.length} résultat(s)`,
-        status: "done",
-      });
-      let added = 0;
-      for (const hit of extra) {
-        if (added >= 2) break;
-        if (await readInto(hit, `p2${added}`)) added += 1;
-      }
-      if (added > 0) {
-        emit({
-          type: "activity",
-          id: "x2",
-          kind: "extract",
-          label: "Extraction",
-          detail: "Complément d'informations",
-          status: "running",
-        });
-        product = await extractProductFromSources({ query, sources: pages, images: images.slice(0, 14) });
-        emit({
-          type: "activity",
-          id: "x2",
-          kind: "extract",
-          label: "Extraction",
-          detail: `${product.specifications.length} spécification(s), ${product.images.length} image(s)`,
-          status: "done",
-        });
-      }
-    } catch {
-      emit({
-        type: "activity",
-        id: "s2",
-        kind: "search",
-        label: "Recherche complémentaire",
-        detail: "Impossible",
-        status: "error",
-      });
-    }
-  }
 
   product.sources = sources.map((s) => ({ name: s.domain, url: s.url, official: s.official }));
 
+  emit({ type: "checklist", label: "Référence exacte vérifiée", done: true });
+  emit({ type: "checklist", label: "Source officielle", done: true });
   emit({ type: "checklist", label: "Nom du produit", done: Boolean(product.name) });
-  emit({ type: "checklist", label: "Modèle / référence", done: Boolean(product.model) });
   emit({ type: "checklist", label: "Caractéristiques", done: Boolean(product.characteristics) });
   emit({ type: "checklist", label: "Spécifications", done: product.specifications.length > 0 });
-  emit({ type: "checklist", label: "Images", done: product.images.length > 0 });
   emit({
     type: "checklist",
-    label: "Source officielle",
-    done: product.sources.some((s) => s.official),
+    label: `Images d'origine (${product.images.length})`,
+    done: product.images.length > 0,
   });
 
-  await cacheSave({ key, query, product, images: images.slice(0, 14), searchesUsed });
+  await cacheSave({ key, query, product, images: product.images, searchesUsed });
 
   emit({ type: "result", product, cached: false });
   emit({
     type: "message",
-    text: `Terminé avec ${searchesUsed} recherche${searchesUsed > 1 ? "s" : ""} web. Je garde cette fiche en mémoire : ce produit ne sera plus jamais recherché, sauf si vous me le demandez.`,
+    text: `Terminé avec ${searchesUsed} recherche${searchesUsed > 1 ? "s" : ""} web, uniquement sur ${sources[0]!.domain}. ${product.images.length} image(s) d'origine conservée(s). Je garde cette fiche en mémoire.`,
   });
 
   return product;
 }
+

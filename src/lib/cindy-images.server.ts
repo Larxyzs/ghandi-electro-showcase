@@ -1,16 +1,12 @@
 /**
- * Cindy — real image editing.
+ * Cindy — read-only image audit.
  *
- * She can look at every catalog image (products and folders), judge it with a
- * vision model, and actually re-render a better version (whole appliance
- * visible, centered, clean white background, square framing) with an image
- * model. The result is uploaded to storage and written back on the row, so the
- * live site changes immediately.
+ * She can look at every catalog image (products and folders) with a vision
+ * model and report what is wrong with it, so the admin can replace it with
+ * another ORIGINAL manufacturer picture. Cindy never regenerates or reframes an
+ * appliance photo with an image model.
  */
 import { aiFetchWithRetry, aiFailure, aiSetup } from "./ai-config.server";
-
-const IMAGE_MODEL_GEMINI = "gemini-3.1-flash-image";
-const IMAGE_MODEL_GATEWAY = "google/gemini-3.1-flash-image";
 
 export type ImageTarget = {
   kind: "product" | "node";
@@ -25,12 +21,6 @@ export type ImageVerdict = {
   advice: string;
 };
 
-export type ImageFixResult = {
-  label: string;
-  kind: "product" | "node";
-  status: "improved" | "already_good" | "skipped" | "failed";
-  detail: string;
-};
 
 /* ------------------------------ collection ------------------------------ */
 
@@ -158,232 +148,11 @@ export async function inspectImage(path: string): Promise<ImageVerdict | null> {
 
 /* ------------------------------- re-rendering --------------------------- */
 
-function defaultInstruction(label: string, issues: string[]) {
-  return [
-    `Photo produit e-commerce de cet appareil (« ${label} »).`,
-    "Recadre et remets à l'échelle pour que l'APPAREIL ENTIER soit visible du haut en bas, rien de coupé,",
-    "centré, occupant environ 85% du cadre, cadrage carré 1:1, fond blanc pur uniforme,",
-    "lumière studio douce, ombre au sol discrète, image nette et droite.",
-    "Garde EXACTEMENT le même produit : même modèle, mêmes couleurs, mêmes matériaux, mêmes poignées,",
-    "même écran/afficheur, mêmes proportions. N'invente aucun détail, n'ajoute aucun texte, logo, filigrane ni décor.",
-    issues.length ? `Défauts à corriger : ${issues.join(" ; ")}.` : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-
-/** Re-renders one image; returns a data URL ready for storage. */
-export async function reframeImage(
-  path: string,
-  label: string,
-  issues: string[],
-  instruction?: string,
-  signal?: AbortSignal,
-): Promise<string | null> {
-  const image = await loadImage(path);
-  if (!image) return null;
-  const setup = await aiSetup();
-  const prompt = instruction?.trim()
-    ? `${instruction.trim()} Garde exactement le même produit (modèle, couleurs, matériaux) et n'ajoute aucun texte ni logo.`
-    : defaultInstruction(label, issues);
-
-  // Routes, in order of preference: the configured provider first, then the
-  // other one when a key exists (image quotas differ from chat quotas).
-  const routes: { kind: "gemini" | "gateway"; key: string }[] = [];
-  if (setup.provider === "gemini") {
-    routes.push({ kind: "gemini", key: setup.key });
-    const gateway = (process.env["LOVABLE_API_KEY"] ?? "").trim();
-    if (gateway) routes.push({ kind: "gateway", key: gateway });
-  } else {
-    routes.push({ kind: "gateway", key: setup.key });
-    const gemini = (process.env["GEMINI_API_KEY"] ?? "").trim();
-    if (gemini) routes.push({ kind: "gemini", key: gemini });
-  }
-
-  let lastError: Error | null = null;
-  for (const route of routes) {
-    const url =
-      route.kind === "gemini"
-        ? `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL_GEMINI}:generateContent`
-        : "https://ai.gateway.lovable.dev/v1/images/generations";
-    const headers: Record<string, string> =
-      route.kind === "gemini"
-        ? { "Content-Type": "application/json", "x-goog-api-key": route.key }
-        : {
-            "Content-Type": "application/json",
-            "Lovable-API-Key": route.key,
-            "X-Lovable-AIG-SDK": "fetch",
-          };
-    const body =
-      route.kind === "gemini"
-        ? {
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  { text: prompt },
-                  { inlineData: { mimeType: image.mime, data: image.base64 } },
-                ],
-              },
-            ],
-          }
-        : {
-            model: IMAGE_MODEL_GATEWAY,
-            messages: [
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: prompt },
-                  {
-                    type: "image_url",
-                    image_url: { url: `data:${image.mime};base64,${image.base64}` },
-                  },
-                ],
-              },
-            ],
-            modalities: ["image", "text"],
-          };
-
-    const res = await aiFetchWithRetry(
-      url,
-      { method: "POST", headers, body: JSON.stringify(body) },
-      { attempts: 3, ...(signal ? { signal } : {}) },
-    );
-    if (!res.ok) {
-      lastError = await aiFailure(res);
-      continue;
-    }
-    const json = (await res.json()) as Record<string, unknown>;
-    const dataUrl = extractImageDataUrl(json);
-    if (dataUrl) return dataUrl;
-    lastError = new Error("IMAGE_MODEL_NO_OUTPUT");
-  }
-  if (lastError) throw lastError;
-  return null;
-}
-
-function extractImageDataUrl(json: Record<string, unknown>): string | null {
-  // Gemini generateContent shape
-  const candidates = (json as { candidates?: unknown[] }).candidates;
-  if (Array.isArray(candidates)) {
-    for (const candidate of candidates) {
-      const parts = (candidate as { content?: { parts?: unknown[] } }).content?.parts ?? [];
-      for (const part of parts) {
-        const inline = (part as { inlineData?: { mimeType?: string; data?: string } }).inlineData;
-        if (inline?.data) return `data:${inline.mimeType ?? "image/png"};base64,${inline.data}`;
-      }
-    }
-  }
-  // Gateway chat/images shapes
-  const choices = (json as { choices?: unknown[] }).choices;
-  if (Array.isArray(choices)) {
-    for (const choice of choices) {
-      const message = (choice as { message?: Record<string, unknown> }).message ?? {};
-      const images = (message as { images?: unknown[] }).images;
-      if (Array.isArray(images)) {
-        for (const item of images) {
-          const value =
-            (item as { image_url?: { url?: string } }).image_url?.url ??
-            (item as { url?: string }).url;
-          if (typeof value === "string" && value.startsWith("data:image")) return value;
-        }
-      }
-    }
-  }
-  const data = (json as { data?: { b64_json?: string; url?: string }[] }).data;
-  if (Array.isArray(data)) {
-    for (const item of data) {
-      if (item.b64_json) return `data:image/png;base64,${item.b64_json}`;
-      if (item.url?.startsWith("data:image")) return item.url;
-    }
-  }
-  return null;
-}
-
-/* --------------------------------- driver ------------------------------- */
-
-/**
- * Inspects then rewrites the images of a set of targets. `force` skips the
- * inspection step and re-renders everything.
+/*
+ * NOTE: AI image regeneration/reframing has been intentionally removed.
+ * Catalog pictures must always stay the ORIGINAL manufacturer images taken from
+ * the official product slideshow. Badly framed pictures are handled by the
+ * front-end (object-contain, full product always visible), never by redrawing
+ * an appliance with a generative model.
  */
-export async function fixImages(
-  targets: ImageTarget[],
-  options: {
-    force?: boolean;
-    instruction?: string;
-    signal?: AbortSignal;
-    onProgress?: (message: string) => void;
-  } = {},
-): Promise<ImageFixResult[]> {
-  const { replaceImage } = await import("./admin.server");
-  const results: ImageFixResult[] = [];
 
-  for (const target of targets) {
-    if (options.signal?.aborted) break;
-    if (!target.imagePath) {
-      results.push({
-        kind: target.kind,
-        label: target.label,
-        status: "skipped",
-        detail: "Pas d'image.",
-      });
-      continue;
-    }
-    try {
-      let issues: string[] = [];
-      if (!options.force) {
-        options.onProgress?.(`J'examine l'image de « ${target.label} »`);
-        const verdict = await inspectImage(target.imagePath);
-        if (verdict?.ok) {
-          results.push({
-            kind: target.kind,
-            label: target.label,
-            status: "already_good",
-            detail: "Cadrage et qualité déjà corrects.",
-          });
-          continue;
-        }
-        issues = verdict?.issues ?? [];
-      }
-      options.onProgress?.(
-        `Je refais l'image de « ${target.label} »${issues.length ? ` (${issues.join(", ")})` : ""}`,
-      );
-      const dataUrl = await reframeImage(
-        target.imagePath,
-        target.label,
-        issues,
-        options.instruction,
-        options.signal,
-      );
-      if (!dataUrl) {
-        results.push({
-          kind: target.kind,
-          label: target.label,
-          status: "failed",
-          detail: "Le modèle n'a pas renvoyé d'image.",
-        });
-        continue;
-      }
-      await replaceImage({
-        kind: target.kind,
-        id: target.id,
-        imageData: dataUrl,
-        imageName: `${target.label.slice(0, 40) || "image"}.png`,
-      });
-      results.push({
-        kind: target.kind,
-        label: target.label,
-        status: "improved",
-        detail: issues.length ? `Corrigé : ${issues.join(", ")}` : "Recadré et remis à l'échelle.",
-      });
-    } catch (error) {
-      results.push({
-        kind: target.kind,
-        label: target.label,
-        status: "failed",
-        detail: error instanceof Error ? error.message : "Erreur inconnue",
-      });
-    }
-  }
-  return results;
-}

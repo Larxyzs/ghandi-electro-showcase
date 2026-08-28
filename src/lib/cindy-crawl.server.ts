@@ -318,7 +318,8 @@ export async function crawlListingPage(input: {
       status: "running",
     });
     try {
-      const page = await readPage(item.url);
+      const { readProductPage, extractGalleryImages, dedupeImages } = await import("./cindy.server");
+      const page = await readProductPage(item.url, item.label);
       visited += 1;
       let product: ResearchedProduct | null = null;
       let extractionError: unknown = null;
@@ -328,7 +329,7 @@ export async function crawlListingPage(input: {
           product = await extractProductFromSources({
             query: `${item.label || "Produit"} — référence exacte à extraire depuis l'URL officielle : ${item.url}`,
             sources: [{ url: item.url, title: item.label || item.url, content: page.text }],
-            images: page.images.slice(0, 12),
+            images: page.gallery,
           });
           break;
         } catch (error) {
@@ -346,11 +347,19 @@ export async function crawlListingPage(input: {
         }
       }
       if (!product) throw extractionError ?? new Error("EXTRACTION_FAILED");
+      // Once the exact model is known, keep every gallery image named after it.
+      if (product.model) {
+        product.images = dedupeImages([
+          ...product.images,
+          ...extractGalleryImages(page.html, item.url, product.model),
+        ]);
+      }
       products.push({
         ...product,
         url: item.url,
         sources: [{ name: new URL(item.url).hostname, url: item.url, official: true }],
       });
+
       emit({ type: "bulk_item", item: { index, ref, status: "done", product } });
       emit({
         type: "activity",
