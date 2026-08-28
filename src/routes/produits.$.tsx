@@ -43,6 +43,7 @@ export const Route = createFileRoute("/produits/$")({
 function BrowsePage() {
   const { _splat } = Route.useParams();
   const data = useLoaderData({ from: "__root__" }) as SiteData;
+  const [query, setQuery] = useState("");
 
   const segments = (_splat ?? "").split("/").filter(Boolean);
   const trail: CatalogNode[] = [];
@@ -59,10 +60,30 @@ function BrowsePage() {
   }
 
   const current = trail.at(-1) ?? null;
-  const folders = missing ? [] : childrenOf(data.nodes, current?.id ?? null);
+  const term = query.trim();
+  const allFolders = missing ? [] : childrenOf(data.nodes, current?.id ?? null);
   /** Models live directly in this node; sub-formats are browsed as their own tiles. */
-  const products =
+  const ownProducts =
     current && current.level >= 3 ? data.products.filter((p) => p.node_id === current.id) : [];
+
+  /** Search covers everything under the current rayon: name, reference, brand, folder path. */
+  const scoped = useMemo(
+    () =>
+      missing
+        ? []
+        : current
+          ? productsIn(data.nodes, data.products, current.id)
+          : data.products,
+    [data.nodes, data.products, current, missing],
+  );
+  const matches = useMemo(
+    () => (term ? searchProducts(data.nodes, scoped, term) : []),
+    [data.nodes, scoped, term],
+  );
+  const folders = term
+    ? allFolders.filter((n) => n.name.toLowerCase().includes(term.toLowerCase()))
+    : allFolders;
+  const products = term ? matches : ownProducts;
   const pathTo = (index: number) => trail.slice(0, index + 1).map((n) => n.slug).join("/");
 
   return (
