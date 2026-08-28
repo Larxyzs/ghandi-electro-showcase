@@ -39,6 +39,34 @@ function isOfficial(url: string, brandGuess: string) {
   return ALL_OFFICIAL.some((d) => host.endsWith(d));
 }
 
+/**
+ * Ghandi Home Electro sells in Morocco: the manufacturer page we import from
+ * must be the Moroccan / North-African one whenever it exists (right models,
+ * right specifications, right public price in MAD).
+ */
+const REGION_HOST_SUFFIXES = [".ma", ".dz", ".tn", ".ly", ".eg", ".africa"];
+const REGION_PATH_HINTS =
+  /(^|[/_.-])(ma|maroc|morocco|dz|algerie|algeria|tn|tunisie|tunisia|africa|afrique|north[-_]?africa|n[-_]?africa|maghreb|levant|mea)([/_.-]|$)/i;
+
+/** 2 = Morocco, 1 = other North Africa / Africa-FR, 0 = anywhere else. */
+export function regionRank(url: string) {
+  const host = domainOf(url).toLowerCase();
+  let path = "";
+  try {
+    path = new URL(url).pathname.toLowerCase();
+  } catch {
+    path = url.toLowerCase();
+  }
+  const moroccan =
+    host.endsWith(".ma") ||
+    /(^|[/_.-])(ma|maroc|morocco)([/_.-]|$)/i.test(path) ||
+    /_ma([/_.-]|$)/i.test(path);
+  if (moroccan) return 2;
+  if (REGION_HOST_SUFFIXES.some((suffix) => host.endsWith(suffix)) || REGION_PATH_HINTS.test(path))
+    return 1;
+  return 0;
+}
+
 function guessBrand(query: string) {
   const lower = query.toLowerCase();
   for (const brand of Object.keys(OFFICIAL_DOMAINS)) {
@@ -103,18 +131,18 @@ export async function webSearch(
     res = await fetch(`https://google.serper.dev/${endpoint}`, {
       method: "POST",
       headers: { "X-API-KEY": key, "Content-Type": "application/json" },
-      body: JSON.stringify({ q: query, num: max }),
+      body: JSON.stringify({ q: query, num: max, gl: "ma", hl: "fr", location: "Morocco" }),
     });
   } else if (provider === "brave") {
     res = await fetch(
-      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${max}`,
+      `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${max}&country=MA&search_lang=fr`,
       { headers: { "X-Subscription-Token": key, Accept: "application/json" } },
     );
   } else {
     res = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ query, search_depth: "basic", max_results: max }),
+      body: JSON.stringify({ query, search_depth: "basic", max_results: max, country: "morocco" }),
     });
   }
 
@@ -795,7 +823,7 @@ function officialOnly(hits: SearchHit[], brandGuess: string, officialDomains: st
     .sort((a, b) => score(b) - score(a));
 
   function score(hit: SearchHit) {
-    let value = 0;
+    let value = regionRank(hit.url) * 200;
     if (officialDomains.some((d) => domainOf(hit.url).endsWith(d))) value += 100;
     else if (isOfficial(hit.url, brandGuess)) value += 50;
     if (/\/(?:products?|produits?|p)\//i.test(hit.url)) value += 15;
