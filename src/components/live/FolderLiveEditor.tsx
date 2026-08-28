@@ -56,16 +56,13 @@ export function FolderLiveEditor({ node }: { node: CatalogNode | null }) {
     }
     setBusy("save");
     try {
+      const image = upload
+        ? { imageData: upload.imageData, imageName: upload.imageName }
+        : imageUrl.trim()
+          ? { imageUrl: imageUrl.trim() }
+          : null;
       await rename({
-        data: {
-          id: node.id,
-          name: name.trim(),
-          image: upload
-            ? { imageData: upload.imageData, imageName: upload.imageName }
-            : imageUrl.trim()
-              ? { imageUrl: imageUrl.trim() }
-              : undefined,
-        },
+        data: { id: node.id, name: name.trim(), ...(image ? { image } : {}) },
       });
       await router.invalidate();
       toast.success("Rayon mis à jour");
