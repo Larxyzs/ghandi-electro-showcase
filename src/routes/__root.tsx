@@ -154,7 +154,9 @@ function RootComponent() {
             {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
             <Outlet />
           </SiteModeGate>
+          <Toaster position="bottom-center" richColors />
         </CartProvider>
+
       </I18nProvider>
     </QueryClientProvider>
   );
