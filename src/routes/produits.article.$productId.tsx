@@ -48,7 +48,7 @@ function ProductDetail() {
   const { t } = useI18n();
   const { add } = useCart();
   const [qty, setQty] = useState(1);
-  const { admin, editing } = useLiveEdit();
+  const { admin, editing, setEditing } = useLiveEdit();
 
   const { productId } = Route.useParams();
   const data = useLoaderData({ from: "__root__" }) as SiteData;
@@ -231,7 +231,7 @@ function ProductDetail() {
           <ProductLiveEditor
             product={product}
             nodes={data.nodes}
-            onClose={() => undefined}
+            onClose={() => setEditing(false)}
           />
         )}
 
