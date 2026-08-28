@@ -22,7 +22,9 @@ export function ProductCard({ product }: { product: Product }) {
       image_url: product.image_url,
       stock: product.stock,
     });
+    toast.success("Ajouté au panier", { description: product.name });
   };
+
 
   return (
     <Link
