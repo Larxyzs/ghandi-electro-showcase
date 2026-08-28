@@ -507,6 +507,19 @@ export async function saveProduct(input: ProductInput) {
     imagePath = null;
   }
 
+  let gallery: string[] | undefined = undefined;
+  if (input.gallery) {
+    gallery = [];
+    for (const entry of input.gallery) {
+      if (typeof entry === "string") {
+        const value = entry.trim();
+        if (value) gallery.push(value);
+      } else if (entry?.imageData && entry?.imageName) {
+        gallery.push(await storeImage(db, entry.imageData, entry.imageName));
+      }
+    }
+  }
+
   const base = {
     node_id: input.node_id,
     name: input.name.trim(),
