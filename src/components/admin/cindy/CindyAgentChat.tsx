@@ -164,6 +164,7 @@ export function CindyAgentChat({
           } else if (event.type === "error") {
             failure = event.message;
           }
+          saveProgress();
         }
       }
     } catch (error) {
