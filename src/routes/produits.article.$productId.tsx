@@ -116,26 +116,59 @@ function ProductDetail() {
               </span>
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-6 flex flex-wrap items-center gap-3">
               {inStock && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    add({
+                <div className="flex items-center gap-1 rounded-full border border-border p-1">
+                  <button
+                    type="button"
+                    aria-label="Diminuer la quantité"
+                    onClick={() => setQty((q) => Math.max(1, q - 1))}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/70 transition-colors hover:bg-brand-soft"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <span className="w-8 text-center text-sm font-semibold">{qty}</span>
+                  <button
+                    type="button"
+                    aria-label="Augmenter la quantité"
+                    onClick={() => setQty((q) => Math.min(product.stock, q + 1))}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/70 transition-colors hover:bg-brand-soft"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+              <button
+                type="button"
+                disabled={!inStock}
+                onClick={() => {
+                  add(
+                    {
                       product_id: product.id,
                       name: product.name,
                       brand: product.brand ?? "",
                       price: product.price ?? 0,
                       image_url: product.image_url,
                       stock: product.stock,
-                    })
-                  }
-                  className="flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-soft)] transition-transform hover:scale-[1.02] active:scale-[0.98]"
-                  style={{ background: "var(--gradient-brand)" }}
-                >
-                  <ShoppingCart className="h-4 w-4" /> Ajouter au panier
-                </button>
-              )}
+                    },
+                    qty,
+                  );
+                  toast.success("Ajouté au panier", {
+                    description: `${qty} × ${product.name}`,
+                  });
+                }}
+                className={cn(
+                  "flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-transform",
+                  inStock
+                    ? "text-primary-foreground shadow-[var(--shadow-soft)] hover:scale-[1.02] active:scale-[0.98]"
+                    : "cursor-not-allowed border border-border bg-muted text-foreground/45",
+                )}
+                {...(inStock ? { style: { background: "var(--gradient-brand)" } } : {})}
+              >
+                <ShoppingCart className="h-4 w-4" />
+                {inStock ? "Ajouter au panier" : t("product.outOfStock")}
+              </button>
+
               <a
                 href={whatsappLink(productWhatsappMessage(product))}
                 target="_blank"
