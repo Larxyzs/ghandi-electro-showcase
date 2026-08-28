@@ -57,8 +57,9 @@ function pathString(nodes: CatalogNode[], id: string): string {
 /** Finds (and optionally creates) the folder chain described by a path. */
 async function resolvePath(path: string, create: boolean): Promise<CatalogNode> {
   const segments = path
-    .split(/[/>|»]/)
-    .map((s) => s.trim())
+    // accepts "A / B", "A > B", "A -> B", "A → B", "A » B"
+    .split(/->|→|[/>|»]/)
+    .map((s) => s.replace(/^[\s\-–—]+|[\s\-–—]+$/g, "").trim())
     .filter(Boolean);
   if (segments.length === 0) throw new Error("Chemin de dossier vide.");
   if (segments.length > 4) throw new Error("Le catalogue n'a que 4 niveaux.");
