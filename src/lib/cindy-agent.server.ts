@@ -1192,7 +1192,7 @@ TON : vraie conversation, chaleureuse et brève. Pas de jargon technique, pas d'
 
 TU AGIS VRAIMENT — ACCÈS COMPLET : tu as les mêmes droits qu'un admin. Tes outils modifient le site en direct : dossiers du catalogue (création, renommage, images, déplacement, ordre, suppression), articles (création, modification, prix/stock donnés par l'admin, images, mise en avant, déplacement, suppression), recherche produit et création en masse, couleurs et design du site, mode du site, recherches populaires, commandes clients (lecture et statut), historique des actions, et points de restauration. Quand l'admin demande un changement, fais-le avec les outils au lieu d'expliquer comment faire. Lis l'état du site avec get_site_overview quand tu as besoin de contexte.
 
-IMAGES — JAMAIS DE RETOUCHE IA : les images du catalogue doivent TOUJOURS rester les images d'origine du fabricant, récupérées dans le diaporama de la fiche produit officielle. Tu ne redessines, ne régénères et ne recadres JAMAIS une image avec un modèle d'image. check_images sert seulement à REGARDER une photo et signaler un problème à l'admin ; si une image est mauvaise, propose à l'admin une autre image d'origine du fabricant (set_image avec une URL https officielle). Le site affiche les images en entier (object-contain), donc un cadrage un peu large n'est pas un problème.
+IMAGES — JAMAIS DE RETOUCHE IA : les images du catalogue doivent TOUJOURS rester les images d'origine du fabricant, récupérées dans le diaporama de la fiche produit officielle. Tu ne redessines, ne régénères et ne recadres JAMAIS une image avec un modèle d'image. check_images sert seulement à REGARDER une photo et signaler un problème à l'admin ; si une image est mauvaise, propose à l'admin une autre image d'origine du fabricant (set_image avec une URL https officielle). Le site affiche les images en entier (object-contain), donc un cadrage un peu large n'est pas un problème. Tu peux en revanche remplacer librement TOUT le diaporama d'un article : set_gallery (liste d'URLs https d'origine, la première devient l'image principale) ou refresh_product_media qui refait la recherche sur le site officiel et remet à jour le diaporama complet, les caractéristiques et les spécifications sans toucher au prix ni au stock. Chaque changement est enregistré automatiquement et reste annulable via les points de restauration.
 
 RECHERCHE PRODUIT — SOURCES OFFICIELLES UNIQUEMENT : quand l'admin écrit juste « RB34T672EWW, Samsung » ou « Samsung RB34T672EWW », c'est une référence exacte + une marque : appelle directement research_product avec ce texte. Tu n'utilises QUE le site officiel du fabricant (samsung.com, lg.com, bosch-home.com, …). Jamais Tangerois, Electroplanet, Jumia, Avito, un revendeur, une marketplace, un blog, Pinterest ou Google Images. Si la page officielle de cette référence exacte est introuvable, dis-le à l'admin au lieu de deviner ou d'importer un modèle voisin. Toutes les images du diaporama d'origine sont conservées, sans limite de nombre.
 
@@ -1540,6 +1540,13 @@ const TOOL_LABELS: Record<string, string> = {
   discover_references: "Découverte de modèles",
   web_search: "Recherche web",
   open_page: "Ouverture d'une page",
+  set_image: "Changement d'image",
+  set_gallery: "Mise à jour du diaporama",
+  refresh_product_media: "Nouvelle recherche officielle",
+  check_images: "Contrôle des images",
+  bulk_update_products: "Mise à jour en masse",
+  read_data: "Lecture des données",
+  write_data: "Modification des données",
 };
 
 /** Tools that change real data: they trigger a backup + a history entry. */
@@ -1562,6 +1569,11 @@ const MUTATING_TOOLS = new Set([
   "update_order_status",
   "restore_site",
   "import_from_page",
+  "set_image",
+  "set_gallery",
+  "refresh_product_media",
+  "bulk_update_products",
+  "write_data",
 ]);
 
 
