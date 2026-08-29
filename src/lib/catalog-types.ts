@@ -29,8 +29,9 @@ export type ProductSpec = { label: string; value: string };
  * These are never slideshow material.
  */
 const JUNK_PATTERNS = [
-  /jcr:content/i,
-  /vendorlibs/i,
+  // note: AEM "jcr:content/renditions/..." paths ARE real photos — only the
+  // .json/.js endpoints below are rejected.
+
   /\.(?:json|js|css|svg|gif|ico)(?:$|[?#])/i,
   // unresolved template placeholders ({{item.imageUrl}}) left by dynamic pages
   /%7b%7b|\{\{/i,
