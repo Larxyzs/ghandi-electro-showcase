@@ -1624,6 +1624,8 @@ const TOOL_LABELS: Record<string, string> = {
   open_page: "Ouverture d'une page",
   set_image: "Changement d'image",
   set_gallery: "Mise à jour du diaporama",
+  audit_galleries: "Analyse profonde des diaporamas",
+
   refresh_product_media: "Nouvelle recherche officielle",
   check_images: "Contrôle des images",
   bulk_update_products: "Mise à jour en masse",
