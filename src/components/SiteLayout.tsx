@@ -41,11 +41,9 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function SiteLayout({ children }: { children: ReactNode }) {
-  return (
-    <LiveEditProvider>
-      <SiteShell>{children}</SiteShell>
-    </LiveEditProvider>
-  );
+  // The live-edit provider lives at the root so route components (product /
+  // folder editors) share the same on/off state as this header toggle.
+  return <SiteShell>{children}</SiteShell>;
 }
 
 function SiteShell({ children }: { children: ReactNode }) {
