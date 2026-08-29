@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import {
   DEFAULT_SETTINGS,
+  dedupeGallery,
   type MarketingSection,
   type ProductSpec,
   type SiteData,
@@ -87,7 +88,7 @@ export async function fetchSiteData(): Promise<SiteData> {
   const isPath = (value: string | null): value is string =>
     Boolean(value) && !value!.startsWith("http");
   const galleryOf = (p: { gallery: unknown }) =>
-    Array.isArray(p.gallery) ? (p.gallery as string[]) : [];
+    dedupeGallery(Array.isArray(p.gallery) ? (p.gallery as string[]) : []);
   const paths = Array.from(
     new Set([
       ...rawProducts.map((p) => p.image_url).filter(isPath),

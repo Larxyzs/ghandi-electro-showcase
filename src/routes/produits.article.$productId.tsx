@@ -7,7 +7,7 @@ import { ProductGallery } from "@/components/ProductGallery";
 import { useI18n } from "@/lib/i18n";
 import { useLiveEdit } from "@/lib/live-edit";
 import { ProductLiveEditor } from "@/components/live/ProductLiveEditor";
-import { pathOf, type SiteData } from "@/lib/catalog-types";
+import { dedupeGallery, pathOf, type SiteData } from "@/lib/catalog-types";
 import { COMPANY, productWhatsappMessage, whatsappLink } from "@/lib/company";
 import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
@@ -61,9 +61,7 @@ function ProductDetail() {
   const specs = product.specifications ?? [];
 
   // Original manufacturer slideshow: main image first, then the full gallery.
-  const images = [product.image_url, ...(product.gallery ?? [])]
-    .filter((url): url is string => Boolean(url))
-    .filter((url, index, all) => all.indexOf(url) === index);
+  const images = dedupeGallery([product.image_url, ...(product.gallery ?? [])]);
 
   return (
     <SiteLayout>

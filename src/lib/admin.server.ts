@@ -1,3 +1,4 @@
+import { dedupeGallery } from "./catalog-types";
 import type { Json } from "@/integrations/supabase/types";
 import { useSession } from "@tanstack/react-start/server";
 import { createHash, timingSafeEqual } from "node:crypto";

@@ -8,6 +8,7 @@
  */
 import type { CindyAgentEvent, CindyEvent, ResearchedProduct } from "./cindy-types";
 import type { CatalogNode, Product } from "./catalog-types";
+import { dedupeGallery } from "./catalog-types";
 
 type Emit = (event: CindyAgentEvent) => void;
 
@@ -969,8 +970,8 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
       required: ["product", "images"],
       run: async (args, emit) => {
         const raw = Array.isArray(args["images"]) ? args["images"] : [];
-        const images = Array.from(
-          new Set(raw.map((v) => String(v).trim()).filter((v) => /^https:\/\//i.test(v))),
+        const images = dedupeGallery(
+          raw.map((v) => String(v).trim()).filter((v) => /^https:\/\//i.test(v)),
         );
         if (images.length === 0) throw new Error("Aucune image https valide fournie.");
         const product = await findProduct(str(args, "product"));
@@ -1009,7 +1010,7 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
           { force: args["force"] === true },
         );
         if (!researched) throw new Error(`Fiche officielle introuvable pour « ${reference} ».`);
-        const images = researched.images.filter((url) => /^https:\/\//i.test(url));
+        const images = dedupeGallery(researched.images.filter((url) => /^https:\/\//i.test(url)));
         const patch: Json = {
           characteristics: researched.characteristics || (full!.characteristics ?? ""),
           specifications: researched.specifications as unknown as Json,
