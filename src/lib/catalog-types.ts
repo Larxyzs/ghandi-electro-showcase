@@ -23,6 +23,42 @@ export type CatalogNode = {
 
 export type ProductSpec = { label: string; value: string };
 
+/**
+ * Identity key for a slideshow image: ignores query strings, size hints and
+ * CDN resizing so the same manufacturer photo can never appear twice.
+ */
+export function imageKey(value: string) {
+  let key = value.trim().toLowerCase();
+  try {
+    const parsed = new URL(key);
+    key = `${parsed.hostname}${parsed.pathname}`;
+  } catch {
+    key = key.split("?")[0]!.split("#")[0]!;
+  }
+  return key
+    .replace(/[?#].*$/, "")
+    .replace(/[_-]?\d{2,4}x\d{2,4}/g, "")
+    .replace(/@\dx/g, "")
+    .replace(/\/(?:w|h|q|c)_\d+/g, "")
+    .replace(/[_-]\d{3,4}(?=\.[a-z]{3,4}$)/, "")
+    .replace(/\.(?:jpe?g|png|webp|avif)$/, "");
+}
+
+/** Keeps the first occurrence of each distinct image (order preserved). */
+export function dedupeGallery(values: (string | null | undefined)[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of values) {
+    const value = (raw ?? "").trim();
+    if (!value) continue;
+    const key = imageKey(value);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(value);
+  }
+  return out;
+}
+
 /** Reusable premium marketing blocks rendered on the public product page. */
 export type MarketingSection =
   | { type: "full_image"; image: string; title?: string; body?: string }
