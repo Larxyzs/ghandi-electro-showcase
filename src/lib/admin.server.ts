@@ -1146,23 +1146,29 @@ export async function saveSearchSettings(input: {
   if (test && !test.ok) return { ok: false as const, test, aiTest, saved: false };
   if (aiTest && !aiTest.ok) return { ok: false as const, test, aiTest, saved: false };
 
-  const payload: {
-    search_provider: string;
-    search_model: string;
-    ai_provider: string;
-    ai_model: string;
-    search_api_key?: string;
-    ai_api_key?: string;
-  } = {
-    search_provider: provider,
-    search_model: model,
-    ai_provider: aiProvider,
-    ai_model: aiModel,
-  };
-  if (key) payload.search_api_key = key;
-  if (aiKey) payload.ai_api_key = aiKey;
-  const { error } = await db.from("site_settings").update(payload).eq("id", "default");
+  const { error } = await db
+    .from("site_settings")
+    .update({
+      search_provider: provider,
+      search_model: model,
+      ai_provider: aiProvider,
+      ai_model: aiModel,
+    })
+    .eq("id", "default");
   if (error) throw new Error(error.message);
+
+  // API keys live in the private site_secrets table (never publicly readable).
+  if (key || aiKey) {
+    const secretPayload: { id: string; search_api_key?: string; ai_api_key?: string } = {
+      id: "default",
+    };
+    if (key) secretPayload.search_api_key = key;
+    if (aiKey) secretPayload.ai_api_key = aiKey;
+    const { error: secretError } = await db
+      .from("site_secrets")
+      .upsert(secretPayload, { onConflict: "id" });
+    if (secretError) throw new Error(secretError.message);
+  }
   return { ok: true as const, test, aiTest, saved: true };
 }
 
