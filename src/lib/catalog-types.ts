@@ -32,25 +32,36 @@ const JUNK_PATTERNS = [
   /jcr:content/i,
   /vendorlibs/i,
   /\.(?:json|js|css|svg|gif|ico)(?:$|[?#])/i,
-  /[-_/](?:share|sharing|og[-_]image|social|thumb(?:nail)?|placeholder|no[-_]image|coming[-_]soon)[-_.]/i,
+  // unresolved template placeholders ({{item.imageUrl}}) left by dynamic pages
+  /%7b%7b|\{\{/i,
+  /[-_/](?:share|sharing|og[-_]image|social|placeholder|no[-_]image|coming[-_]soon)[-_./]/i,
+  // low-res thumbnails: always a smaller copy of a real slide
+  /[-_/]thumb(?:nail)?s?[-_/]/i,
   /[-_/](?:logo|logos|icon|icons|sprite|badge|banner[-_]ad|pixel|spacer|blank)[-_./]/i,
   /1x1|transparent\.png/i,
 ];
 
-/** A usable slideshow photo: https, image-like, not junk. */
+/** Scene7 / dynamic image services serve photos without a file extension. */
+const IMAGE_SERVICE = /\/is\/image\/|\/image\/upload\/|\/i\/|imwidth=|format=(?:jpe?g|png|webp)/i;
+const FORMAT_TOKEN = /\$[^$]*(?:png|jpe?g|webp)[^$]*\$/i;
+
+/** A usable slideshow photo: image-like, resolvable, not junk. */
 export function isUsableImage(value: string | null | undefined): value is string {
   const url = (value ?? "").trim();
   if (!url) return false;
-  if (!/^https?:\/\//i.test(url) && !/^[\w./-]+\.(?:jpe?g|png|webp|avif)$/i.test(url)) {
-    // storage paths (no scheme) are fine, anything else is not
-    if (!/^[\w./-]+$/.test(url)) return false;
-  }
   if (JUNK_PATTERNS.some((re) => re.test(url))) return false;
+  const isHttp = /^https?:\/\//i.test(url);
+  if (!isHttp) {
+    // storage paths: simple relative path ending in an image extension
+    return /^[\w./-]+\.(?:jpe?g|png|webp|avif)$/i.test(url);
+  }
   const path = url.split(/[?#]/)[0]!;
-  // must end with an image extension (CDN paths without one are usually endpoints)
-  if (!/\.(?:jpe?g|png|webp|avif)$/i.test(path)) return false;
-  return true;
+  if (path.endsWith("/")) return false; // page URL, not a file
+  if (/\.(?:jpe?g|png|webp|avif)$/i.test(path)) return true;
+  // extension-less URLs are only images when served by an image service
+  return IMAGE_SERVICE.test(url) || FORMAT_TOKEN.test(url);
 }
+
 
 /**
  * Identity key for a slideshow image: ignores query strings, size hints,
