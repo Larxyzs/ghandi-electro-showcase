@@ -1058,17 +1058,20 @@ const SEARCH_ENV: Record<SearchProviderId, string> = {
 /** Current research + Cindy AI configuration (keys are never returned in clear). */
 export async function getSearchSettings() {
   const db = await requireAdmin();
-  const { data } = await db
-    .from("site_settings")
-    .select("search_provider, search_api_key, search_model, ai_provider, ai_model, ai_api_key")
-    .eq("id", "default")
-    .maybeSingle();
+  const [{ data }, { data: secrets }] = await Promise.all([
+    db
+      .from("site_settings")
+      .select("search_provider, search_model, ai_provider, ai_model")
+      .eq("id", "default")
+      .maybeSingle(),
+    db.from("site_secrets").select("search_api_key, ai_api_key").eq("id", "default").maybeSingle(),
+  ]);
 
   const provider = (data?.search_provider ?? "serper") as SearchProviderId;
-  const key = data?.search_api_key ?? "";
+  const key = secrets?.search_api_key ?? "";
   const envKey = (process.env[SEARCH_ENV[provider]] ?? "").trim();
   const aiProvider = (data?.ai_provider ?? "gemini") as AiProviderChoice;
-  const aiKey = data?.ai_api_key ?? "";
+  const aiKey = secrets?.ai_api_key ?? "";
   const aiEnvKey = (
     aiProvider === "gemini" ? (process.env["GEMINI_API_KEY"] ?? "") : (process.env["LOVABLE_API_KEY"] ?? "")
   ).trim();
