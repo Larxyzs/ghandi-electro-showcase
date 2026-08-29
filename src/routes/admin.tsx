@@ -329,6 +329,7 @@ function AdminPage() {
                 imageUrl: draft.imageUrl ?? null,
                 removeImage: Boolean(draft.removeImage),
                 ...(draft.gallery ? { gallery: draft.gallery } : {}),
+                ...(draft.node_ids ? { node_ids: draft.node_ids } : {}),
               },
             }),
           ),

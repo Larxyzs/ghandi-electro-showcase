@@ -96,6 +96,20 @@ export function CatalogExplorer({
     [data.nodes, currentId],
   );
   const trail = useMemo(() => pathOf(data.nodes, currentId), [data.nodes, currentId]);
+  /** Every folder able to hold products — used by the extra-categories picker. */
+  const productFolders = useMemo(
+    () =>
+      data.nodes
+        .filter((node) => canHoldProducts(node.level))
+        .map((node) => ({
+          id: node.id,
+          label: pathOf(data.nodes, node.id)
+            .map((n) => n.name)
+            .join(" › "),
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label, "fr")),
+    [data.nodes],
+  );
   const folders = useMemo(() => childrenOf(data.nodes, currentId), [data.nodes, currentId]);
   const childLevel = ((current?.level ?? 0) + 1) as NodeLevel;
   const level = (current?.level ?? 0) as 0 | NodeLevel;
@@ -482,6 +496,7 @@ export function CatalogExplorer({
                 key={product.id}
                 product={product}
                 nodeId={current.id}
+                allFolders={productFolders}
                 onCancel={() => setEditing(null)}
                 onSave={async (draft) => {
                   await actions.saveProduct(draft);
@@ -628,6 +643,7 @@ export function CatalogExplorer({
           {editing && !editing.product ? (
             <ProductForm
               nodeId={current.id}
+              allFolders={productFolders}
               onCancel={() => setEditing(null)}
               onSave={async (draft) => {
                 await actions.saveProduct(draft);
