@@ -1296,6 +1296,18 @@ type ChatMessage = {
 
 type StreamToolCall = { id: string; name: string; args: string; signature?: string };
 
+function toolResultContent(name: string, result: unknown): string {
+  const serialized = JSON.stringify(result);
+  const limit = name === "get_site_overview" ? 60000 : 12000;
+  if (serialized.length <= limit) return serialized;
+  return JSON.stringify({
+    truncated: true,
+    instruction:
+      "Le résultat complet est trop grand. Utilise read_data avec un filtre précis pour trouver les éléments manquants, puis continue la demande.",
+    preview: serialized.slice(0, limit),
+  });
+}
+
 export async function runCindyAgent(input: {
   messages: { role: "user" | "assistant"; content: string }[];
   emit: Emit;
@@ -1594,7 +1606,7 @@ export async function runCindyAgent(input: {
       history.push({
         role: "tool",
         tool_call_id: call.id,
-        content: JSON.stringify(result).slice(0, 12000),
+        content: toolResultContent(name, result),
       });
 
       if (input.signal?.aborted) {
