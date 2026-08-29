@@ -74,6 +74,14 @@ export async function fetchSiteData(): Promise<SiteData> {
     supabase.from("popular_searches").select("id, term, sort_order").order("sort_order"),
   ]);
 
+  const linksRes = await supabase.from("product_nodes").select("product_id, node_id");
+  const linksByProduct = new Map<string, string[]>();
+  for (const link of linksRes.data ?? []) {
+    const list = linksByProduct.get(link.product_id) ?? [];
+    list.push(link.node_id);
+    linksByProduct.set(link.product_id, list);
+  }
+
   const rawProducts = productsRes.data ?? [];
   const rawNodes = nodesRes.data ?? [];
   const isPath = (value: string | null): value is string =>
@@ -103,6 +111,7 @@ export async function fetchSiteData(): Promise<SiteData> {
     })),
     products: rawProducts.map((p) => ({
       ...p,
+      node_ids: Array.from(new Set([p.node_id, ...(linksByProduct.get(p.id) ?? [])])),
       price: p.price === null ? null : Number(p.price),
       image_path: p.image_url ?? null,
       image_url: resolve(p.image_url),
