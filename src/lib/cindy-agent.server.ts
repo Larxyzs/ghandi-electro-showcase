@@ -1353,6 +1353,10 @@ export async function runCindyAgent(input: {
       content: message.content,
     })),
   ];
+  // Gemini refuses a request whose last turn is not a user turn.
+  if (history.length > 0 && history[history.length - 1]!.role !== "user") {
+    history.push({ role: "user", content: "Continue." });
+  }
   let overviewWithoutFollowUp = false;
   let forcedContinuation = false;
 
@@ -1481,9 +1485,11 @@ export async function runCindyAgent(input: {
           content: text.trim() || "J'ai lu le site.",
         });
         history.push({
-          role: "system",
+          // Must be a user turn: Gemini rejects requests that end with a
+          // model/system turn ("Requests ending with a model turn").
+          role: "user",
           content:
-            "La demande initiale n'est pas terminée : tu as seulement lu le site. Continue maintenant, sans demander à l'admin de répéter, et appelle immédiatement les outils nécessaires pour exécuter toute la demande. Ne réponds qu'après l'action réelle.",
+            "[Rappel automatique] La demande initiale n'est pas terminée : tu as seulement lu le site. Continue maintenant, sans demander à l'admin de répéter, et appelle immédiatement les outils nécessaires pour exécuter toute la demande. Ne réponds qu'après l'action réelle.",
         });
         continue;
       }
