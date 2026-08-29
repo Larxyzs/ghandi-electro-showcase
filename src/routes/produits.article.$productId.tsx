@@ -8,7 +8,7 @@ import { useI18n } from "@/lib/i18n";
 import { useLiveEdit } from "@/lib/live-edit";
 import { ProductLiveEditor } from "@/components/live/ProductLiveEditor";
 import { dedupeGallery, pathOf, type SiteData } from "@/lib/catalog-types";
-import { COMPANY, productWhatsappMessage, whatsappLink } from "@/lib/company";
+import { COMPANY, productWhatsappMessage, whatsappLink, formatMAD } from "@/lib/company";
 import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
 
@@ -109,7 +109,7 @@ function ProductDetail() {
             <div className="mt-5 flex flex-wrap items-center gap-4">
               {product.price !== null && (
                 <p className="text-3xl font-bold text-brand">
-                  {product.price.toLocaleString("fr-MA")} MAD
+                  {formatMAD(product.price)}
                 </p>
               )}
               <span

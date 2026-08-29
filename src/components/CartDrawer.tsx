@@ -7,6 +7,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useCart } from "@/lib/cart";
+import { formatMAD } from "@/lib/company";
 
 export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { items, setQty, remove, total } = useCart();
@@ -76,7 +77,7 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
                         </button>
                       </div>
                       <span className="text-sm font-bold text-brand">
-                        {(item.price * item.qty).toLocaleString("fr-MA")} MAD
+                        {formatMAD((item.price * item.qty))}
                       </span>
                     </div>
                   </div>
@@ -90,7 +91,7 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
           <div className="border-t border-border px-5 py-4">
             <div className="flex items-center justify-between text-base font-bold">
               <span>Total</span>
-              <span className="text-brand">{total.toLocaleString("fr-MA")} MAD</span>
+              <span className="text-brand">{formatMAD(total)}</span>
             </div>
             <Link
               to="/panier"

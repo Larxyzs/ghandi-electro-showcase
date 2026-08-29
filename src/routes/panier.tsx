@@ -5,6 +5,7 @@ import { SiteLayout } from "@/components/SiteLayout";
 import { useCart } from "@/lib/cart";
 import { isValidMaPhone } from "@/lib/orders-types";
 import { placeOrder } from "@/lib/orders.functions";
+import { formatMAD } from "@/lib/company";
 
 export const Route = createFileRoute("/panier")({
   head: () => ({
@@ -190,7 +191,7 @@ function PanierPage() {
                         </button>
                       </div>
                       <span className="font-bold text-brand">
-                        {(item.price * item.qty).toLocaleString("fr-MA")} MAD
+                        {formatMAD((item.price * item.qty))}
                       </span>
                     </div>
                   </div>
@@ -202,7 +203,7 @@ function PanierPage() {
               <div className="rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
                 <div className="flex items-center justify-between text-lg font-bold">
                   <span>Total</span>
-                  <span className="text-brand">{total.toLocaleString("fr-MA")} MAD</span>
+                  <span className="text-brand">{formatMAD(total)}</span>
                 </div>
               </div>
 
