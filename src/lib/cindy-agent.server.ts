@@ -986,6 +986,64 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
       },
     },
     {
+      name: "audit_galleries",
+      description:
+        "ANALYSE PROFONDE des diaporamas : passe en revue tous les articles (ou un seul si `product` est fourni) et détecte les anomalies — mêmes photos en plusieurs copies (mêmes fichiers servis par des miroirs CDN différents, variantes de taille ?w=, @2x, _1200x1200), entrées qui ne sont pas des photos (endpoints .json, cartes de partage social, logos, miniatures, gabarits {{...}} non résolus, liens tronqués, URL de page) et diaporamas vides. Avec `apply: true` elle corrige tout (déduplication + nettoyage, la première photo valide devient l'image principale) ; avec `apply: false` elle ne fait que rapporter. À utiliser dès qu'un diaporama semble bizarre ou contient des doublons.",
+      properties: { product: S, apply: B },
+      required: ["product", "apply"],
+      run: async (args, emit) => {
+        const { auditGallery } = await import("./catalog-types");
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const ref = str(args, "product");
+        const target = ref ? await findProduct(ref) : null;
+        let query = supabaseAdmin.from("products").select("id, name, image_url, gallery");
+        if (target) query = query.eq("id", target.id);
+        const { data, error } = await query;
+        if (error) throw new Error(error.message);
+        const apply = args["apply"] === true;
+        const report: Json[] = [];
+        let changed = 0;
+        for (const row of data ?? []) {
+          const before = Array.isArray(row.gallery) ? (row.gallery as string[]) : [];
+          const audit = auditGallery(before, row.image_url);
+          const main = audit.kept[0] ?? null;
+          const dirty =
+            JSON.stringify(audit.kept) !== JSON.stringify(before) ||
+            (main ?? "") !== (row.image_url ?? "");
+          if (!dirty && !audit.empty) continue;
+          if (apply && dirty) {
+            const { error: upErr } = await looseDb(supabaseAdmin)
+              .from("products")
+              .update({ gallery: audit.kept, image_url: main } as unknown as Json)
+              .eq("id", row.id);
+            if (upErr) throw new Error(upErr.message);
+            changed++;
+          }
+          report.push({
+            product: row.name,
+            before: before.length,
+            after: audit.kept.length,
+            duplicates_removed: audit.removedDuplicates.length,
+            junk_removed: audit.removedJunk.slice(0, 6),
+            junk_removed_count: audit.removedJunk.length,
+            empty_after_cleanup: audit.empty,
+            hint: audit.empty
+              ? "Diaporama vide : relancer refresh_product_media sur le site officiel du fabricant."
+              : null,
+          });
+        }
+        if (changed > 0) emit({ type: "changed" });
+        return {
+          scanned: (data ?? []).length,
+          problems: report.length,
+          fixed: changed,
+          applied: apply,
+          details: report.slice(0, 40),
+        };
+      },
+    },
+    {
+
       name: "refresh_product_media",
       description:
         "Refait la recherche sur le site officiel du fabricant pour un article existant et remet à jour son diaporama complet (galerie + image principale) avec les images d'origine, ainsi que ses caractéristiques et spécifications. Ne touche jamais au prix ni au stock.",
@@ -1196,6 +1254,9 @@ TON : vraie conversation, chaleureuse et brève. Pas de jargon technique, pas d'
 TU AGIS VRAIMENT — ACCÈS COMPLET : tu as les mêmes droits qu'un admin. Tes outils modifient le site en direct : dossiers du catalogue (création, renommage, images, déplacement, ordre, suppression), articles (création, modification, prix/stock donnés par l'admin, images, mise en avant, déplacement, suppression), recherche produit et création en masse, couleurs et design du site, mode du site, recherches populaires, commandes clients (lecture et statut), historique des actions, et points de restauration. Quand l'admin demande un changement, fais-le avec les outils au lieu d'expliquer comment faire. Lis l'état du site avec get_site_overview quand tu as besoin de contexte.
 
 IMAGES — JAMAIS DE RETOUCHE IA : les images du catalogue doivent TOUJOURS rester les images d'origine du fabricant, récupérées dans le diaporama de la fiche produit officielle. Tu ne redessines, ne régénères et ne recadres JAMAIS une image avec un modèle d'image. check_images sert seulement à REGARDER une photo et signaler un problème à l'admin ; si une image est mauvaise, propose à l'admin une autre image d'origine du fabricant (set_image avec une URL https officielle). Le site affiche les images en entier (object-contain), donc un cadrage un peu large n'est pas un problème. Tu peux en revanche remplacer librement TOUT le diaporama d'un article : set_gallery (liste d'URLs https d'origine, la première devient l'image principale) ou refresh_product_media qui refait la recherche sur le site officiel et remet à jour le diaporama complet, les caractéristiques et les spécifications sans toucher au prix ni au stock. Chaque changement est enregistré automatiquement et reste annulable via les points de restauration.
+
+DIAPORAMAS — ANALYSE PROFONDE ET NETTOYAGE : dès que l'admin parle de doublons, d'images en plusieurs copies, d'images manquantes ou de "choses bizarres" dans les diaporamas, commence TOUJOURS par audit_galleries (apply: false pour un diagnostic, apply: true pour corriger). Elle détecte : (1) la MÊME photo servie par des miroirs CDN différents (aws-obg-image-lb-1/2/3/4/5.tcl.com, media3.bsh-group.com, img1/img2…) ou en variantes de taille (?w=800, @2x, _1200x1200, /w_600/) — c'est la cause n°1 des diaporamas à 28 images ; (2) les entrées qui ne sont pas des photos : endpoints .json (jcr:content.vendorlibs.json), cartes de partage social (tcl-share.jpg), logos/sprites/pixels, miniatures (-thumb-, 104x104), gabarits non résolus ({{item.imageUrl}} / %7B%7B…), liens tronqués sans extension, URL de page finissant par "/" ; (3) les diaporamas VIDES. Après le nettoyage, si un article se retrouve sans photo, relance refresh_product_media sur le site officiel Maroc / Afrique du Nord. Explique toujours à l'admin, en une phrase simple, combien de copies et combien d'entrées non-photo tu as retirées par article.
+
 
 RECHERCHE PRODUIT — SOURCES OFFICIELLES UNIQUEMENT : quand l'admin écrit juste « RB34T672EWW, Samsung » ou « Samsung RB34T672EWW », c'est une référence exacte + une marque : appelle directement research_product avec ce texte. Tu n'utilises QUE le site officiel du fabricant, et EN PRIORITÉ sa version Maroc puis Afrique du Nord (samsung.com/n_africa, lg.com/africa, bosch-home.ma, …) : c'est cette version qui donne les bons modèles et le bon prix public. Passe sur une autre version (Europe/monde) uniquement si la version Maroc/Afrique du Nord n'existe pas, et signale-le. Jamais Tangerois, Electroplanet, Jumia, Avito, un revendeur, une marketplace, un blog, Pinterest ou Google Images. Si la page officielle de cette référence exacte est introuvable, dis-le à l'admin au lieu de deviner ou d'importer un modèle voisin. Toutes les images du diaporama d'origine sont conservées, sans limite de nombre.
 
@@ -1563,6 +1624,8 @@ const TOOL_LABELS: Record<string, string> = {
   open_page: "Ouverture d'une page",
   set_image: "Changement d'image",
   set_gallery: "Mise à jour du diaporama",
+  audit_galleries: "Analyse profonde des diaporamas",
+
   refresh_product_media: "Nouvelle recherche officielle",
   check_images: "Contrôle des images",
   bulk_update_products: "Mise à jour en masse",

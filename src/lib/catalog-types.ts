@@ -24,14 +24,60 @@ export type CatalogNode = {
 export type ProductSpec = { label: string; value: string };
 
 /**
- * Identity key for a slideshow image: ignores query strings, size hints and
- * CDN resizing so the same manufacturer photo can never appear twice.
+ * Junk that manufacturer pages expose alongside real product photos:
+ * API/JSON endpoints, social-share cards, logos, sprites, tracking pixels.
+ * These are never slideshow material.
+ */
+const JUNK_PATTERNS = [
+  // note: AEM "jcr:content/renditions/..." paths ARE real photos — only the
+  // .json/.js endpoints below are rejected.
+
+  /\.(?:json|js|css|svg|gif|ico)(?:$|[?#])/i,
+  // unresolved template placeholders ({{item.imageUrl}}) left by dynamic pages
+  /%7b%7b|\{\{/i,
+  /[-_/](?:share|sharing|og[-_]image|social|placeholder|no[-_]image|coming[-_]soon)[-_./]/i,
+  // low-res thumbnails: always a smaller copy of a real slide
+  /[-_/]thumb(?:nail)?s?[-_/]/i,
+  /[-_/](?:logo|logos|icon|icons|sprite|badge|banner[-_]ad|pixel|spacer|blank)[-_./]/i,
+  /1x1|transparent\.png/i,
+];
+
+/** Scene7 / dynamic image services serve photos without a file extension. */
+const IMAGE_SERVICE = /\/is\/image\/|\/image\/upload\/|\/i\/|imwidth=|format=(?:jpe?g|png|webp)/i;
+const FORMAT_TOKEN = /\$[^$]*(?:png|jpe?g|webp)[^$]*\$/i;
+
+/** A usable slideshow photo: image-like, resolvable, not junk. */
+export function isUsableImage(value: string | null | undefined): value is string {
+  const url = (value ?? "").trim();
+  if (!url) return false;
+  if (JUNK_PATTERNS.some((re) => re.test(url))) return false;
+  const isHttp = /^https?:\/\//i.test(url);
+  if (!isHttp) {
+    // storage paths: simple relative path ending in an image extension
+    return /^[\w./-]+\.(?:jpe?g|png|webp|avif)$/i.test(url);
+  }
+  const path = url.split(/[?#]/)[0]!;
+  if (path.endsWith("/")) return false; // page URL, not a file
+  if (/\.(?:jpe?g|png|webp|avif)$/i.test(path)) return true;
+  // extension-less URLs are only images when served by an image service
+  return IMAGE_SERVICE.test(url) || FORMAT_TOKEN.test(url);
+}
+
+
+/**
+ * Identity key for a slideshow image: ignores query strings, size hints,
+ * CDN resizing *and interchangeable CDN mirror hostnames* so the same
+ * manufacturer photo can never appear twice.
  */
 export function imageKey(value: string) {
   let key = value.trim().toLowerCase();
   try {
     const parsed = new URL(key);
-    key = `${parsed.hostname}${parsed.pathname}`;
+    const host = parsed.hostname
+      .replace(/^www\./, "")
+      // aws-obg-image-lb-1..5.tcl.com, img3.example.com, cdn-02.brand.com → same origin
+      .replace(/(^|\.)((?:[a-z-]*?)(?:img|image|cdn|static|media|lb|assets)[a-z-]*?)-?\d+\./, "$1$2.");
+    key = `${host}${parsed.pathname.replace(/\/{2,}/g, "/")}`;
   } catch {
     key = key.split("?")[0]!.split("#")[0]!;
   }
@@ -44,13 +90,16 @@ export function imageKey(value: string) {
     .replace(/\.(?:jpe?g|png|webp|avif)$/, "");
 }
 
-/** Keeps the first occurrence of each distinct image (order preserved). */
+/**
+ * Cleans a slideshow: drops junk/non-image entries, then keeps the first
+ * occurrence of each distinct photo (order preserved).
+ */
 export function dedupeGallery(values: (string | null | undefined)[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const raw of values) {
     const value = (raw ?? "").trim();
-    if (!value) continue;
+    if (!isUsableImage(value)) continue;
     const key = imageKey(value);
     if (!key || seen.has(key)) continue;
     seen.add(key);
@@ -58,6 +107,46 @@ export function dedupeGallery(values: (string | null | undefined)[]): string[] {
   }
   return out;
 }
+
+/** Audit report for one product's slideshow. */
+export type GalleryAudit = {
+  kept: string[];
+  removedDuplicates: string[];
+  removedJunk: string[];
+  /** true when the slideshow ends up empty (needs research / a main photo). */
+  empty: boolean;
+};
+
+/**
+ * Deep analysis of a slideshow: separates duplicates from non-photo junk so
+ * both humans and Cindy can explain exactly what was wrong and fix it.
+ */
+export function auditGallery(
+  values: (string | null | undefined)[],
+  mainImage?: string | null,
+): GalleryAudit {
+  const removedJunk: string[] = [];
+  const removedDuplicates: string[] = [];
+  const kept: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of [mainImage, ...values]) {
+    const value = (raw ?? "").trim();
+    if (!value) continue;
+    if (!isUsableImage(value)) {
+      removedJunk.push(value);
+      continue;
+    }
+    const key = imageKey(value);
+    if (seen.has(key)) {
+      removedDuplicates.push(value);
+      continue;
+    }
+    seen.add(key);
+    kept.push(value);
+  }
+  return { kept, removedDuplicates, removedJunk, empty: kept.length === 0 };
+}
+
 
 /** Reusable premium marketing blocks rendered on the public product page. */
 export type MarketingSection =
