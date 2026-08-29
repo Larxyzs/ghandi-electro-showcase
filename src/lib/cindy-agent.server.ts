@@ -986,6 +986,64 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
       },
     },
     {
+      name: "audit_galleries",
+      description:
+        "ANALYSE PROFONDE des diaporamas : passe en revue tous les articles (ou un seul si `product` est fourni) et détecte les anomalies — mêmes photos en plusieurs copies (mêmes fichiers servis par des miroirs CDN différents, variantes de taille ?w=, @2x, _1200x1200), entrées qui ne sont pas des photos (endpoints .json, cartes de partage social, logos, miniatures, gabarits {{...}} non résolus, liens tronqués, URL de page) et diaporamas vides. Avec `apply: true` elle corrige tout (déduplication + nettoyage, la première photo valide devient l'image principale) ; avec `apply: false` elle ne fait que rapporter. À utiliser dès qu'un diaporama semble bizarre ou contient des doublons.",
+      properties: { product: S, apply: B },
+      required: ["product", "apply"],
+      run: async (args, emit) => {
+        const { auditGallery } = await import("./catalog-types");
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const ref = str(args, "product");
+        const target = ref ? await findProduct(ref) : null;
+        let query = supabaseAdmin.from("products").select("id, name, image_url, gallery");
+        if (target) query = query.eq("id", target.id);
+        const { data, error } = await query;
+        if (error) throw new Error(error.message);
+        const apply = args["apply"] === true;
+        const report: Json[] = [];
+        let changed = 0;
+        for (const row of data ?? []) {
+          const before = Array.isArray(row.gallery) ? (row.gallery as string[]) : [];
+          const audit = auditGallery(before, row.image_url);
+          const main = audit.kept[0] ?? null;
+          const dirty =
+            JSON.stringify(audit.kept) !== JSON.stringify(before) ||
+            (main ?? "") !== (row.image_url ?? "");
+          if (!dirty && !audit.empty) continue;
+          if (apply && dirty) {
+            const { error: upErr } = await looseDb(supabaseAdmin)
+              .from("products")
+              .update({ gallery: audit.kept, image_url: main } as unknown as Json)
+              .eq("id", row.id);
+            if (upErr) throw new Error(upErr.message);
+            changed++;
+          }
+          report.push({
+            product: row.name,
+            before: before.length,
+            after: audit.kept.length,
+            duplicates_removed: audit.removedDuplicates.length,
+            junk_removed: audit.removedJunk.slice(0, 6),
+            junk_removed_count: audit.removedJunk.length,
+            empty_after_cleanup: audit.empty,
+            hint: audit.empty
+              ? "Diaporama vide : relancer refresh_product_media sur le site officiel du fabricant."
+              : null,
+          });
+        }
+        if (changed > 0) emit({ type: "changed" });
+        return {
+          scanned: (data ?? []).length,
+          problems: report.length,
+          fixed: changed,
+          applied: apply,
+          details: report.slice(0, 40),
+        };
+      },
+    },
+    {
+
       name: "refresh_product_media",
       description:
         "Refait la recherche sur le site officiel du fabricant pour un article existant et remet à jour son diaporama complet (galerie + image principale) avec les images d'origine, ainsi que ses caractéristiques et spécifications. Ne touche jamais au prix ni au stock.",
