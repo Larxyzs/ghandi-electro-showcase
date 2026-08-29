@@ -18,6 +18,7 @@ import { SiteModeGate } from "../components/SiteModeGate";
 import { ScrollProgress } from "../components/ScrollProgress";
 import { I18nProvider } from "../lib/i18n";
 import { CartProvider } from "../lib/cart";
+import { LiveEditProvider } from "../lib/live-edit";
 import { Toaster } from "@/components/ui/sonner";
 
 
