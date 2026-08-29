@@ -1,3 +1,4 @@
+import { dedupeGallery } from "./catalog-types";
 import type { Json } from "@/integrations/supabase/types";
 import { useSession } from "@tanstack/react-start/server";
 import { createHash, timingSafeEqual } from "node:crypto";
@@ -609,6 +610,8 @@ export async function saveProduct(input: ProductInput) {
         gallery.push(await storeImage(db, entry.imageData, entry.imageName));
       }
     }
+    // One photo can only appear once in a slideshow.
+    gallery = dedupeGallery(gallery);
   }
 
   const base = {
