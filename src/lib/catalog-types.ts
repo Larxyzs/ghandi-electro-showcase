@@ -36,7 +36,10 @@ export type MarketingSection =
 
 export type Product = {
   id: string;
+  /** Primary folder. */
   node_id: string;
+  /** Every folder this product appears in (includes node_id). */
+  node_ids?: string[];
   name: string;
   brand: string;
   serial_number: string;
@@ -121,9 +124,15 @@ export function subtreeIds(nodes: CatalogNode[], nodeId: string): string[] {
   return ids;
 }
 
+/** All folders a product is listed in (primary + extra categories). */
+export function nodeIdsOf(product: Product): string[] {
+  const extra = product.node_ids ?? [];
+  return extra.includes(product.node_id) ? extra : [product.node_id, ...extra];
+}
+
 export function productsIn(nodes: CatalogNode[], products: Product[], nodeId: string) {
   const ids = new Set(subtreeIds(nodes, nodeId));
-  return products.filter((p) => ids.has(p.node_id));
+  return products.filter((p) => nodeIdsOf(p).some((id) => ids.has(id)));
 }
 
 function normalize(value: string) {

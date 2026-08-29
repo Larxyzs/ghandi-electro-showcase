@@ -121,6 +121,36 @@ export const adminMoveProductToNode = createServerFn({ method: "POST" })
     return moveProductToNode(data.id, data.nodeId);
   });
 
+export const adminLinkProductToNode = createServerFn({ method: "POST" })
+  .inputValidator((data: { productId: string; nodeId: string }) => ({
+    productId: String(data.productId),
+    nodeId: String(data.nodeId),
+  }))
+  .handler(async ({ data }) => {
+    const { linkProductToNode } = await import("./admin.server");
+    return linkProductToNode(data.productId, data.nodeId);
+  });
+
+export const adminUnlinkProductFromNode = createServerFn({ method: "POST" })
+  .inputValidator((data: { productId: string; nodeId: string }) => ({
+    productId: String(data.productId),
+    nodeId: String(data.nodeId),
+  }))
+  .handler(async ({ data }) => {
+    const { unlinkProductFromNode } = await import("./admin.server");
+    return unlinkProductFromNode(data.productId, data.nodeId);
+  });
+
+export const adminAttachProductBySerial = createServerFn({ method: "POST" })
+  .inputValidator((data: { serial: string; nodeId: string }) => ({
+    serial: String(data.serial),
+    nodeId: String(data.nodeId),
+  }))
+  .handler(async ({ data }) => {
+    const { attachProductBySerial } = await import("./admin.server");
+    return attachProductBySerial(data.serial, data.nodeId);
+  });
+
 export const adminNodeImpact = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string }) => ({ id: String(data.id) }))
   .handler(async ({ data }) => {
@@ -138,6 +168,7 @@ export const adminDeleteNode = createServerFn({ method: "POST" })
 export type AdminProductInput = {
   id?: string;
   node_id: string;
+  node_ids?: string[];
   name: string;
   brand: string;
   serial_number: string;
@@ -164,6 +195,7 @@ export const adminSaveProduct = createServerFn({ method: "POST" })
     if (!data.node_id) throw new Error("NO_FOLDER");
     return saveProduct({
       ...data,
+      ...(data.node_ids ? { node_ids: data.node_ids.map((id) => String(id)) } : {}),
       brand: data.brand ?? "",
       stock: Number.isFinite(data.stock) ? data.stock : 0,
       serial_number: data.serial_number ?? "",

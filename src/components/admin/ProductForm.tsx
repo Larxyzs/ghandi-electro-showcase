@@ -9,7 +9,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { LEVEL_LABELS, type NodeLevel, type Product } from "@/lib/catalog-types";
+import { LEVEL_LABELS, nodeIdsOf, type NodeLevel, type Product } from "@/lib/catalog-types";
 import { BRAND_NAMES } from "@/lib/brands";
 import { ImagePicker } from "@/components/admin/ImagePicker";
 
@@ -28,6 +28,8 @@ export type ProductDraft = {
   removeImage?: boolean | undefined;
   /** Slideshow images: kept values (paths/URLs) and new uploads. */
   gallery?: (string | { imageData: string; imageName: string })[] | undefined;
+  /** Every category the same product is listed in (includes its main folder). */
+  node_ids?: string[] | undefined;
 };
 
 /** One editable slideshow slide. */
@@ -52,6 +54,7 @@ export type FolderDraft = {
 export function ProductForm({
   product,
   nodeId,
+  allFolders,
   folderLevels,
   optionalLevels,
   onCancel,
@@ -59,6 +62,8 @@ export function ProductForm({
 }: {
   product?: Product;
   nodeId: string;
+  /** All folders able to hold products, for the extra-categories picker. */
+  allFolders?: { id: string; label: string }[];
   /** Quick-jump: folder levels to create on the fly before saving the product. */
   folderLevels?: NodeLevel[];
   /** Subset of folderLevels that may be left empty (e.g. the optional Format). */
@@ -80,6 +85,9 @@ export function ProductForm({
     characteristics: product?.characteristics ?? "",
     featured: product?.featured ?? false,
   });
+  const [extraIds, setExtraIds] = useState<string[]>(() =>
+    (product ? nodeIdsOf(product) : []).filter((id) => id !== nodeId),
+  );
   const [preview, setPreview] = useState<string | null>(product?.image_url ?? null);
   const [imageMode, setImageMode] = useState<"upload" | "url">(
     product?.image_path?.startsWith("http") ? "url" : "upload",
@@ -185,6 +193,7 @@ export function ProductForm({
           await onSave({
             ...draft,
             node_id: nodeId,
+            node_ids: Array.from(new Set([nodeId, ...extraIds])),
             folders: folders
               .map((f) => ({ ...f, name: f.name.trim() }))
               .filter((f) => f.name.length > 0),
@@ -318,6 +327,39 @@ export function ProductForm({
           </span>
         </span>
       </label>
+
+      {allFolders && allFolders.length > 1 && (
+        <div className="mt-4 rounded-2xl border border-border bg-background p-4">
+          <p className="text-sm font-semibold">Aussi présent dans ces catégories</p>
+          <p className="mt-0.5 text-xs text-foreground/60">
+            Une seule fiche produit, affichée dans chaque catégorie cochée (ex. Combinés + 4 portes).
+          </p>
+          <div className="mt-2 max-h-44 space-y-1 overflow-y-auto">
+            {allFolders
+              .filter((folder) => folder.id !== nodeId)
+              .map((folder) => (
+                <label
+                  key={folder.id}
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs hover:bg-brand-soft/40"
+                >
+                  <input
+                    type="checkbox"
+                    checked={extraIds.includes(folder.id)}
+                    onChange={(e) =>
+                      setExtraIds((prev) =>
+                        e.target.checked
+                          ? [...prev, folder.id]
+                          : prev.filter((id) => id !== folder.id),
+                      )
+                    }
+                    className="h-3.5 w-3.5 accent-[hsl(var(--brand))]"
+                  />
+                  <span>{folder.label}</span>
+                </label>
+              ))}
+          </div>
+        </div>
+      )}
 
       <label className="mt-4 block text-sm font-medium">
         Caractéristiques

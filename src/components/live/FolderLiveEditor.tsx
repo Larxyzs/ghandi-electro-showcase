@@ -1,10 +1,21 @@
 import { useRef, useState } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { FolderPlus, ImagePlus, Link2, Loader2, Save, Trash2 } from "lucide-react";
+import { CopyPlus, FolderPlus, ImagePlus, Link2, Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { adminCreateNode, adminDeleteNode, adminRenameNode } from "@/lib/admin.functions";
-import { LEVEL_LABELS, MAX_LEVEL, type CatalogNode, type NodeLevel } from "@/lib/catalog-types";
+import {
+  adminAttachProductBySerial,
+  adminCreateNode,
+  adminDeleteNode,
+  adminRenameNode,
+} from "@/lib/admin.functions";
+import {
+  canHoldProducts,
+  LEVEL_LABELS,
+  MAX_LEVEL,
+  type CatalogNode,
+  type NodeLevel,
+} from "@/lib/catalog-types";
 import { cn } from "@/lib/utils";
 
 const readFile = (file: File) =>
@@ -24,18 +35,41 @@ export function FolderLiveEditor({ node }: { node: CatalogNode | null }) {
   const rename = useServerFn(adminRenameNode);
   const create = useServerFn(adminCreateNode);
   const remove = useServerFn(adminDeleteNode);
+  const attach = useServerFn(adminAttachProductBySerial);
 
   const [name, setName] = useState(node?.name ?? "");
   const [imageUrl, setImageUrl] = useState(node?.image_path?.startsWith("http") ? node.image_path : "");
   const [upload, setUpload] = useState<{ imageData: string; imageName: string } | null>(null);
   const [preview, setPreview] = useState<string | null>(node?.image_url ?? null);
   const [childName, setChildName] = useState("");
-  const [busy, setBusy] = useState<"save" | "child" | "delete" | null>(null);
+  const [serialDraft, setSerialDraft] = useState("");
+  const [busy, setBusy] = useState<"save" | "child" | "delete" | "attach" | null>(null);
   const [dropping, setDropping] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const childLevel = ((node?.level ?? 0) + 1) as NodeLevel;
   const canAddChild = childLevel <= MAX_LEVEL;
+  const canAttachProduct = Boolean(node && canHoldProducts(node.level));
+
+  /** Lists an existing product here by reference — same fiche, no duplicate. */
+  const attachBySerial = async () => {
+    if (!node || !serialDraft.trim()) return;
+    setBusy("attach");
+    try {
+      const result = await attach({ data: { serial: serialDraft.trim(), nodeId: node.id } });
+      setSerialDraft("");
+      await router.invalidate();
+      toast.success(`« ${result.name} » ajouté à cette catégorie`);
+    } catch (error) {
+      toast.error(
+        String((error as Error)?.message).includes("PRODUCT_NOT_FOUND")
+          ? "Aucun produit avec cette référence."
+          : "Ajout impossible",
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const pickFile = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) {
@@ -202,6 +236,44 @@ export function FolderLiveEditor({ node }: { node: CatalogNode | null }) {
                 <Trash2 className="h-4 w-4" /> Supprimer
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {canAttachProduct && (
+        <div className="mt-4">
+          <p className="text-xs font-semibold tracking-[0.14em] text-brand-deep uppercase">
+            Ajouter un produit existant (par référence)
+          </p>
+          <p className="mt-1 text-xs text-foreground/60">
+            Le même produit apparaît dans plusieurs catégories, avec une seule fiche.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <input
+              value={serialDraft}
+              onChange={(e) => setSerialDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void attachBySerial();
+                }
+              }}
+              placeholder="Référence du produit"
+              className="min-w-[220px] flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              disabled={busy === "attach" || !serialDraft.trim()}
+              onClick={() => void attachBySerial()}
+              className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2.5 text-sm font-semibold hover:border-brand hover:text-brand disabled:opacity-50"
+            >
+              {busy === "attach" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CopyPlus className="h-4 w-4" />
+              )}
+              Ajouter ici
+            </button>
           </div>
         </div>
       )}
