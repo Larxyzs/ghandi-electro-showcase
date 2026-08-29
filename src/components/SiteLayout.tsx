@@ -8,7 +8,7 @@ import { WhatsAppFloating } from "@/components/WhatsAppFloating";
 import { CartDrawer } from "@/components/CartDrawer";
 import { useCart } from "@/lib/cart";
 import { useI18n } from "@/lib/i18n";
-import { LiveEditProvider, useLiveEdit } from "@/lib/live-edit";
+import { useLiveEdit } from "@/lib/live-edit";
 import { CindyDock } from "@/components/live/CindyDock";
 import { COMPANY } from "@/lib/company";
 
