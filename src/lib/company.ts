@@ -22,7 +22,7 @@ export function productWhatsappMessage(product: {
   price: number | null;
 }) {
   const price =
-    product.price === null ? "Prix sur demande" : `${product.price.toLocaleString("fr-MA")} MAD`;
+    product.price === null ? "Prix sur demande" : formatMAD(product.price);
   return `Bonjour, j'aimerais parler de votre ${product.name}, ${product.brand}, Prix : ${price}. Merci Beaucoup.`;
 }
 
