@@ -1251,7 +1251,7 @@ LANGUE — RÈGLE ABSOLUE : réponds TOUJOURS dans la langue du dernier message 
 
 TON : vraie conversation, chaleureuse et brève. Pas de jargon technique, pas d'ID de base de données, pas de JSON dans tes réponses. Tu tutoies l'admin poliment.
 
-TU AGIS VRAIMENT — ACCÈS COMPLET : tu as les mêmes droits qu'un admin. Tes outils modifient le site en direct : dossiers du catalogue (création, renommage, images, déplacement, ordre, suppression), articles (création, modification, prix/stock donnés par l'admin, images, mise en avant, déplacement, suppression), recherche produit et création en masse, couleurs et design du site, mode du site, recherches populaires, commandes clients (lecture et statut), historique des actions, et points de restauration. Quand l'admin demande un changement, fais-le avec les outils au lieu d'expliquer comment faire. Lis l'état du site avec get_site_overview quand tu as besoin de contexte.
+TU AGIS VRAIMENT — ACCÈS COMPLET : tu as les mêmes droits qu'un admin. Tes outils modifient le site en direct : dossiers du catalogue (création, renommage, images, déplacement, ordre, suppression), articles (création, modification, prix/stock donnés par l'admin, images, mise en avant, déplacement, suppression), recherche produit et création en masse, couleurs et design du site, mode du site, recherches populaires, commandes clients (lecture et statut), historique des actions, et points de restauration. Quand l'admin demande un changement, fais-le avec les outils au lieu d'expliquer comment faire. Lis l'état du site avec get_site_overview quand tu as besoin de contexte. IMPORTANT : get_site_overview n'est jamais la fin d'une demande d'action. Après « Lecture du site », enchaîne dans le MÊME tour avec tous les outils nécessaires jusqu'à avoir réellement terminé la demande. Ne demande pas à l'admin de répéter et ne t'arrête pas après avoir seulement observé le site.
 
 IMAGES — JAMAIS DE RETOUCHE IA : les images du catalogue doivent TOUJOURS rester les images d'origine du fabricant, récupérées dans le diaporama de la fiche produit officielle. Tu ne redessines, ne régénères et ne recadres JAMAIS une image avec un modèle d'image. check_images sert seulement à REGARDER une photo et signaler un problème à l'admin ; si une image est mauvaise, propose à l'admin une autre image d'origine du fabricant (set_image avec une URL https officielle). Le site affiche les images en entier (object-contain), donc un cadrage un peu large n'est pas un problème. Tu peux en revanche remplacer librement TOUT le diaporama d'un article : set_gallery (liste d'URLs https d'origine, la première devient l'image principale) ou refresh_product_media qui refait la recherche sur le site officiel et remet à jour le diaporama complet, les caractéristiques et les spécifications sans toucher au prix ni au stock. Chaque changement est enregistré automatiquement et reste annulable via les points de restauration.
 
@@ -1295,6 +1295,18 @@ type ChatMessage = {
 };
 
 type StreamToolCall = { id: string; name: string; args: string; signature?: string };
+
+function toolResultContent(name: string, result: unknown): string {
+  const serialized = JSON.stringify(result);
+  const limit = name === "get_site_overview" ? 60000 : 12000;
+  if (serialized.length <= limit) return serialized;
+  return JSON.stringify({
+    truncated: true,
+    instruction:
+      "Le résultat complet est trop grand. Utilise read_data avec un filtre précis pour trouver les éléments manquants, puis continue la demande.",
+    preview: serialized.slice(0, limit),
+  });
+}
 
 export async function runCindyAgent(input: {
   messages: { role: "user" | "assistant"; content: string }[];
@@ -1341,6 +1353,8 @@ export async function runCindyAgent(input: {
       content: message.content,
     })),
   ];
+  let overviewWithoutFollowUp = false;
+  let forcedContinuation = false;
 
   for (let step = 0; step < 18; step += 1) {
     if (input.signal?.aborted) {
@@ -1457,6 +1471,22 @@ export async function runCindyAgent(input: {
     const calls = [...pending.values()].filter((call) => call.name);
 
     if (calls.length === 0) {
+      // Some models occasionally treat the overview as the completed task and
+      // answer instead of performing the requested follow-up. Force one more
+      // planning pass so a single admin message is enough to finish the work.
+      if (overviewWithoutFollowUp && !forcedContinuation) {
+        forcedContinuation = true;
+        history.push({
+          role: "assistant",
+          content: text.trim() || "J'ai lu le site.",
+        });
+        history.push({
+          role: "system",
+          content:
+            "La demande initiale n'est pas terminée : tu as seulement lu le site. Continue maintenant, sans demander à l'admin de répéter, et appelle immédiatement les outils nécessaires pour exécuter toute la demande. Ne réponds qu'après l'action réelle.",
+        });
+        continue;
+      }
       if (text.trim()) input.emit({ type: "assistant", text: text.trim() });
       input.emit({ type: "done" });
       return;
@@ -1477,6 +1507,8 @@ export async function runCindyAgent(input: {
 
     for (const call of calls) {
       const name = call.name;
+      if (name === "get_site_overview") overviewWithoutFollowUp = true;
+      else overviewWithoutFollowUp = false;
       const tool = tools.find((t) => t.name === name);
       let args: Json = {};
       try {
@@ -1574,7 +1606,7 @@ export async function runCindyAgent(input: {
       history.push({
         role: "tool",
         tool_call_id: call.id,
-        content: JSON.stringify(result).slice(0, 12000),
+        content: toolResultContent(name, result),
       });
 
       if (input.signal?.aborted) {
