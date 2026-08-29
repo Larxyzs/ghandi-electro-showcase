@@ -13,7 +13,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { adminSaveProduct } from "@/lib/admin.functions";
-import { canHoldProducts, pathOf, type CatalogNode, type Product } from "@/lib/catalog-types";
+import {
+  canHoldProducts,
+  nodeIdsOf,
+  pathOf,
+  type CatalogNode,
+  type Product,
+} from "@/lib/catalog-types";
 import { cn } from "@/lib/utils";
 
 type Slide = {
@@ -56,6 +62,9 @@ export function ProductLiveEditor({
   const [characteristics, setCharacteristics] = useState(product.characteristics ?? "");
   const [featured, setFeatured] = useState(product.featured);
   const [nodeId, setNodeId] = useState(product.node_id);
+  const [extraIds, setExtraIds] = useState<string[]>(() =>
+    nodeIdsOf(product).filter((id) => id !== product.node_id),
+  );
   const [urlDraft, setUrlDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -148,6 +157,7 @@ export function ProductLiveEditor({
           characteristics,
           featured,
           gallery,
+          node_ids: Array.from(new Set([nodeId, ...extraIds])),
         },
       });
       await router.invalidate();
@@ -234,6 +244,36 @@ export function ProductLiveEditor({
             ))}
           </select>
         </label>
+        <div className="text-sm font-medium sm:col-span-2">
+          Aussi présent dans ces catégories
+          <p className="mt-0.5 text-xs font-normal text-foreground/60">
+            Le même produit (même fiche, même référence) s'affiche dans chaque catégorie cochée.
+          </p>
+          <div className="mt-2 max-h-44 space-y-1 overflow-y-auto rounded-xl border border-border bg-background p-2">
+            {folders
+              .filter((folder) => folder.id !== nodeId)
+              .map((folder) => (
+                <label
+                  key={folder.id}
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs font-normal hover:bg-brand-soft/40"
+                >
+                  <input
+                    type="checkbox"
+                    checked={extraIds.includes(folder.id)}
+                    onChange={(e) =>
+                      setExtraIds((prev) =>
+                        e.target.checked
+                          ? [...prev, folder.id]
+                          : prev.filter((id) => id !== folder.id),
+                      )
+                    }
+                    className="h-3.5 w-3.5 accent-[hsl(var(--brand))]"
+                  />
+                  <span>{folder.label}</span>
+                </label>
+              ))}
+          </div>
+        </div>
         <label className="text-sm font-medium sm:col-span-2">
           Caractéristiques
           <textarea
