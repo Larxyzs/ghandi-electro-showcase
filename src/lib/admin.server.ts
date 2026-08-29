@@ -609,6 +609,8 @@ export async function saveProduct(input: ProductInput) {
         gallery.push(await storeImage(db, entry.imageData, entry.imageName));
       }
     }
+    // One photo can only appear once in a slideshow.
+    gallery = dedupeGallery(gallery);
   }
 
   const base = {
