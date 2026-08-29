@@ -18,6 +18,7 @@ import { SiteModeGate } from "../components/SiteModeGate";
 import { ScrollProgress } from "../components/ScrollProgress";
 import { I18nProvider } from "../lib/i18n";
 import { CartProvider } from "../lib/cart";
+import { LiveEditProvider } from "../lib/live-edit";
 import { Toaster } from "@/components/ui/sonner";
 
 
@@ -150,15 +151,16 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
         <CartProvider>
-          <SiteTheme settings={data?.settings ?? DEFAULT_SETTINGS} />
-          <ScrollProgress />
-          <SiteModeGate mode={data?.settings?.site_mode ?? "online"}>
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <Outlet />
-          </SiteModeGate>
-          <Toaster position="bottom-center" richColors />
+          <LiveEditProvider>
+            <SiteTheme settings={data?.settings ?? DEFAULT_SETTINGS} />
+            <ScrollProgress />
+            <SiteModeGate mode={data?.settings?.site_mode ?? "online"}>
+              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+              <Outlet />
+            </SiteModeGate>
+            <Toaster position="bottom-center" richColors />
+          </LiveEditProvider>
         </CartProvider>
-
       </I18nProvider>
     </QueryClientProvider>
   );

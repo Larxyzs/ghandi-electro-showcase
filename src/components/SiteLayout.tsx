@@ -8,7 +8,7 @@ import { WhatsAppFloating } from "@/components/WhatsAppFloating";
 import { CartDrawer } from "@/components/CartDrawer";
 import { useCart } from "@/lib/cart";
 import { useI18n } from "@/lib/i18n";
-import { LiveEditProvider, useLiveEdit } from "@/lib/live-edit";
+import { useLiveEdit } from "@/lib/live-edit";
 import { CindyDock } from "@/components/live/CindyDock";
 import { COMPANY } from "@/lib/company";
 
@@ -41,11 +41,9 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function SiteLayout({ children }: { children: ReactNode }) {
-  return (
-    <LiveEditProvider>
-      <SiteShell>{children}</SiteShell>
-    </LiveEditProvider>
-  );
+  // The live-edit provider lives at the root so route components (product /
+  // folder editors) share the same on/off state as this header toggle.
+  return <SiteShell>{children}</SiteShell>;
 }
 
 function SiteShell({ children }: { children: ReactNode }) {
