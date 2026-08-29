@@ -195,7 +195,7 @@ export const adminSaveProduct = createServerFn({ method: "POST" })
     if (!data.node_id) throw new Error("NO_FOLDER");
     return saveProduct({
       ...data,
-      node_ids: data.node_ids?.map((id) => String(id)),
+      ...(data.node_ids ? { node_ids: data.node_ids.map((id) => String(id)) } : {}),
       brand: data.brand ?? "",
       stock: Number.isFinite(data.stock) ? data.stock : 0,
       serial_number: data.serial_number ?? "",
