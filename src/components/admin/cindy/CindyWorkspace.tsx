@@ -133,20 +133,37 @@ export function CindyWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** Auto-saves the conversation after every message, in the background. */
+  /**
+   * Auto-saves the conversation in the background. Long agent runs produce very
+   * large payloads (hundreds of activity steps), which the server rejects and the
+   * browser surfaces as "Failed to fetch" — so the history is compacted first.
+   */
+  const compactTurns = (turns: CindyTurn[]): CindyTurn[] =>
+    turns.slice(-30).map((turn) => ({
+      ...turn,
+      content: turn.content.length > 4000 ? `${turn.content.slice(0, 4000)}…` : turn.content,
+      ...(turn.activities?.length
+        ? { activities: turn.activities.slice(-40) }
+        : {}),
+    }));
+
   const persistChat = async (turns: CindyTurn[]) => {
     setChatTurns(turns);
     if (turns.length === 0) return;
     const first = turns.find((turn) => turn.role === "user")?.content ?? "Discussion";
-    const { id } = await actions.saveSession({
-      id: chatIdRef.current,
-      title: first.slice(0, 70),
-      query: CHAT_MARKER,
-      events: turns as unknown[],
-    });
-    chatIdRef.current = id;
-    setChatId(id);
-    void refresh();
+    try {
+      const { id } = await actions.saveSession({
+        id: chatIdRef.current,
+        title: first.slice(0, 70),
+        query: CHAT_MARKER,
+        events: compactTurns(turns) as unknown[],
+      });
+      chatIdRef.current = id;
+      setChatId(id);
+      void refresh();
+    } catch {
+      // Saving history is best-effort: never break an in-progress conversation.
+    }
   };
 
   const visibleSessions = sessions.filter((row) =>

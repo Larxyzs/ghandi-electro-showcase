@@ -74,8 +74,13 @@ export function CindyAgentChat({
   const send = async (raw: string) => {
     const text = raw.trim();
     if (!text || streaming) return;
+    // Keep the request small: long agent runs otherwise build a payload the
+    // server refuses, which the browser reports as "Failed to fetch".
     const history: CindyChatMessage[] = [
-      ...turns.map((turn) => ({ role: turn.role, content: turn.content })),
+      ...turns.slice(-14).map((turn) => ({
+        role: turn.role,
+        content: turn.content.length > 3000 ? `${turn.content.slice(0, 3000)}…` : turn.content,
+      })),
       { role: "user", content: text },
     ];
     let base: Turn[] = [];
