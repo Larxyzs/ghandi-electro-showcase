@@ -39,13 +39,13 @@ export function HeaderSearch() {
   );
 
   return (
-    <div ref={wrapRef} className="relative flex flex-1 justify-end" onMouseEnter={() => setOpen(true)}>
+    <div ref={wrapRef} className="relative flex justify-end" onMouseEnter={() => setOpen(true)}>
       <div
         className={cn(
           "flex items-center overflow-hidden rounded-full border transition-all duration-300 ease-out",
           open
-            ? "w-full max-w-md border-brand/50 bg-card opacity-100"
-            : "w-10 border-transparent bg-transparent",
+            ? "absolute end-0 top-0 z-50 w-[min(24rem,calc(100vw-2.5rem))] border-brand/50 bg-card shadow-[var(--shadow-card)] opacity-100"
+            : "relative w-10 border-transparent bg-transparent",
         )}
       >
         <button
