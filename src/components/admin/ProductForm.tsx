@@ -28,6 +28,8 @@ export type ProductDraft = {
   removeImage?: boolean | undefined;
   /** Slideshow images: kept values (paths/URLs) and new uploads. */
   gallery?: (string | { imageData: string; imageName: string })[] | undefined;
+  /** Every category the same product is listed in (includes its main folder). */
+  node_ids?: string[] | undefined;
 };
 
 /** One editable slideshow slide. */
@@ -52,6 +54,7 @@ export type FolderDraft = {
 export function ProductForm({
   product,
   nodeId,
+  allFolders,
   folderLevels,
   optionalLevels,
   onCancel,
@@ -59,6 +62,8 @@ export function ProductForm({
 }: {
   product?: Product;
   nodeId: string;
+  /** All folders able to hold products, for the extra-categories picker. */
+  allFolders?: { id: string; label: string }[];
   /** Quick-jump: folder levels to create on the fly before saving the product. */
   folderLevels?: NodeLevel[];
   /** Subset of folderLevels that may be left empty (e.g. the optional Format). */
@@ -80,6 +85,9 @@ export function ProductForm({
     characteristics: product?.characteristics ?? "",
     featured: product?.featured ?? false,
   });
+  const [extraIds, setExtraIds] = useState<string[]>(() =>
+    (product ? nodeIdsOf(product) : []).filter((id) => id !== nodeId),
+  );
   const [preview, setPreview] = useState<string | null>(product?.image_url ?? null);
   const [imageMode, setImageMode] = useState<"upload" | "url">(
     product?.image_path?.startsWith("http") ? "url" : "upload",
@@ -185,6 +193,7 @@ export function ProductForm({
           await onSave({
             ...draft,
             node_id: nodeId,
+            node_ids: Array.from(new Set([nodeId, ...extraIds])),
             folders: folders
               .map((f) => ({ ...f, name: f.name.trim() }))
               .filter((f) => f.name.length > 0),
