@@ -7,6 +7,7 @@ import {
   type OrderStatus,
 } from "@/lib/orders-types";
 import { cn } from "@/lib/utils";
+import { formatMAD } from "@/lib/company";
 
 type OrdersPanelProps = {
   list: () => Promise<Order[]>;
@@ -195,14 +196,14 @@ export function OrdersPanel({ list, setStatus, remove }: OrdersPanelProps) {
                       {item.brand ? ` (${item.brand})` : ""}
                     </span>
                     <span className="font-semibold">
-                      {(item.price * item.qty).toLocaleString("fr-MA")} MAD
+                      {formatMAD((item.price * item.qty))}
                     </span>
                   </li>
                 ))}
               </ul>
               <div className="mt-2 flex items-center justify-between border-t border-border pt-2 text-sm font-bold">
                 <span>Total</span>
-                <span className="text-brand">{order.total.toLocaleString("fr-MA")} MAD</span>
+                <span className="text-brand">{formatMAD(order.total)}</span>
               </div>
             </div>
           </li>

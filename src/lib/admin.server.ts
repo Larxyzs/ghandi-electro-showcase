@@ -1058,17 +1058,20 @@ const SEARCH_ENV: Record<SearchProviderId, string> = {
 /** Current research + Cindy AI configuration (keys are never returned in clear). */
 export async function getSearchSettings() {
   const db = await requireAdmin();
-  const { data } = await db
-    .from("site_settings")
-    .select("search_provider, search_api_key, search_model, ai_provider, ai_model, ai_api_key")
-    .eq("id", "default")
-    .maybeSingle();
+  const [{ data }, { data: secrets }] = await Promise.all([
+    db
+      .from("site_settings")
+      .select("search_provider, search_model, ai_provider, ai_model")
+      .eq("id", "default")
+      .maybeSingle(),
+    db.from("site_secrets").select("search_api_key, ai_api_key").eq("id", "default").maybeSingle(),
+  ]);
 
   const provider = (data?.search_provider ?? "serper") as SearchProviderId;
-  const key = data?.search_api_key ?? "";
+  const key = secrets?.search_api_key ?? "";
   const envKey = (process.env[SEARCH_ENV[provider]] ?? "").trim();
   const aiProvider = (data?.ai_provider ?? "gemini") as AiProviderChoice;
-  const aiKey = data?.ai_api_key ?? "";
+  const aiKey = secrets?.ai_api_key ?? "";
   const aiEnvKey = (
     aiProvider === "gemini" ? (process.env["GEMINI_API_KEY"] ?? "") : (process.env["LOVABLE_API_KEY"] ?? "")
   ).trim();
@@ -1143,23 +1146,29 @@ export async function saveSearchSettings(input: {
   if (test && !test.ok) return { ok: false as const, test, aiTest, saved: false };
   if (aiTest && !aiTest.ok) return { ok: false as const, test, aiTest, saved: false };
 
-  const payload: {
-    search_provider: string;
-    search_model: string;
-    ai_provider: string;
-    ai_model: string;
-    search_api_key?: string;
-    ai_api_key?: string;
-  } = {
-    search_provider: provider,
-    search_model: model,
-    ai_provider: aiProvider,
-    ai_model: aiModel,
-  };
-  if (key) payload.search_api_key = key;
-  if (aiKey) payload.ai_api_key = aiKey;
-  const { error } = await db.from("site_settings").update(payload).eq("id", "default");
+  const { error } = await db
+    .from("site_settings")
+    .update({
+      search_provider: provider,
+      search_model: model,
+      ai_provider: aiProvider,
+      ai_model: aiModel,
+    })
+    .eq("id", "default");
   if (error) throw new Error(error.message);
+
+  // API keys live in the private site_secrets table (never publicly readable).
+  if (key || aiKey) {
+    const secretPayload: { id: string; search_api_key?: string; ai_api_key?: string } = {
+      id: "default",
+    };
+    if (key) secretPayload.search_api_key = key;
+    if (aiKey) secretPayload.ai_api_key = aiKey;
+    const { error: secretError } = await db
+      .from("site_secrets")
+      .upsert(secretPayload, { onConflict: "id" });
+    if (secretError) throw new Error(secretError.message);
+  }
   return { ok: true as const, test, aiTest, saved: true };
 }
 

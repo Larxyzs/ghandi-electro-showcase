@@ -396,14 +396,36 @@ export type Database = {
           },
         ]
       }
-      site_settings: {
+      site_secrets: {
         Row: {
           ai_api_key: string | null
+          created_at: string
+          id: string
+          search_api_key: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_api_key?: string | null
+          created_at?: string
+          id?: string
+          search_api_key?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_api_key?: string | null
+          created_at?: string
+          id?: string
+          search_api_key?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      site_settings: {
+        Row: {
           ai_model: string
           ai_provider: string
           id: string
           primary_color: string
-          search_api_key: string | null
           search_model: string
           search_provider: string
           secondary_color: string
@@ -412,12 +434,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          ai_api_key?: string | null
           ai_model?: string
           ai_provider?: string
           id?: string
           primary_color?: string
-          search_api_key?: string | null
           search_model?: string
           search_provider?: string
           secondary_color?: string
@@ -426,12 +446,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          ai_api_key?: string | null
           ai_model?: string
           ai_provider?: string
           id?: string
           primary_color?: string
-          search_api_key?: string | null
           search_model?: string
           search_provider?: string
           secondary_color?: string

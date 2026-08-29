@@ -6,6 +6,7 @@ import type { Product } from "@/lib/catalog-types";
 import { useI18n } from "@/lib/i18n";
 import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
+import { formatMAD } from "@/lib/company";
 
 export function ProductCard({ product }: { product: Product }) {
   const { t } = useI18n();
@@ -75,7 +76,7 @@ export function ProductCard({ product }: { product: Product }) {
         <div className="mt-4 flex items-center justify-between gap-3">
           {product.price !== null ? (
             <p className="text-lg font-bold text-brand">
-              {product.price.toLocaleString("fr-MA")} MAD
+              {formatMAD(product.price)}
             </p>
           ) : (
             <span />

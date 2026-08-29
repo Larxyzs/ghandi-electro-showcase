@@ -22,6 +22,14 @@ export function productWhatsappMessage(product: {
   price: number | null;
 }) {
   const price =
-    product.price === null ? "Prix sur demande" : `${product.price.toLocaleString("fr-MA")} MAD`;
+    product.price === null ? "Prix sur demande" : formatMAD(product.price);
   return `Bonjour, j'aimerais parler de votre ${product.name}, ${product.brand}, Prix : ${price}. Merci Beaucoup.`;
+}
+
+/** Money as shown across the site: grouped thousands + 2 decimals, e.g. "10 000,00 MAD". */
+export function formatMAD(value: number): string {
+  return `${value.toLocaleString("fr-MA", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} MAD`;
 }

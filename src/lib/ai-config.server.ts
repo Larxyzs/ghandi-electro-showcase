@@ -71,15 +71,18 @@ export async function aiSetup(): Promise<AiSetup> {
   let key = "";
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data } = await supabaseAdmin
-      .from("site_settings")
-      .select("ai_provider, ai_model, ai_api_key")
-      .eq("id", "default")
-      .maybeSingle();
+    const [{ data }, { data: secrets }] = await Promise.all([
+      supabaseAdmin
+        .from("site_settings")
+        .select("ai_provider, ai_model")
+        .eq("id", "default")
+        .maybeSingle(),
+      supabaseAdmin.from("site_secrets").select("ai_api_key").eq("id", "default").maybeSingle(),
+    ]);
     const stored = (data?.ai_provider ?? "gemini") as AiProviderId;
     if (stored === "gemini" || stored === "lovable") provider = stored;
     model = (data?.ai_model ?? "").trim();
-    key = (data?.ai_api_key ?? "").trim();
+    key = (secrets?.ai_api_key ?? "").trim();
   } catch {
     /* fall back to env */
   }

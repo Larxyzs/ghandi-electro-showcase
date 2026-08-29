@@ -86,14 +86,17 @@ async function searchConfig(): Promise<{ provider: SearchProvider; key: string; 
   let model = "search";
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data } = await supabaseAdmin
-      .from("site_settings")
-      .select("search_provider, search_api_key, search_model")
-      .eq("id", "default")
-      .maybeSingle();
+    const [{ data }, { data: secrets }] = await Promise.all([
+      supabaseAdmin
+        .from("site_settings")
+        .select("search_provider, search_model")
+        .eq("id", "default")
+        .maybeSingle(),
+      supabaseAdmin.from("site_secrets").select("search_api_key").eq("id", "default").maybeSingle(),
+    ]);
     const stored = (data?.search_provider ?? "serper") as SearchProvider;
     if (stored === "serper" || stored === "brave" || stored === "tavily") provider = stored;
-    key = (data?.search_api_key ?? "").trim();
+    key = (secrets?.search_api_key ?? "").trim();
     model = (data?.search_model ?? "search").trim() || "search";
   } catch {
     /* fall back to env */
