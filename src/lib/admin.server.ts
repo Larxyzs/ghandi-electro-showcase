@@ -398,9 +398,75 @@ export async function moveProductToNode(id: string, nodeId: string) {
     .maybeSingle();
   if (!target) throw new Error("PARENT_NOT_FOUND");
   if (target.level < 3) throw new Error("INVALID_TARGET");
+  const { data: previous } = await db
+    .from("products")
+    .select("node_id")
+    .eq("id", id)
+    .maybeSingle();
   const { error } = await db.from("products").update({ node_id: nodeId }).eq("id", id);
   if (error) throw new Error(error.message);
+  if (previous?.node_id && previous.node_id !== nodeId) {
+    await db.from("product_nodes").delete().eq("product_id", id).eq("node_id", previous.node_id);
+  }
+  await db.from("product_nodes").upsert(
+    { product_id: id, node_id: nodeId },
+    { onConflict: "product_id,node_id", ignoreDuplicates: true },
+  );
   return { ok: true as const };
+}
+
+/** Makes a product appear in an extra category (same product page everywhere). */
+export async function linkProductToNode(productId: string, nodeId: string) {
+  const db = await requireAdmin();
+  const { data: target } = await db
+    .from("catalog_nodes")
+    .select("id, level")
+    .eq("id", nodeId)
+    .maybeSingle();
+  if (!target) throw new Error("PARENT_NOT_FOUND");
+  if (target.level < 3) throw new Error("INVALID_TARGET");
+  const { error } = await db.from("product_nodes").upsert(
+    { product_id: productId, node_id: nodeId },
+    { onConflict: "product_id,node_id", ignoreDuplicates: true },
+  );
+  if (error) throw new Error(error.message);
+  return { ok: true as const };
+}
+
+/** Removes a product from an extra category; the primary folder cannot be removed. */
+export async function unlinkProductFromNode(productId: string, nodeId: string) {
+  const db = await requireAdmin();
+  const { data: product } = await db
+    .from("products")
+    .select("node_id")
+    .eq("id", productId)
+    .maybeSingle();
+  if (product?.node_id === nodeId) throw new Error("PRIMARY_NODE");
+  const { error } = await db
+    .from("product_nodes")
+    .delete()
+    .eq("product_id", productId)
+    .eq("node_id", nodeId);
+  if (error) throw new Error(error.message);
+  return { ok: true as const };
+}
+
+/**
+ * Adds an existing product to a category by reference (serial). No duplicate row
+ * is created: the very same product is simply listed in the extra category.
+ */
+export async function attachProductBySerial(serial: string, nodeId: string) {
+  const db = await requireAdmin();
+  const reference = serial.trim();
+  if (!reference) throw new Error("EMPTY_SERIAL");
+  const { data: matches } = await db
+    .from("products")
+    .select("id, name, serial_number")
+    .ilike("serial_number", reference);
+  const product = (matches ?? [])[0];
+  if (!product) throw new Error("PRODUCT_NOT_FOUND");
+  await linkProductToNode(product.id, nodeId);
+  return { id: product.id, name: product.name };
 }
 
 async function descendantIds(
@@ -445,6 +511,8 @@ export async function deleteNode(id: string) {
 export type ProductInput = {
   id?: string;
   node_id: string;
+  /** Extra categories the same product is also listed in. */
+  node_ids?: string[];
   name: string;
   brand: string;
   serial_number: string;
@@ -491,6 +559,29 @@ async function storeImage(
     .upload(path, bytes, { contentType, upsert: false });
   if (error) throw new Error(error.message);
   return path;
+}
+
+async function syncProductNodes(
+  db: Awaited<ReturnType<typeof requireAdmin>>,
+  productId: string,
+  primaryNodeId: string,
+  extras?: string[],
+) {
+  const wanted = Array.from(new Set([primaryNodeId, ...(extras ?? [])]));
+  await db.from("product_nodes").upsert(
+    wanted.map((node_id) => ({ product_id: productId, node_id })),
+    { onConflict: "product_id,node_id", ignoreDuplicates: true },
+  );
+  if (extras) {
+    const { data: current } = await db
+      .from("product_nodes")
+      .select("node_id")
+      .eq("product_id", productId);
+    const stale = (current ?? []).map((r) => r.node_id).filter((id) => !wanted.includes(id));
+    if (stale.length) {
+      await db.from("product_nodes").delete().eq("product_id", productId).in("node_id", stale);
+    }
+  }
 }
 
 export async function saveProduct(input: ProductInput) {
@@ -548,7 +639,23 @@ export async function saveProduct(input: ProductInput) {
     if (imagePath !== undefined && existing?.image_url && !existing.image_url.startsWith("http")) {
       await db.storage.from("product-images").remove([existing.image_url]);
     }
+    await syncProductNodes(db, input.id, input.node_id, input.node_ids);
     return { id: input.id };
+  }
+
+  // Same reference already in the catalog? List that product in this category
+  // instead of creating a twin: one product page, several categories.
+  if (base.serial_number) {
+    const { data: twin } = await db
+      .from("products")
+      .select("id")
+      .ilike("serial_number", base.serial_number)
+      .limit(1)
+      .maybeSingle();
+    if (twin?.id) {
+      await linkProductToNode(twin.id, input.node_id);
+      return { id: twin.id, linked: true as const };
+    }
   }
 
   const { data, error } = await db
@@ -557,6 +664,7 @@ export async function saveProduct(input: ProductInput) {
     .select("id")
     .single();
   if (error) throw new Error(error.message);
+  await syncProductNodes(db, data.id, input.node_id, input.node_ids);
   return { id: data.id };
 }
 
