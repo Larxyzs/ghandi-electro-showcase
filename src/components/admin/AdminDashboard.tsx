@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useI18n } from "@/lib/i18n";
 import type { SiteData, SiteSettings } from "@/lib/catalog-types";
 import { CatalogExplorer, type CatalogActions } from "@/components/admin/CatalogExplorer";
 import { StaffPanel } from "@/components/admin/StaffPanel";
@@ -100,6 +101,7 @@ export function AdminDashboard({
   const [tab, setTab] = useState<
     "inventory" | "orders" | "cindy" | "design" | "searches" | "images" | "api" | "emails" | "staff"
   >("inventory");
+  const { t } = useI18n();
   const [settings, setSettings] = useState<SiteSettings>(data.settings);
   const [saved, setSaved] = useState(false);
   const [images, setImages] = useState<ImageItem[] | null>(null);
@@ -122,10 +124,10 @@ export function AdminDashboard({
           <div className="flex items-center gap-3">
             <img src={logo.url} alt="" className="h-10 w-10 object-contain" />
             <div>
-              <p className="text-sm font-semibold">Administration</p>
+              <p className="text-sm font-semibold">{t("admin.title")}</p>
               <p className="text-xs text-foreground/55">
                 {username}
-                {role === "super" ? " · Super admin" : ""}
+                {role === "super" ? ` · ${t("admin.super")}` : ""}
               </p>
             </div>
           </div>
@@ -136,31 +138,31 @@ export function AdminDashboard({
               to="/"
               className="hidden items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold hover:border-brand hover:text-brand sm:flex"
             >
-              <ExternalLink className="h-3.5 w-3.5" /> Voir le site
+              <ExternalLink className="h-3.5 w-3.5" /> {t("admin.viewSite")}
             </Link>
             <button
               type="button"
               onClick={onLogout}
               className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold hover:border-destructive hover:text-destructive"
             >
-              <LogOut className="h-3.5 w-3.5" /> Quitter
+              <LogOut className="h-3.5 w-3.5" /> {t("admin.logout")}
             </button>
           </div>
         </div>
         <div className="mx-auto flex w-full max-w-5xl gap-2 overflow-x-auto px-5 pb-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {(
             [
-              { id: "inventory", label: "Inventaire", icon: Package },
-              { id: "orders", label: "Commandes", icon: ShoppingBag },
-              { id: "cindy", label: "Cindy AI", icon: Sparkles },
-              { id: "design", label: "Apparence", icon: Palette },
-              { id: "searches", label: "Recherches", icon: Search },
-              { id: "images", label: "Images", icon: ImageIcon },
-              { id: "api", label: "API Cindy", icon: KeyRound },
+              { id: "inventory", label: t("admin.tab.inventory"), icon: Package },
+              { id: "orders", label: t("admin.tab.orders"), icon: ShoppingBag },
+              { id: "cindy", label: t("admin.tab.cindy"), icon: Sparkles },
+              { id: "design", label: t("admin.tab.design"), icon: Palette },
+              { id: "searches", label: t("admin.tab.searches"), icon: Search },
+              { id: "images", label: t("admin.tab.images"), icon: ImageIcon },
+              { id: "api", label: t("admin.tab.api"), icon: KeyRound },
               ...(role === "super"
                 ? ([
-                    { id: "emails", label: "Accès Google", icon: Mail },
-                    { id: "staff", label: "Admins", icon: Users },
+                    { id: "emails", label: t("admin.tab.emails"), icon: Mail },
+                    { id: "staff", label: t("admin.tab.staff"), icon: Users },
                   ] as const)
                 : []),
             ] as const
@@ -233,9 +235,9 @@ export function AdminDashboard({
                   <Sparkles className="h-4 w-4" />
                 </span>
                 <div>
-                  <p className="text-sm font-semibold">Ajouter un produit avec Cindy</p>
+                  <p className="text-sm font-semibold">{t("admin.cindy.title")}</p>
                   <p className="text-xs text-foreground/60">
-                    Donnez une référence, Cindy recherche les informations officielles pour vous.
+                    {t("admin.cindy.desc")}
                   </p>
                 </div>
               </div>
@@ -245,7 +247,7 @@ export function AdminDashboard({
                 className="rounded-full px-5 py-2.5 text-sm font-semibold text-primary-foreground"
                 style={{ background: "var(--gradient-brand)" }}
               >
-                Rechercher avec Cindy
+                {t("admin.cindy.cta")}
               </button>
             </div>
             <CatalogExplorer data={data} busy={busy} actions={catalogActions} />
@@ -261,9 +263,9 @@ export function AdminDashboard({
             className="max-w-xl rounded-3xl border border-border bg-card p-7"
           >
             <div className="mb-8 rounded-2xl border border-border bg-brand-soft/25 p-5">
-              <h2 className="text-lg font-semibold">Disponibilité du site</h2>
+              <h2 className="text-lg font-semibold">{t("admin.mode.title")}</h2>
               <p className="mt-1 text-sm text-foreground/60">
-                Contrôle ce que voient les visiteurs du site public.
+                {t("admin.mode.desc")}
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {(Object.keys(SITE_MODE_LABELS) as SiteMode[]).map((mode) => (
@@ -287,16 +289,16 @@ export function AdminDashboard({
               </div>
             </div>
 
-            <h2 className="text-lg font-semibold">Couleurs du site</h2>
+            <h2 className="text-lg font-semibold">{t("admin.colors.title")}</h2>
             <p className="mt-1 text-sm text-foreground/60">
-              Les modifications s'appliquent immédiatement à tout le site.
+              {t("admin.colors.desc")}
             </p>
             <div className="mt-6 space-y-5">
               {(
                 [
-                  { key: "primary_color", label: "Couleur principale (fond)" },
-                  { key: "secondary_color", label: "Couleur secondaire (accent)" },
-                  { key: "text_color", label: "Couleur du texte" },
+                  { key: "primary_color", label: t("admin.colors.primary") },
+                  { key: "secondary_color", label: t("admin.colors.secondary") },
+                  { key: "text_color", label: t("admin.colors.text") },
                 ] as const
               ).map((item) => (
                 <div key={item.key} className="flex items-center gap-4">
@@ -323,7 +325,7 @@ export function AdminDashboard({
                 className="rounded-full px-5 py-2.5 text-sm font-semibold text-primary-foreground"
                 style={{ background: "var(--gradient-brand)" }}
               >
-                Enregistrer
+                {t("admin.save")}
               </button>
               <button
                 type="button"
@@ -337,9 +339,9 @@ export function AdminDashboard({
                 }
                 className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold"
               >
-                Réinitialiser
+                {t("admin.reset")}
               </button>
-              {saved && <span className="text-sm font-semibold text-brand">Enregistré ✓</span>}
+              {saved && <span className="text-sm font-semibold text-brand">{t("admin.saved")}</span>}
             </div>
           </form>
         )}
