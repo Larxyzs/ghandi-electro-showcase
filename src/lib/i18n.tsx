@@ -112,7 +112,7 @@ const fr: Dict = {
   "admin.mode.title": "Disponibilité du site",
   "admin.mode.desc": "Contrôle ce que voient les visiteurs du site public.",
   "admin.colors.title": "Couleurs du site",
-  "admin.colors.desc": "Les modifications s"appliquent immédiatement à tout le site.",
+  "admin.colors.desc": "Les modifications s'appliquent immédiatement à tout le site.",
   "admin.colors.primary": "Couleur principale (fond)",
   "admin.colors.secondary": "Couleur secondaire (accent)",
   "admin.colors.text": "Couleur du texte",
