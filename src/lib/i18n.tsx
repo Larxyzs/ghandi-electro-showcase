@@ -525,7 +525,13 @@ const it: Dict = {
   "admin.saved": "Salvato ✓",
 };
 
-const DICTS: Record<LangCode, Dict> = { fr, en, ar, es, it };
+const DICTS: Record<LangCode, Dict> = {
+  fr: { ...fr, ...EXTRA["fr"] },
+  en: { ...en, ...EXTRA["en"] },
+  ar: { ...ar, ...EXTRA["ar"] },
+  es: { ...es, ...EXTRA["es"] },
+  it: { ...it, ...EXTRA["it"] },
+};
 
 const STORAGE_KEY = "ghe-lang";
 
