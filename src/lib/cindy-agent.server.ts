@@ -572,7 +572,19 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
             }),
           onProduct: async (product, index) => {
             const reference = product.identity.model || product.identity.name || product.url;
-            const line = {
+            const line: {
+              url: string;
+              reference: string;
+              name: string;
+              brand: string;
+              images: number;
+              specifications: number;
+              status: string;
+              review: string;
+              conflicts: string[];
+              missing: string[];
+              error?: string;
+            } = {
               url: product.url,
               reference,
               name: product.identity.name,
