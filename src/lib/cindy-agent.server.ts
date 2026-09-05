@@ -1507,7 +1507,17 @@ export async function runCindyAgent(input: {
 }) {
 
   const { aiSetup, aiFailure, aiFetchWithRetry } = await import("./ai-config.server");
+  const {
+    buildAgentRequest,
+    parseAgentStream,
+    transportFor,
+    responsesUrl,
+  } = await import("./ai-tool-loop.server");
   const ai = await aiSetup();
+  // OpenAI models (gpt-5.6-luna…) only accept function tools + reasoning on
+  // /v1/responses; chat/completions returns a 400 for that combination.
+  const transport = transportFor(ai.provider);
+  const endpoint = transport === "responses" ? responsesUrl(ai.url) : ai.url;
 
   let safetyPoint = false;
   /** One full backup per conversation turn, created lazily on the first change. */
@@ -1525,17 +1535,15 @@ export async function runCindyAgent(input: {
   const tools = buildTools(input.signal);
 
   const toolSchemas = tools.map((tool) => ({
-    type: "function" as const,
-    function: {
-      name: tool.name,
-      description: tool.description,
-      parameters: {
-        type: "object",
-        properties: tool.properties,
-        required: tool.required,
-      },
+    name: tool.name,
+    description: tool.description,
+    parameters: {
+      type: "object",
+      properties: tool.properties,
+      required: tool.required,
     },
   }));
+
 
   const history: ChatMessage[] = [
     { role: "system", content: SYSTEM },
