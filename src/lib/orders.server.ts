@@ -83,7 +83,6 @@ export async function createOrder(input: CreateOrderInput): Promise<{ reference:
     items: items as never,
     total,
     status: "nouveau",
-    payment_state: "unpaid",
   });
   if (insertError) throw new Error(insertError.message);
 
