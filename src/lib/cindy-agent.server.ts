@@ -1330,7 +1330,6 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
         return { updated: (data ?? []).length, folder: pathString((await loadCatalog()).nodes, node.id) };
       },
     },
-    },
     {
       name: "read_data",
       description:
