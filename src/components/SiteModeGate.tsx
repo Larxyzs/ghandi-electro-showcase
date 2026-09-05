@@ -2,27 +2,13 @@ import { useRouterState } from "@tanstack/react-router";
 import { Clock, Hammer, Lock } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
 import { COMPANY } from "@/lib/company";
+import { useI18n } from "@/lib/i18n";
 import type { SiteMode } from "@/lib/catalog-types";
 
-const CONTENT: Record<
-  Exclude<SiteMode, "online">,
-  { icon: typeof Clock; title: string; body: string }
-> = {
-  maintenance: {
-    icon: Hammer,
-    title: "Site en maintenance",
-    body: "Nous améliorons notre catalogue. Le site sera de nouveau disponible très bientôt.",
-  },
-  coming_soon: {
-    icon: Clock,
-    title: "Bientôt disponible",
-    body: "Notre nouvelle boutique en ligne arrive très prochainement. Merci de votre patience.",
-  },
-  closed: {
-    icon: Lock,
-    title: "Site temporairement fermé",
-    body: "Le site est momentanément fermé. Contactez-nous directement, nous restons à votre écoute.",
-  },
+const ICONS: Record<Exclude<SiteMode, "online">, typeof Clock> = {
+  maintenance: Hammer,
+  coming_soon: Clock,
+  closed: Lock,
 };
 
 /**
@@ -37,12 +23,13 @@ export function SiteModeGate({
   children: React.ReactNode;
 }) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const { t } = useI18n();
 
   if (mode === "online" || pathname.startsWith("/admin") || pathname.startsWith("/api")) {
     return <>{children}</>;
   }
 
-  const { icon: Icon, title, body } = CONTENT[mode];
+  const Icon = ICONS[mode];
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-brand-soft/30 px-6 text-center">
@@ -53,8 +40,8 @@ export function SiteModeGate({
       >
         <Icon className="h-6 w-6" />
       </span>
-      <h1 className="font-display mt-6 text-3xl font-bold">{title}</h1>
-      <p className="mt-3 max-w-md leading-relaxed text-foreground/65">{body}</p>
+      <h1 className="font-display mt-6 text-3xl font-bold">{t(`mode.${mode}.title`)}</h1>
+      <p className="mt-3 max-w-md leading-relaxed text-foreground/65">{t(`mode.${mode}.body`)}</p>
       <a
         href={COMPANY.phoneHref}
         className="mt-8 rounded-full px-6 py-3 text-sm font-semibold text-primary-foreground"
