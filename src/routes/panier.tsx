@@ -6,6 +6,8 @@ import { useCart } from "@/lib/cart";
 import { isValidMaPhone } from "@/lib/orders-types";
 import { placeOrder } from "@/lib/orders.functions";
 import { formatMAD } from "@/lib/company";
+import { useI18n } from "@/lib/i18n";
+import { useDynamicText } from "@/lib/dynamic-text";
 
 export const Route = createFileRoute("/panier")({
   head: () => ({
@@ -38,6 +40,8 @@ const EMPTY_FORM: FormState = { full_name: "", phone: "", address: "", city: "",
 
 function PanierPage() {
   const { items, setQty, remove, total, clear } = useCart();
+  const { t } = useI18n();
+  const tr = useDynamicText();
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -46,11 +50,11 @@ function PanierPage() {
 
   const validate = () => {
     const next: Partial<Record<keyof FormState, string>> = {};
-    if (form.full_name.trim().length < 2) next.full_name = "Merci d'indiquer votre nom complet.";
+    if (form.full_name.trim().length < 2) next.full_name = t("checkout.errName");
     if (!isValidMaPhone(form.phone)) {
-      next.phone = "Numéro invalide. Exemple : 06 12 34 56 78 ou +212 6 12 34 56 78.";
+      next.phone = t("checkout.errPhone");
     }
-    if (form.address.trim().length < 3) next.address = "Merci d'indiquer votre adresse.";
+    if (form.address.trim().length < 3) next.address = t("checkout.errAddress");
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -59,7 +63,7 @@ function PanierPage() {
     event.preventDefault();
     setServerError(null);
     if (items.length === 0) {
-      setServerError("Votre panier est vide.");
+      setServerError(t("cart.empty"));
       return;
     }
     if (!validate()) return;
@@ -81,11 +85,11 @@ function PanierPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       if (message.includes("INVALID_PHONE")) {
-        setErrors((prev) => ({ ...prev, phone: "Numéro de téléphone invalide." }));
+        setErrors((prev) => ({ ...prev, phone: t("checkout.errPhone") }));
       } else if (message.includes("EMPTY_CART")) {
-        setServerError("Votre panier est vide.");
+        setServerError(t("cart.empty"));
       } else {
-        setServerError("Une erreur est survenue. Merci de réessayer.");
+        setServerError(t("checkout.errGeneric"));
       }
     } finally {
       setSubmitting(false);
@@ -99,20 +103,20 @@ function PanierPage() {
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-soft text-brand">
             <CheckCircle2 className="h-9 w-9" />
           </div>
-          <h1 className="mt-6 text-2xl font-bold sm:text-3xl">Commande envoyée !</h1>
+          <h1 className="mt-6 text-2xl font-bold sm:text-3xl">{t("cart.sent")}</h1>
           <p className="mt-3 text-foreground/70">
-            Votre référence de commande est{" "}
+            {t("cart.reference")}{" "}
             <span className="font-semibold text-brand">{reference}</span>.
           </p>
           <p className="mt-2 text-foreground/70">
-            Nous vous appellerons très prochainement pour confirmer votre commande.
+            {t("cart.callback")}
           </p>
           <Link
             to="/produits"
             className="mt-8 inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-soft)] transition-transform hover:scale-[1.03]"
             style={{ background: "var(--gradient-brand)" }}
           >
-            Continuer mes achats
+            {t("cart.continue")}
           </Link>
         </section>
       </SiteLayout>
@@ -123,15 +127,15 @@ function PanierPage() {
     <SiteLayout>
       <section className="mx-auto w-full max-w-4xl px-5 py-12 sm:py-16">
         <h1 className="flex items-center gap-2 text-2xl font-bold sm:text-3xl">
-          <ShoppingCart className="h-6 w-6 text-brand" /> Mon panier
+          <ShoppingCart className="h-6 w-6 text-brand" /> {t("cart.mine")}
         </h1>
 
         {items.length === 0 ? (
           <div className="mt-12 flex flex-col items-center gap-3 rounded-3xl border border-border bg-card p-12 text-center">
             <PackageSearch className="h-10 w-10 text-brand/40" />
-            <p className="text-foreground/70">Votre panier est vide.</p>
+            <p className="text-foreground/70">{t("cart.empty")}</p>
             <Link to="/produits" className="font-semibold text-brand hover:underline">
-              Découvrir nos produits
+              {t("cart.discover")}
             </Link>
           </div>
         ) : (
@@ -144,7 +148,7 @@ function PanierPage() {
                 >
                   <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-brand-soft/50">
                     {item.image_url ? (
-                      <img src={item.image_url} alt={item.name} className="h-full w-full object-contain" />
+                      <img src={item.image_url} alt={tr(item.name)} className="h-full w-full object-contain" />
                     ) : (
                       <div className="flex h-full items-center justify-center text-brand/40">
                         <PackageSearch className="h-6 w-6" />
@@ -154,7 +158,7 @@ function PanierPage() {
                   <div className="flex min-w-0 flex-1 flex-col">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="font-semibold">{item.name}</p>
+                        <p className="font-semibold">{tr(item.name)}</p>
                         {item.brand && (
                           <p className="text-xs font-semibold tracking-wide text-brand uppercase">
                             {item.brand}
@@ -164,7 +168,7 @@ function PanierPage() {
                       <button
                         type="button"
                         onClick={() => remove(item.product_id)}
-                        aria-label="Retirer"
+                        aria-label={t("cart.remove")}
                         className="shrink-0 text-foreground/40 hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -176,7 +180,7 @@ function PanierPage() {
                           type="button"
                           onClick={() => setQty(item.product_id, item.qty - 1)}
                           className="flex h-7 w-7 items-center justify-center rounded-full text-foreground/70 hover:bg-brand-soft"
-                          aria-label="Diminuer"
+                          aria-label={t("cart.dec")}
                         >
                           <Minus className="h-4 w-4" />
                         </button>
@@ -185,7 +189,7 @@ function PanierPage() {
                           type="button"
                           onClick={() => setQty(item.product_id, item.qty + 1)}
                           className="flex h-7 w-7 items-center justify-center rounded-full text-foreground/70 hover:bg-brand-soft"
-                          aria-label="Augmenter"
+                          aria-label={t("cart.inc")}
                         >
                           <Plus className="h-4 w-4" />
                         </button>
@@ -202,7 +206,7 @@ function PanierPage() {
             <div className="flex flex-col gap-6">
               <div className="rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
                 <div className="flex items-center justify-between text-lg font-bold">
-                  <span>Total</span>
+                  <span>{t("cart.total")}</span>
                   <span className="text-brand">{formatMAD(total)}</span>
                 </div>
               </div>
@@ -211,18 +215,18 @@ function PanierPage() {
                 onSubmit={handleSubmit}
                 className="flex flex-col gap-4 rounded-3xl border border-border bg-card p-6 shadow-[var(--shadow-card)]"
               >
-                <h2 className="text-lg font-semibold">Vos coordonnées</h2>
+                <h2 className="text-lg font-semibold">{t("checkout.details")}</h2>
 
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-foreground/80">
-                    Nom complet
+                    {t("checkout.name")}
                   </label>
                   <input
                     type="text"
                     value={form.full_name}
                     onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
                     className="w-full rounded-xl border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand/40"
-                    placeholder="Votre nom et prénom"
+                    placeholder={t("checkout.namePlaceholder")}
                   />
                   {errors.full_name && (
                     <p className="mt-1 text-xs text-destructive">{errors.full_name}</p>
@@ -231,7 +235,7 @@ function PanierPage() {
 
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-foreground/80">
-                    Téléphone
+                    {t("checkout.phone")}
                   </label>
                   <input
                     type="tel"
@@ -245,14 +249,14 @@ function PanierPage() {
 
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-foreground/80">
-                    Adresse
+                    {t("checkout.address")}
                   </label>
                   <input
                     type="text"
                     value={form.address}
                     onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
                     className="w-full rounded-xl border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand/40"
-                    placeholder="Rue, quartier, numéro..."
+                    placeholder={t("checkout.addressPlaceholder")}
                   />
                   {errors.address && (
                     <p className="mt-1 text-xs text-destructive">{errors.address}</p>
@@ -260,7 +264,7 @@ function PanierPage() {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-foreground/80">Ville</label>
+                  <label className="mb-1.5 block text-sm font-medium text-foreground/80">{t("checkout.city")}</label>
                   <input
                     type="text"
                     value={form.city}
@@ -272,14 +276,14 @@ function PanierPage() {
 
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-foreground/80">
-                    Note (optionnel)
+                    {t("checkout.note")}
                   </label>
                   <textarea
                     value={form.note}
                     onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
                     rows={3}
                     className="w-full resize-none rounded-xl border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand/40"
-                    placeholder="Précisions sur la livraison, horaires..."
+                    placeholder={t("checkout.notePlaceholder")}
                   />
                 </div>
 
@@ -291,7 +295,7 @@ function PanierPage() {
                   className="mt-2 flex w-full items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-soft)] transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                   style={{ background: "var(--gradient-brand)" }}
                 >
-                  {submitting ? "Envoi en cours..." : "Valider la commande"}
+                  {submitting ? t("checkout.submitting") : t("checkout.submit")}
                 </button>
 
                 <p className="flex items-center gap-1.5 text-xs text-foreground/50">
