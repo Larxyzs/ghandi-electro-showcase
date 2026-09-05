@@ -1,5 +1,5 @@
 import type { OrderItem, OrderStatus, Order } from "./orders-types";
-import { normalizeMaPhone } from "./orders-types";
+import { normalizeMaPhone, validateOrderLine } from "./orders-types";
 
 function generateReference() {
   const now = new Date();
@@ -47,11 +47,12 @@ export async function createOrder(input: CreateOrderInput): Promise<{ reference:
   const items: OrderItem[] = [];
   let total = 0;
 
+  // The server is the authority: existence, current price and current stock are
+  // re-checked here, never trusted from the browser.
   for (const line of rawItems) {
     const product = byId.get(line.product_id);
+    const { qty, price } = validateOrderLine(product, line.qty);
     if (!product) continue;
-    const qty = Math.max(1, Math.min(99, Math.floor(line.qty)));
-    const price = product.price ?? 0;
     items.push({
       product_id: product.id,
       name: product.name,
@@ -76,6 +77,7 @@ export async function createOrder(input: CreateOrderInput): Promise<{ reference:
     items: items as never,
     total,
     status: "nouveau",
+    payment_state: "unpaid",
   });
   if (insertError) throw new Error(insertError.message);
 

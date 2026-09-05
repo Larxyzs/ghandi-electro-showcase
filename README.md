@@ -40,7 +40,7 @@ Admin Panel
 
 URL: /admin
 
-Access: password-protected with the password Ritali123
+Access: password-protected. The password is stored as a server secret (ADMIN_PASSWORD) and is never written in the source or the documentation.
 
 Persistence: once the correct password is entered successfully, remember the session using a cookie so the user isn't asked again on future visits to /admin on the same browser
 

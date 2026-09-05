@@ -6,9 +6,22 @@
  *  - Cindy's brain: Gemini (default, GEMINI_API_KEY) or the Lovable AI gateway
  */
 
-export type AiProviderId = "gemini" | "lovable";
+export type AiProviderId = "openai" | "gemini" | "lovable";
+
+/** Default model for Cindy (configurable in the admin panel / OPENAI_MODEL). */
+export const DEFAULT_OPENAI_MODEL = "gpt-5.6-luna";
 
 export const AI_MODELS: Record<AiProviderId, { id: string; label: string }[]> = {
+  // Direct OpenAI API (clé OPENAI_API_KEY) — cerveau par défaut de Cindy.
+  openai: [
+    { id: "gpt-5.6-luna", label: "GPT-5.6 Luna (par défaut)" },
+    { id: "gpt-5.6-sol", label: "GPT-5.6 Sol" },
+    { id: "gpt-5.6-terra", label: "GPT-5.6 Terra" },
+    { id: "gpt-5.5", label: "GPT-5.5" },
+    { id: "gpt-5.4", label: "GPT-5.4" },
+    { id: "gpt-5.4-mini", label: "GPT-5.4 Mini (économique)" },
+    { id: "gpt-5.4-nano", label: "GPT-5.4 Nano (le plus économique)" },
+  ],
   // Direct Gemini API (clé GEMINI_API_KEY) — toute la famille Gemini.
   gemini: [
     { id: "gemini-3.7-flash", label: "Gemini 3.7 Flash (dernière génération)" },
@@ -66,7 +79,7 @@ export type AiSetup = {
 
 /** Resolves the chat-completions endpoint Cindy should use right now. */
 export async function aiSetup(): Promise<AiSetup> {
-  let provider: AiProviderId = "gemini";
+  let provider: AiProviderId = "openai";
   let model = "";
   let key = "";
   try {
@@ -79,8 +92,8 @@ export async function aiSetup(): Promise<AiSetup> {
         .maybeSingle(),
       supabaseAdmin.from("site_secrets").select("ai_api_key").eq("id", "default").maybeSingle(),
     ]);
-    const stored = (data?.ai_provider ?? "gemini") as AiProviderId;
-    if (stored === "gemini" || stored === "lovable") provider = stored;
+    const stored = (data?.ai_provider ?? "openai") as AiProviderId;
+    if (stored === "openai" || stored === "gemini" || stored === "lovable") provider = stored;
     model = (data?.ai_model ?? "").trim();
     key = (secrets?.ai_api_key ?? "").trim();
   } catch {
@@ -88,11 +101,14 @@ export async function aiSetup(): Promise<AiSetup> {
   }
 
   if (!key) {
-    key = (
-      provider === "gemini" ? (process.env["GEMINI_API_KEY"] ?? "") : (process.env["LOVABLE_API_KEY"] ?? "")
+    key = (provider === "openai"
+      ? (process.env["OPENAI_API_KEY"] ?? "")
+      : provider === "gemini"
+        ? (process.env["GEMINI_API_KEY"] ?? "")
+        : (process.env["LOVABLE_API_KEY"] ?? "")
     ).trim();
   }
-  if (!key && provider === "gemini") {
+  if (!key && provider !== "lovable") {
     const fallback = (process.env["LOVABLE_API_KEY"] ?? "").trim();
     if (fallback) {
       provider = "lovable";
@@ -103,7 +119,19 @@ export async function aiSetup(): Promise<AiSetup> {
   if (!key) throw new Error("AI_NOT_CONFIGURED");
 
   const known = AI_MODELS[provider].map((m) => m.id);
+  if (provider === "openai" && !model) model = (process.env["OPENAI_MODEL"] ?? "").trim();
   if (!model || !known.includes(model)) model = known[0]!;
+
+  if (provider === "openai") {
+    return {
+      provider,
+      model,
+      key,
+      url: (process.env["OPENAI_BASE_URL"] ?? "https://api.openai.com/v1").replace(/\/$/, "") +
+        "/chat/completions",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    };
+  }
 
   return provider === "gemini"
     ? {
@@ -188,11 +216,14 @@ export async function aiFetchWithRetry(
 /** Quick connectivity probe used by the admin panel before saving a key. */
 export async function testAiProvider(provider: AiProviderId, model: string, key: string) {
   const url =
-    provider === "gemini"
+    provider === "openai"
+      ? (process.env["OPENAI_BASE_URL"] ?? "https://api.openai.com/v1").replace(/\/$/, "") +
+        "/chat/completions"
+      : provider === "gemini"
       ? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
       : "https://ai.gateway.lovable.dev/v1/chat/completions";
   const headers: Record<string, string> =
-    provider === "gemini"
+    provider === "openai" || provider === "gemini"
       ? { "Content-Type": "application/json", Authorization: `Bearer ${key}` }
       : { "Content-Type": "application/json", "Lovable-API-Key": key, "X-Lovable-AIG-SDK": "fetch" };
   try {

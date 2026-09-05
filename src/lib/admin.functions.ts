@@ -437,7 +437,7 @@ export const adminSaveSearchSettings = createServerFn({ method: "POST" })
       provider: String(data.provider) as "tavily" | "serper" | "brave",
       key: data.key ? String(data.key).slice(0, 300) : null,
       model: String(data.model ?? "search"),
-      aiProvider: String(data.aiProvider ?? "gemini") as "gemini" | "lovable",
+      aiProvider: String(data.aiProvider ?? "openai") as "openai" | "gemini" | "lovable",
       aiModel: String(data.aiModel ?? ""),
       aiKey: data.aiKey ? String(data.aiKey).slice(0, 300) : null,
       test: Boolean(data.test),

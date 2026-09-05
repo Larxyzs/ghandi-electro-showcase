@@ -510,6 +510,207 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
       },
     },
     {
+      name: "import_exact_urls",
+      description:
+        "IMPORT PAR URL EXACTE — l'outil PRIORITAIRE dès que l'admin colle une ou plusieurs URL de fiches produits officielles (une par ligne, 1 à 500). Chaque URL est traitée séparément : lecture de CETTE page exacte (avec repli navigateur/rendu JS si 403 ou page JavaScript), identification du produit (marque, nom, référence), extraction du diaporama officiel dans son ordre d'origine, extraction des spécifications AVEC preuve de la source, détection des contradictions, mémoire du fabricant. Aucune recherche web n'est utilisée. Une URL inaccessible est signalée telle quelle : jamais remplacée par un revendeur, Google ou un modèle voisin. Une URL en échec n'arrête pas le lot. Les produits douteux sont créés en état « à vérifier » pour la revue admin.",
+      properties: {
+        urls: { type: "array", items: { type: "string" } },
+        folder_path: S,
+        stock: N,
+        price: N,
+        create: B,
+        skip_existing: B,
+      },
+      required: ["urls", "folder_path", "stock", "price", "create", "skip_existing"],
+      run: async (args, emit) => {
+        const raw = Array.isArray(args["urls"]) ? args["urls"].map((u) => String(u ?? "")) : [];
+        const { importBatch, parseUrls, alreadyImported } = await import("./import-url.server");
+        let urls = parseUrls(raw);
+        if (urls.length === 0) throw new Error("Donne-moi au moins une URL complète (https://…).");
+
+        if (args["skip_existing"] === true) {
+          const done = await alreadyImported(urls);
+          urls = urls.filter((u) => !done.has(u));
+          if (urls.length === 0) return { total: 0, message: "Toutes ces URL ont déjà été importées." };
+        }
+
+        const shouldCreate = args["create"] !== false;
+        const folderPath = str(args, "folder_path");
+        const stock = Math.max(0, Math.floor(num(args, "stock") ?? 0));
+        const price = num(args, "price");
+        const { saveProduct } = await import("./admin.server");
+
+        urls.forEach((url, index) =>
+          emit({ type: "bulk_item", item: { index, ref: url, status: "pending" } }),
+        );
+
+        const report: {
+          url: string;
+          reference: string;
+          name: string;
+          brand: string;
+          images: number;
+          specifications: number;
+          status: string;
+          review: string;
+          conflicts: string[];
+          missing: string[];
+          error?: string;
+        }[] = [];
+
+        const { results, progress } = await importBatch(urls, {
+          concurrency: 3,
+          ...(signal ? { signal } : {}),
+          onProgress: (p) =>
+            emit({
+              type: "activity",
+              id: `batch-${p.batchId || "run"}`,
+              kind: "extract",
+              label: `${p.processed} / ${p.total} traités`,
+              detail: `${p.verified} vérifiés · ${p.needs_review} à vérifier · ${p.failed} échecs`,
+              status: p.processed >= p.total ? "done" : "running",
+            }),
+          onProduct: async (product, index) => {
+            const reference = product.identity.model || product.identity.name || product.url;
+            const line: {
+              url: string;
+              reference: string;
+              name: string;
+              brand: string;
+              images: number;
+              specifications: number;
+              status: string;
+              review: string;
+              conflicts: string[];
+              missing: string[];
+              error?: string;
+            } = {
+              url: product.url,
+              reference,
+              name: product.identity.name,
+              brand: product.identity.brand,
+              images: product.gallery.length,
+              specifications: product.specifications.length,
+              status: product.status,
+              review: product.status,
+              conflicts: product.conflicts,
+              missing: product.missing,
+              ...(product.error ? { error: product.error } : {}),
+            };
+            report.push(line);
+
+            if (product.status === "failed") {
+              emit({
+                type: "bulk_item",
+                item: { index, ref: reference, status: "error", message: product.error },
+              });
+              return;
+            }
+
+            if (!shouldCreate) {
+              emit({ type: "bulk_item", item: { index, ref: reference, status: "done" } });
+              return;
+            }
+
+            try {
+              const { products: existing } = await loadCatalog();
+              const key = norm(reference);
+              const duplicate = existing.find(
+                (p) => norm(p.serial_number ?? "") === key || norm(p.name) === key,
+              );
+              if (duplicate) {
+                line.status = "duplicate";
+                emit({
+                  type: "bulk_item",
+                  item: { index, ref: reference, status: "error", message: "Déjà au catalogue" },
+                });
+                return;
+              }
+              const path =
+                folderPath ||
+                [product.identity.brand || "Divers", "Modèles", reference].filter(Boolean).join(" / ");
+              const node = await resolvePath(path, true);
+              const { id } = await saveProduct({
+                node_id: node.id,
+                name: product.identity.name || reference,
+                brand: product.identity.brand,
+                serial_number: product.identity.model || reference,
+                characteristics: product.characteristics,
+                specifications: product.specifications,
+                gallery: product.gallery,
+                marketing_sections: [] as never,
+                source_url: product.canonicalUrl,
+                source_name: product.domain,
+                review_state: product.status,
+                extraction_evidence: product.fields as never,
+                stock,
+                price: price ?? product.price ?? null,
+                ...httpsImage(product.gallery[0] ?? null),
+              });
+              line.status = "created";
+              try {
+                const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+                await supabaseAdmin
+                  .from("product_imports")
+                  .update({ product_id: id })
+                  .eq("url", product.url);
+              } catch {
+                /* traçabilité seulement */
+              }
+              emit({ type: "bulk_item", item: { index, ref: reference, status: "done" } });
+              emit({ type: "changed" });
+            } catch (error) {
+              line.status = `error: ${error instanceof Error ? error.message : "échec"}`;
+              emit({
+                type: "bulk_item",
+                item: { index, ref: reference, status: "error", message: line.status },
+              });
+            }
+          },
+        });
+
+        emit({
+          type: "bulk_summary",
+          total: progress.total,
+          ok: progress.verified + progress.needs_review,
+          failed: progress.failed,
+        });
+
+        return {
+          total: progress.total,
+          verified: progress.verified,
+          needs_review: progress.needs_review,
+          failed: progress.failed,
+          products: report,
+          note:
+            "Les URL en échec sont listées telles quelles : ne cherche PAS un autre site pour les remplacer, dis-le à l'admin.",
+          gallery_check: results.map((r) => ({
+            url: r.url,
+            images: r.gallery.length,
+            source: r.gallerySource,
+          })),
+        };
+      },
+    },
+    {
+      name: "remember_manufacturer_rule",
+      description:
+        "Mémoire fabricant : enregistre une règle d'interprétation pour UN site fabricant (domaine). À utiliser quand l'admin te corrige (« sur cette page, ce champ veut dire capacité totale ») ou quand tu découvres une particularité de structure. Les règles ne sont jamais partagées entre fabricants et sont réutilisées automatiquement lors des prochains imports de ce domaine.",
+      properties: { domain: { type: "string" }, brand: S, term: S, means: S, quirk: S, note: S },
+      required: ["domain", "brand", "term", "means", "quirk", "note"],
+      run: async (args) => {
+        const { rememberManufacturerRule } = await import("./import-url.server");
+        return rememberManufacturerRule({
+          domain: str(args, "domain"),
+          brand: str(args, "brand"),
+          term: str(args, "term"),
+          means: str(args, "means"),
+          quirk: str(args, "quirk"),
+          note: str(args, "note"),
+        });
+      },
+    },
+    {
       name: "import_from_page",
       description:
         "L'admin donne l'URL d'une page (rayon, listing, résultats d'une marque) : cet outil ouvre la page, repère TOUS les liens de fiches produits, ouvre chaque fiche une par une et en extrait toutes les informations (nom, référence, caractéristiques, spécifications, images), puis crée les articles dans le dossier demandé. Les doublons déjà au catalogue sont signalés, pas recréés. price/stock viennent uniquement de l'admin (laisse null/0 s'il ne les a pas donnés). C'est l'outil à utiliser dès que l'admin envoie un lien de page avec plusieurs produits.",
@@ -1257,6 +1458,8 @@ IMAGES — JAMAIS DE RETOUCHE IA : les images du catalogue doivent TOUJOURS rest
 
 DIAPORAMAS — ANALYSE PROFONDE ET NETTOYAGE : dès que l'admin parle de doublons, d'images en plusieurs copies, d'images manquantes ou de "choses bizarres" dans les diaporamas, commence TOUJOURS par audit_galleries (apply: false pour un diagnostic, apply: true pour corriger). Elle détecte : (1) la MÊME photo servie par des miroirs CDN différents (aws-obg-image-lb-1/2/3/4/5.tcl.com, media3.bsh-group.com, img1/img2…) ou en variantes de taille (?w=800, @2x, _1200x1200, /w_600/) — c'est la cause n°1 des diaporamas à 28 images ; (2) les entrées qui ne sont pas des photos : endpoints .json (jcr:content.vendorlibs.json), cartes de partage social (tcl-share.jpg), logos/sprites/pixels, miniatures (-thumb-, 104x104), gabarits non résolus ({{item.imageUrl}} / %7B%7B…), liens tronqués sans extension, URL de page finissant par "/" ; (3) les diaporamas VIDES. Après le nettoyage, si un article se retrouve sans photo, relance refresh_product_media sur le site officiel Maroc / Afrique du Nord. Explique toujours à l'admin, en une phrase simple, combien de copies et combien d'entrées non-photo tu as retirées par article.
 
+
+IMPORT PAR URL EXACTE (PRIORITÉ ABSOLUE) : dès que le message de l'admin contient une ou plusieurs URL de fiches produits (même 100 d'un coup), appelle import_exact_urls avec TOUTES ces URL d'un seul coup. Tu n'appelles ni web_search ni research_product ni Serper dans ce cas : l'URL EST la source. Chaque URL est traitée indépendamment : jamais une valeur d'un produit sur un autre produit (si la page A dit « Capacité totale : 512 L », le produit A garde 512 L, même si un autre modèle fait 462 L). Tu n'inventes, ne complètes, ne corriges JAMAIS une caractéristique avec tes connaissances : si l'information n'est pas sur la page, elle est marquée inconnue/à vérifier et le produit part en revue admin. Si une URL est inaccessible (403, page supprimée), tu le dis clairement avec l'erreur réelle et tu ne la remplaces PAS par un revendeur, Google, une marketplace ou un modèle voisin. Une URL en échec n'arrête pas le lot : tu termines les autres et tu donnes le bilan (traités / vérifiés / à vérifier / échecs). Les images viennent uniquement du diaporama officiel du produit, dans l'ordre d'origine, sans doublons ni bannières/logos/produits recommandés. Quand l'admin te corrige sur l'interprétation d'un champ d'un site fabricant, appelle remember_manufacturer_rule pour t'en souvenir pour ce domaine.
 
 RECHERCHE PRODUIT — SOURCES OFFICIELLES UNIQUEMENT : quand l'admin écrit juste « RB34T672EWW, Samsung » ou « Samsung RB34T672EWW », c'est une référence exacte + une marque : appelle directement research_product avec ce texte. Tu n'utilises QUE le site officiel du fabricant, et EN PRIORITÉ sa version Maroc puis Afrique du Nord (samsung.com/n_africa, lg.com/africa, bosch-home.ma, …) : c'est cette version qui donne les bons modèles et le bon prix public. Passe sur une autre version (Europe/monde) uniquement si la version Maroc/Afrique du Nord n'existe pas, et signale-le. Jamais Tangerois, Electroplanet, Jumia, Avito, un revendeur, une marketplace, un blog, Pinterest ou Google Images. Si la page officielle de cette référence exacte est introuvable, dis-le à l'admin au lieu de deviner ou d'importer un modèle voisin. Toutes les images du diaporama d'origine sont conservées, sans limite de nombre.
 
