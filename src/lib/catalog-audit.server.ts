@@ -297,7 +297,7 @@ export async function repairAuditFindings(
           .select("gallery, image_url")
           .eq("id", item.product_id)
           .maybeSingle();
-        const audit = auditGallery(((row?.gallery ?? []) as string[]) ?? [], row?.image_url ?? null);
+        const audit = auditGallery((row?.gallery ?? []) as string[], row?.image_url ?? null);
         const gallery = dedupeGallery(audit.kept);
         await client
           .from("products")
