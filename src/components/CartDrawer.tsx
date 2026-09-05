@@ -8,16 +8,20 @@ import {
 } from "@/components/ui/sheet";
 import { useCart } from "@/lib/cart";
 import { formatMAD } from "@/lib/company";
+import { useI18n } from "@/lib/i18n";
+import { useDynamicText } from "@/lib/dynamic-text";
 
 export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { items, setQty, remove, total } = useCart();
+  const { t } = useI18n();
+  const tr = useDynamicText();
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
         <SheetHeader className="border-b border-border px-5 py-4 text-left">
           <SheetTitle className="flex items-center gap-2">
-            <ShoppingCart className="h-5 w-5 text-brand" /> Mon panier
+            <ShoppingCart className="h-5 w-5 text-brand" /> {t("cart.mine")}
           </SheetTitle>
         </SheetHeader>
 
@@ -25,7 +29,7 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
           {items.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-foreground/60">
               <ShoppingCart className="h-10 w-10 text-brand/40" />
-              <p className="text-sm">Votre panier est vide.</p>
+              <p className="text-sm">{t("cart.empty")}</p>
             </div>
           ) : (
             <ul className="flex flex-col gap-4">
@@ -36,16 +40,16 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
                 >
                   <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-brand-soft/50">
                     {item.image_url ? (
-                      <img src={item.image_url} alt={item.name} className="h-full w-full object-contain" />
+                      <img src={item.image_url} alt={tr(item.name)} className="h-full w-full object-contain" />
                     ) : null}
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="line-clamp-2 text-sm font-semibold">{item.name}</p>
+                      <p className="line-clamp-2 text-sm font-semibold">{tr(item.name)}</p>
                       <button
                         type="button"
                         onClick={() => remove(item.product_id)}
-                        aria-label="Retirer"
+                        aria-label={t("cart.remove")}
                         className="shrink-0 text-foreground/40 hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -62,7 +66,7 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
                           type="button"
                           onClick={() => setQty(item.product_id, item.qty - 1)}
                           className="flex h-6 w-6 items-center justify-center rounded-full text-foreground/70 hover:bg-brand-soft"
-                          aria-label="Diminuer"
+                          aria-label={t("cart.dec")}
                         >
                           <Minus className="h-3.5 w-3.5" />
                         </button>
@@ -71,7 +75,7 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
                           type="button"
                           onClick={() => setQty(item.product_id, item.qty + 1)}
                           className="flex h-6 w-6 items-center justify-center rounded-full text-foreground/70 hover:bg-brand-soft"
-                          aria-label="Augmenter"
+                          aria-label={t("cart.inc")}
                         >
                           <Plus className="h-3.5 w-3.5" />
                         </button>
@@ -90,7 +94,7 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
         {items.length > 0 && (
           <div className="border-t border-border px-5 py-4">
             <div className="flex items-center justify-between text-base font-bold">
-              <span>Total</span>
+              <span>{t("cart.total")}</span>
               <span className="text-brand">{formatMAD(total)}</span>
             </div>
             <Link
@@ -99,7 +103,7 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-soft)] transition-transform hover:scale-[1.02]"
               style={{ background: "var(--gradient-brand)" }}
             >
-              Commander
+              {t("cart.order")}
             </Link>
           </div>
         )}

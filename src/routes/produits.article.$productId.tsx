@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { SiteLayout } from "@/components/SiteLayout";
 import { ProductGallery } from "@/components/ProductGallery";
 import { useI18n } from "@/lib/i18n";
+import { useDynamicText } from "@/lib/dynamic-text";
 import { useLiveEdit } from "@/lib/live-edit";
 import { ProductLiveEditor } from "@/components/live/ProductLiveEditor";
 import { dedupeGallery, pathOf, type SiteData } from "@/lib/catalog-types";
@@ -46,6 +47,7 @@ export const Route = createFileRoute("/produits/article/$productId")({
 
 function ProductDetail() {
   const { t } = useI18n();
+  const tr = useDynamicText();
   const { add } = useCart();
   const [qty, setQty] = useState(1);
   const { admin, editing, setEditing } = useLiveEdit();
@@ -74,7 +76,7 @@ function ProductDetail() {
         </Link>
 
         <div className="mt-6 grid gap-10 lg:grid-cols-2">
-          <ProductGallery images={images} alt={product.name} />
+          <ProductGallery images={images} alt={tr(product.name)} />
 
           <div>
             {trail.length > 0 && (
@@ -87,7 +89,7 @@ function ProductDetail() {
                       params={{ _splat: trail.slice(0, index + 1).map((n) => n.slug).join("/") }}
                       className="hover:underline"
                     >
-                      {node.name}
+                      {tr(node.name)}
                     </Link>
                   </span>
                 ))}
@@ -99,7 +101,7 @@ function ProductDetail() {
                 {product.brand}
               </p>
             )}
-            <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{product.name}</h1>
+            <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{tr(product.name)}</h1>
             {product.serial_number && (
               <p className="mt-2 text-sm text-foreground/60">
                 {t("product.serial")} : <span className="font-semibold">{product.serial_number}</span>
@@ -127,7 +129,7 @@ function ProductDetail() {
                 <div className="flex items-center gap-1 rounded-full border border-border p-1">
                   <button
                     type="button"
-                    aria-label="Diminuer la quantité"
+                    aria-label={t("product.qtyDec")}
                     onClick={() => setQty((q) => Math.max(1, q - 1))}
                     className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/70 transition-colors hover:bg-brand-soft"
                   >
@@ -136,7 +138,7 @@ function ProductDetail() {
                   <span className="w-8 text-center text-sm font-semibold">{qty}</span>
                   <button
                     type="button"
-                    aria-label="Augmenter la quantité"
+                    aria-label={t("product.qtyInc")}
                     onClick={() => setQty((q) => Math.min(product.stock, q + 1))}
                     className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/70 transition-colors hover:bg-brand-soft"
                   >
@@ -159,8 +161,8 @@ function ProductDetail() {
                     },
                     qty,
                   );
-                  toast.success("Ajouté au panier", {
-                    description: `${qty} × ${product.name}`,
+                  toast.success(t("cart.added"), {
+                    description: `${qty} × ${tr(product.name)}`,
                   });
                 }}
                 className={cn(
@@ -172,7 +174,7 @@ function ProductDetail() {
                 {...(inStock ? { style: { background: "var(--gradient-brand)" } } : {})}
               >
                 <ShoppingCart className="h-4 w-4" />
-                {inStock ? "Ajouter au panier" : t("product.outOfStock")}
+                {inStock ? t("cart.add") : t("product.outOfStock")}
               </button>
 
               <a
@@ -200,7 +202,7 @@ function ProductDetail() {
                   {t("product.characteristics")}
                 </h2>
                 <p className="mt-3 leading-relaxed whitespace-pre-line text-foreground/75">
-                  {product.characteristics}
+                  {tr(product.characteristics)}
                 </p>
               </div>
             )}
@@ -235,15 +237,15 @@ function ProductDetail() {
 
         {specs.length > 0 && (
           <div className="mt-12 border-t border-border pt-8">
-            <h2 className="text-lg font-semibold">Spécifications techniques</h2>
+            <h2 className="text-lg font-semibold">{t("product.specs")}</h2>
             <dl className="mt-4 grid gap-x-10 sm:grid-cols-2">
               {specs.map((spec, i) => (
                 <div
                   key={`${spec.label}-${i}`}
                   className="flex items-baseline justify-between gap-6 border-b border-border/70 py-2.5 text-sm"
                 >
-                  <dt className="text-foreground/60">{spec.label}</dt>
-                  <dd className="text-end font-medium">{spec.value}</dd>
+                  <dt className="text-foreground/60">{tr(spec.label)}</dt>
+                  <dd className="text-end font-medium">{tr(spec.value)}</dd>
                 </div>
               ))}
             </dl>

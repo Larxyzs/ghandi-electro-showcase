@@ -7,6 +7,7 @@ import { useLiveEdit } from "@/lib/live-edit";
 import { FolderLiveEditor } from "@/components/live/FolderLiveEditor";
 import { ProductCard } from "@/components/ProductCard";
 import { useI18n } from "@/lib/i18n";
+import { useDynamicText } from "@/lib/dynamic-text";
 import {
   ancestorAtLevel,
   childrenOf,
@@ -46,6 +47,7 @@ export const Route = createFileRoute("/produits/")({
 
 function ProductsPage() {
   const { t } = useI18n();
+  const tr = useDynamicText();
   const data = useLoaderData({ from: "__root__" }) as SiteData;
   const { q = "" } = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -129,7 +131,7 @@ function ProductsPage() {
                 params={{ _splat: node.slug }}
                 className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground/70 hover:border-brand hover:text-brand"
               >
-                {node.name} <ChevronRight className="h-3.5 w-3.5" />
+                {tr(node.name)} <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             ))}
           </Reveal>
@@ -164,7 +166,7 @@ function ProductsPage() {
                 <option value="all">{t("products.all")}</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {tr(c.name)}
                   </option>
                 ))}
               </select>
@@ -178,7 +180,7 @@ function ProductsPage() {
                 <option value="all">{t("products.all")}</option>
                 {types.map((n) => (
                   <option key={n.id} value={n.id}>
-                    {n.name}
+                    {tr(n.name)}
                   </option>
                 ))}
               </select>
@@ -208,15 +210,15 @@ function ProductsPage() {
             </div>
 
             <div>
-              <h2 className="text-xs font-semibold tracking-[0.16em] text-brand uppercase">Prix (MAD)</h2>
+              <h2 className="text-xs font-semibold tracking-[0.16em] text-brand uppercase">{t("filter.price")}</h2>
               <div className="mt-2 flex gap-2">
                 <input
                   type="number"
                   min={0}
                   value={minPrice}
                   onChange={(e) => setMinPrice(e.target.value)}
-                  placeholder="Min"
-                  aria-label="Prix minimum"
+                  placeholder={t("filter.min")}
+                  aria-label={t("filter.priceMin")}
                   className={field}
                 />
                 <input
@@ -224,8 +226,8 @@ function ProductsPage() {
                   min={0}
                   value={maxPrice}
                   onChange={(e) => setMaxPrice(e.target.value)}
-                  placeholder="Max"
-                  aria-label="Prix maximum"
+                  placeholder={t("filter.max")}
+                  aria-label={t("filter.priceMax")}
                   className={field}
                 />
               </div>
