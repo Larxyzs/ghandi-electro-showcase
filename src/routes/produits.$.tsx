@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
 import { ChevronRight, Home, PackageSearch, Search, SlidersHorizontal, X } from "lucide-react";
 import { SiteLayout } from "@/components/SiteLayout";
+import { useI18n } from "@/lib/i18n";
+import { useDynamicText } from "@/lib/dynamic-text";
 import { Reveal } from "@/components/Reveal";
 import { ProductCard } from "@/components/ProductCard";
 import { CatalogTile } from "@/components/CatalogTile";
@@ -47,6 +49,8 @@ function BrowsePage() {
   const data = useLoaderData({ from: "__root__" }) as SiteData;
   const [query, setQuery] = useState("");
   const { editing } = useLiveEdit();
+  const { t } = useI18n();
+  const tr = useDynamicText();
 
   const segments = (_splat ?? "").split("/").filter(Boolean);
   const trail: CatalogNode[] = [];
@@ -105,7 +109,7 @@ function BrowsePage() {
                 className="font-semibold hover:text-brand"
                 activeProps={{ className: "text-brand" }}
               >
-                {node.name}
+                {tr(node.name)}
               </Link>
             </span>
           ))}
