@@ -1330,144 +1330,6 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
         return { updated: (data ?? []).length, folder: pathString((await loadCatalog()).nodes, node.id) };
       },
     },
-    {
-      name: "freeze_references",
-      description:
-        "Fige le catalogue actuel dans la LISTE MAÎTRESSE permanente (catalog_references) : une entrée par article avec sa marque, son modèle et son URL officielle. À faire avant toute suppression d'articles. Les références ne sont JAMAIS supprimées avec les articles.",
-      properties: {},
-      required: [],
-      run: async () => {
-        const { freezeReferences } = await import("./catalog-references.server");
-        return freezeReferences();
-      },
-    },
-    {
-      name: "list_references",
-      description:
-        "Liste la liste maîtresse permanente des articles (référence, URL officielle, dernier état de reconstruction). Sert à comparer RÉFÉRENCES / ARTICLES ACTUELS.",
-      properties: { limit: N },
-      required: ["limit"],
-      run: async (args) => {
-        const { listReferences } = await import("./catalog-references.server");
-        const list = await listReferences({ limit: Math.min(500, Math.max(1, Math.floor(num(args, "limit") ?? 200))) });
-        return list.map((ref) => ({
-          id: ref.id,
-          brand: ref.brand,
-          model: ref.model,
-          official_url: ref.official_url,
-          node_path: ref.node_path,
-          requires_discovery: ref.requires_discovery,
-          last_status: ref.last_status,
-          last_error: ref.last_error,
-        }));
-      },
-    },
-    {
-      name: "audit_catalog",
-      description:
-        "CONTRÔLE RÉEL DU CATALOGUE. Analyse tout ce qui est enregistré (identité, référence, fabricant, caractéristiques manquantes/suspectes/contradictoires, doublons d'articles, diaporamas invalides ou vides, images de revendeur, URL officielles manquantes) et compare avec la liste maîtresse. Avec deep: true, elle ouvre en plus la page officielle de chaque article et compare les valeurs et le diaporama officiel (deep_limit articles au maximum). Retourne un rapport chiffré + un constat par problème avec preuve, gravité, action et réparation automatique sûre ou non. Ne devine JAMAIS une valeur fabricant.",
-      properties: { deep: B, deep_limit: N },
-      required: ["deep", "deep_limit"],
-      run: async (args, emit) => {
-        const { runCatalogAudit } = await import("./catalog-audit.server");
-        const deep = args["deep"] === true;
-        const run = await runCatalogAudit({
-          deep,
-          deepLimit: Math.min(300, Math.max(1, Math.floor(num(args, "deep_limit") ?? 40))),
-          ...(signal ? { signal } : {}),
-          onProgress: ({ checked, total, current }) => {
-            emit({
-              type: "activity",
-              id: `audit-${checked}`,
-              kind: "read",
-              label: `Contrôle officiel ${checked + 1}/${total} — ${current}`,
-              status: "done",
-            });
-          },
-        });
-        return {
-          run_id: run.id,
-          report: run.report.slice(0, 9000),
-          totals: run.summary,
-          deep_checked: run.deep_checked,
-          findings: run.findings.slice(0, 60),
-          note: "Les valeurs viennent uniquement des pages officielles ; rien n'a été deviné.",
-        };
-      },
-    },
-    {
-      name: "repair_audit",
-      description:
-        "Applique UNIQUEMENT les réparations marquées sûres d'un contrôle (run_id d'audit_catalog) : dédoublonnage d'images, suppression d'un article en double sur la même page officielle, réextraction du diaporama officiel, réimport des valeurs officielles. Tout cas douteux reste à revoir.",
-      properties: { run_id: { type: "string" }, limit: N },
-      required: ["run_id", "limit"],
-      run: async (args, emit) => {
-        const { repairAuditFindings } = await import("./catalog-audit.server");
-        const result = await repairAuditFindings(str(args, "run_id"), {
-          limit: Math.min(300, Math.max(1, Math.floor(num(args, "limit") ?? 50))),
-          ...(signal ? { signal } : {}),
-        });
-        if (result.repaired) emit({ type: "changed" });
-        return result;
-      },
-    },
-    {
-      name: "rebuild_catalog",
-      description:
-        "REFAIRE TOUS LES ARTICLES. Étape 1 : fige la liste maîtresse permanente. Étape 2 : les références sont conservées. Étape 3 : supprime les articles actuels (delete_products: true). Étape 4 : crée la file de reconstruction. Ensuite appelle rebuild_progress en boucle pour traiter la file par lots. Chaque article est reconstruit depuis SA propre URL officielle, isolé des autres ; aucune recherche de produit de remplacement.",
-      properties: { delete_products: B, only_status: S },
-      required: ["delete_products", "only_status"],
-      run: async (args, emit) => {
-        const { startRebuild } = await import("./catalog-rebuild.server");
-        const only = str(args, "only_status");
-        const job = await startRebuild({
-          deleteProducts: args["delete_products"] !== false,
-          ...(only === "pending" ||
-          only === "failed" ||
-          only === "needs_review" ||
-          only === "official_page_inaccessible"
-            ? { onlyStatus: only }
-            : {}),
-        });
-        emit({ type: "changed" });
-        return {
-          job_id: job.id,
-          references_preserved: job.references_preserved,
-          products_deleted: job.products_deleted,
-          total: job.total,
-          next: "Appelle rebuild_progress avec ce job_id, par lots, jusqu'à done: true.",
-        };
-      },
-    },
-    {
-      name: "rebuild_progress",
-      description:
-        "Traite le lot suivant d'une reconstruction (job_id) et retourne l'avancement : références conservées, total, traités, conformes, à revoir, échecs, restants. Reprend automatiquement là où la base s'est arrêtée, même après un plantage. chunk = nombre d'articles à traiter maintenant (25 par défaut).",
-      properties: { job_id: { type: "string" }, chunk: N },
-      required: ["job_id", "chunk"],
-      run: async (args, emit) => {
-        const { runRebuildChunk } = await import("./catalog-rebuild.server");
-        const result = await runRebuildChunk(str(args, "job_id"), {
-          size: Math.min(100, Math.max(1, Math.floor(num(args, "chunk") ?? 25))),
-          ...(signal ? { signal } : {}),
-        });
-        emit({ type: "changed" });
-        return result;
-      },
-    },
-    {
-      name: "rebuild_state",
-      description:
-        "Lit l'avancement d'une reconstruction sans rien traiter, ou met une reconstruction en pause / la relance (state: 'paused' ou 'running').",
-      properties: { job_id: S, state: S },
-      required: ["job_id", "state"],
-      run: async (args) => {
-        const { rebuildProgress, latestRebuild, setRebuildState } = await import("./catalog-rebuild.server");
-        const jobId = str(args, "job_id");
-        const state = str(args, "state");
-        if (jobId && (state === "paused" || state === "running")) return setRebuildState(jobId, state);
-        return jobId ? rebuildProgress(jobId) : ((await latestRebuild()) ?? { none: true });
-      },
     },
     {
       name: "read_data",
@@ -1553,11 +1415,6 @@ const READABLE_TABLES = [
   "site_settings",
   "site_snapshots",
   "cindy_actions",
-  "catalog_references",
-  "catalog_rebuild_jobs",
-  "catalog_rebuild_items",
-  "catalog_audit_runs",
-  "catalog_audit_findings",
 ];
 
 const WRITABLE_TABLES = [
@@ -1602,9 +1459,6 @@ IMAGES — JAMAIS DE RETOUCHE IA : les images du catalogue doivent TOUJOURS rest
 
 DIAPORAMAS — ANALYSE PROFONDE ET NETTOYAGE : dès que l'admin parle de doublons, d'images en plusieurs copies, d'images manquantes ou de "choses bizarres" dans les diaporamas, commence TOUJOURS par audit_galleries (apply: false pour un diagnostic, apply: true pour corriger). Elle détecte : (1) la MÊME photo servie par des miroirs CDN différents (aws-obg-image-lb-1/2/3/4/5.tcl.com, media3.bsh-group.com, img1/img2…) ou en variantes de taille (?w=800, @2x, _1200x1200, /w_600/) — c'est la cause n°1 des diaporamas à 28 images ; (2) les entrées qui ne sont pas des photos : endpoints .json (jcr:content.vendorlibs.json), cartes de partage social (tcl-share.jpg), logos/sprites/pixels, miniatures (-thumb-, 104x104), gabarits non résolus ({{item.imageUrl}} / %7B%7B…), liens tronqués sans extension, URL de page finissant par "/" ; (3) les diaporamas VIDES. Après le nettoyage, si un article se retrouve sans photo, relance refresh_product_media sur le site officiel Maroc / Afrique du Nord. Explique toujours à l'admin, en une phrase simple, combien de copies et combien d'entrées non-photo tu as retirées par article.
 
-CONTRÔLE DU CATALOGUE (CHECKUP) : quand l'admin demande un contrôle, une vérification, un « checkup », un état de santé du catalogue ou « est-ce que tout est correct », tu appelles TOUJOURS audit_catalog. Tu ne réponds JAMAIS « tout semble correct » sans l'avoir appelé. Par défaut deep: true avec deep_limit raisonnable (40 par défaut, plus si l'admin veut tout) : les pages officielles sont réellement rouvertes et comparées. Ensuite tu présentes le rapport chiffré (articles contrôlés / conformes / à revoir / incorrects) puis les problèmes les plus graves avec, pour chacun : l'article, le modèle, le problème, la preuve (page officielle), la gravité et l'action recommandée. Tu proposes repair_audit pour les seules réparations sûres, et tu laisses en « à revoir » tout ce qui est douteux. RÈGLE ABSOLUE : la page officielle est la seule vérité. Tu ne « corriges » jamais une caractéristique avec tes connaissances générales, et tu ne déplaces JAMAIS une valeur d'un article vers un autre (512 L reste sur son article, 462 L sur le sien). En cas de contradiction ou d'information insuffisante : à revoir, jamais une supposition.
-
-REFAIRE TOUS LES ARTICLES : si l'admin veut tout refaire/reconstruire le catalogue, l'ordre est impératif : (1) freeze_references pour figer la liste maîtresse permanente (marque, modèle, URL officielle, dossier) ; (2) rebuild_catalog avec delete_products: true — les références restent, seuls les articles actuels sont supprimés ; (3) rebuild_progress en boucle par lots jusqu'à done: true, en annonçant l'avancement à l'admin. Chaque référence est reconstruite depuis SA propre URL officielle, isolée des autres : aucun revendeur, aucun résultat de recherche, aucun modèle voisin en remplacement. Une page inaccessible donne l'état official_page_inaccessible et la référence est conservée pour réessayer plus tard (rebuild_catalog avec only_status). Un échec n'arrête jamais les autres, et la file reprend là où elle s'est arrêtée.
 
 
 IMPORT PAR URL EXACTE (PRIORITÉ ABSOLUE) : dès que le message de l'admin contient une ou plusieurs URL de fiches produits (même 100 d'un coup), appelle import_exact_urls avec TOUTES ces URL d'un seul coup. Tu n'appelles ni web_search ni research_product ni Serper dans ce cas : l'URL EST la source. Chaque URL est traitée indépendamment : jamais une valeur d'un produit sur un autre produit (si la page A dit « Capacité totale : 512 L », le produit A garde 512 L, même si un autre modèle fait 462 L). Tu n'inventes, ne complètes, ne corriges JAMAIS une caractéristique avec tes connaissances : si l'information n'est pas sur la page, elle est marquée inconnue/à vérifier et le produit part en revue admin. Si une URL est inaccessible (403, page supprimée), tu le dis clairement avec l'erreur réelle et tu ne la remplaces PAS par un revendeur, Google, une marketplace ou un modèle voisin. Une URL en échec n'arrête pas le lot : tu termines les autres et tu donnes le bilan (traités / vérifiés / à vérifier / échecs). Les images viennent uniquement du diaporama officiel du produit, dans l'ordre d'origine, sans doublons ni bannières/logos/produits recommandés. Quand l'admin te corrige sur l'interprétation d'un champ d'un site fabricant, appelle remember_manufacturer_rule pour t'en souvenir pour ce domaine.
@@ -1956,13 +1810,6 @@ const TOOL_LABELS: Record<string, string> = {
   set_image: "Changement d'image",
   set_gallery: "Mise à jour du diaporama",
   audit_galleries: "Analyse profonde des diaporamas",
-  freeze_references: "Sauvegarde de la liste maîtresse",
-  list_references: "Lecture de la liste maîtresse",
-  audit_catalog: "Contrôle complet du catalogue",
-  repair_audit: "Réparations sûres du catalogue",
-  rebuild_catalog: "Reconstruction du catalogue",
-  rebuild_progress: "Reconstruction — lot suivant",
-  rebuild_state: "État de la reconstruction",
 
   refresh_product_media: "Nouvelle recherche officielle",
   check_images: "Contrôle des images",
@@ -1996,10 +1843,6 @@ const MUTATING_TOOLS = new Set([
   "refresh_product_media",
   "bulk_update_products",
   "write_data",
-  "freeze_references",
-  "repair_audit",
-  "rebuild_catalog",
-  "rebuild_progress",
 ]);
 
 
