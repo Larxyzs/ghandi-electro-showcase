@@ -94,7 +94,7 @@ function BrowsePage() {
       <section className="mx-auto w-full max-w-6xl px-5 py-16">
         <nav className="flex flex-wrap items-center gap-1.5 text-sm">
           <Link to="/produits" className="inline-flex items-center gap-1.5 font-semibold hover:text-brand">
-            <Home className="h-3.5 w-3.5" /> Produits
+            <Home className="h-3.5 w-3.5" /> {t("catalog.products")}
           </Link>
           {trail.map((node, index) => (
             <span key={node.id} className="inline-flex items-center gap-1.5">
@@ -112,12 +112,12 @@ function BrowsePage() {
         </nav>
 
         <Reveal className="mt-6 flex flex-wrap items-end justify-between gap-4">
-          <h1 className="text-3xl font-bold sm:text-4xl">{current?.name ?? "Catalogue"}</h1>
+          <h1 className="text-3xl font-bold sm:text-4xl">{current ? tr(current.name) : t("catalog.root")}</h1>
           <Link
             to="/produits"
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground/70 hover:border-brand hover:text-brand"
           >
-            <SlidersHorizontal className="h-3.5 w-3.5" /> Recherche &amp; filtres
+            <SlidersHorizontal className="h-3.5 w-3.5" /> {t("catalog.searchFilters")}
           </Link>
         </Reveal>
 
@@ -130,8 +130,8 @@ function BrowsePage() {
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={`Rechercher dans ${current?.name ?? "le catalogue"} — nom ou référence`}
-              aria-label="Rechercher dans ce rayon"
+              placeholder={`${t("catalog.searchIn")} ${current ? tr(current.name) : t("catalog.root")}`}
+              aria-label={t("catalog.searchAria")}
               className="min-w-0 flex-1 bg-transparent text-sm outline-none"
             />
             {term && (

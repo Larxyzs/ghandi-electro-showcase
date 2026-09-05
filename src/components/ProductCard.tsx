@@ -4,12 +4,14 @@ import { toast } from "sonner";
 
 import type { Product } from "@/lib/catalog-types";
 import { useI18n } from "@/lib/i18n";
+import { useDynamicText } from "@/lib/dynamic-text";
 import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
 import { formatMAD } from "@/lib/company";
 
 export function ProductCard({ product }: { product: Product }) {
   const { t } = useI18n();
+  const tr = useDynamicText();
   const { add } = useCart();
   const inStock = product.stock > 0;
 
@@ -25,7 +27,7 @@ export function ProductCard({ product }: { product: Product }) {
       image_url: product.image_url,
       stock: product.stock,
     });
-    toast.success("Ajouté au panier", { description: product.name });
+    toast.success(t("cart.added"), { description: tr(product.name) });
   };
 
 
@@ -39,7 +41,7 @@ export function ProductCard({ product }: { product: Product }) {
         {product.image_url ? (
           <img
             src={product.image_url}
-            alt={product.name}
+            alt={tr(product.name)}
             loading="lazy"
             className="h-full w-full object-contain p-4 transition-transform duration-500 group-hover:scale-[1.04]"
           />
@@ -61,7 +63,7 @@ export function ProductCard({ product }: { product: Product }) {
         </span>
       </div>
       <div className="flex flex-1 flex-col p-6">
-        <h2 className="text-lg font-semibold">{product.name}</h2>
+        <h2 className="text-lg font-semibold">{tr(product.name)}</h2>
         {product.brand && (
           <p className="mt-1 text-xs font-semibold tracking-wide text-brand uppercase">
             {product.brand}
@@ -72,7 +74,7 @@ export function ProductCard({ product }: { product: Product }) {
             {t("product.serial")} : {product.serial_number}
           </p>
         )}
-        <p className="mt-3 line-clamp-2 text-sm text-foreground/65">{product.characteristics}</p>
+        <p className="mt-3 line-clamp-2 text-sm text-foreground/65">{tr(product.characteristics)}</p>
         <div className="mt-4 flex items-center justify-between gap-3">
           {product.price !== null ? (
             <p className="text-lg font-bold text-brand">
@@ -85,12 +87,12 @@ export function ProductCard({ product }: { product: Product }) {
             <button
               type="button"
               onClick={handleAdd}
-              aria-label="Ajouter au panier"
+              aria-label={t("cart.add")}
               className="flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-[var(--shadow-soft)] transition-transform hover:scale-105 active:scale-95"
               style={{ background: "var(--gradient-brand)" }}
             >
               <ShoppingCart className="h-3.5 w-3.5" />
-              Ajouter
+              {t("cart.addShort")}
             </button>
           )}
         </div>

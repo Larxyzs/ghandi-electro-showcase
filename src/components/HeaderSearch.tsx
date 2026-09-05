@@ -3,9 +3,11 @@ import { Link, useLoaderData, useNavigate } from "@tanstack/react-router";
 import { PackageSearch, Search, X } from "lucide-react";
 import { searchProducts, type SiteData } from "@/lib/catalog-types";
 import { useI18n } from "@/lib/i18n";
+import { useDynamicText } from "@/lib/dynamic-text";
 
 export function HeaderSearch() {
   const { t } = useI18n();
+  const tr = useDynamicText();
   const data = useLoaderData({ from: "__root__" }) as SiteData;
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -68,7 +70,7 @@ export function HeaderSearch() {
                 <button
                   type="button"
                   onClick={() => setQuery("")}
-                  aria-label="Effacer"
+                  aria-label={t("search.clear")}
                   className="text-foreground/45 hover:text-foreground"
                 >
                   <X className="h-4 w-4" />
@@ -79,7 +81,7 @@ export function HeaderSearch() {
             {query.trim() === "" && data.popularSearches.length > 0 && (
               <div className="absolute inset-x-5 top-full mt-2 rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
                 <p className="text-[0.7rem] font-semibold tracking-wide text-foreground/50 uppercase">
-                  Recherches populaires
+                  {t("search.popular")}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {data.popularSearches.map((item) => (
@@ -93,7 +95,7 @@ export function HeaderSearch() {
                       }}
                       className="rounded-full border border-border bg-brand-soft/50 px-3.5 py-1.5 text-xs font-semibold text-brand-deep transition-colors hover:border-brand/40 hover:bg-brand-soft"
                     >
-                      {item.term}
+                      {tr(item.term)}
                     </button>
                   ))}
                 </div>
@@ -125,7 +127,7 @@ export function HeaderSearch() {
                           )}
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold">{p.name}</span>
+                          <span className="block truncate text-sm font-semibold">{tr(p.name)}</span>
                           <span className="block truncate text-xs text-foreground/55">{p.brand}</span>
                         </span>
                       </Link>
@@ -136,7 +138,7 @@ export function HeaderSearch() {
                       onClick={() => setOpen(false)}
                       className="block border-t border-border px-4 py-3 text-sm font-semibold text-brand hover:bg-brand-soft/60"
                     >
-                      Voir tous les résultats
+                      {t("search.all")}
                     </Link>
                   </>
                 )}
