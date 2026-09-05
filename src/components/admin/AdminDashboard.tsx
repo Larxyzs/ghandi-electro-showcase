@@ -99,7 +99,16 @@ export function AdminDashboard({
   onSaveSettings: (settings: SiteSettings) => Promise<void>;
 }) {
   const [tab, setTab] = useState<
-    "inventory" | "orders" | "cindy" | "design" | "searches" | "images" | "api" | "emails" | "staff"
+    | "inventory"
+    | "orders"
+    | "cindy"
+    | "checkup"
+    | "design"
+    | "searches"
+    | "images"
+    | "api"
+    | "emails"
+    | "staff"
   >("inventory");
   const { t } = useI18n();
   const [settings, setSettings] = useState<SiteSettings>(data.settings);
