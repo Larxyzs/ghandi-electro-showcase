@@ -1,5 +1,6 @@
 import type { MarketingSection, ProductSpec } from "./catalog-types";
 import type { CindyEvent, CindySource, ResearchedProduct } from "./cindy-types";
+import { extractProductGallery, dedupeGalleryUrls } from "./product-gallery";
 
 /** Official manufacturer domains, used to flag/prioritize trustworthy sources. */
 const OFFICIAL_DOMAINS: Record<string, string[]> = {
@@ -469,93 +470,15 @@ const NON_GALLERY =
   /(logo|icon|sprite|favicon|banner|promo|promotion|hero-?banner|advert|badge|award|social|arrow|chevron|placeholder|pixel|tracking|thumbnail-nav|related|recommend|you-?may|cross-?sell|blog|newsletter|footer|header|menu|nav-|payment|flag)/i;
 
 /**
- * Extracts ONLY the images that belong to this exact product's gallery:
- *  1. the product's JSON-LD `image` array (the manufacturer's own gallery data)
- *  2. og:image
- *  3. any <img>/<source> whose URL carries the exact model reference
- * Nothing else on the page is collected — no banners, no recommended products.
+ * DEPRECATED shim — kept only so older call sites keep working.
+ *
+ * The authoritative gallery is `extractProductGallery()` in
+ * `src/lib/product-gallery.ts`: the product's own slideshow, in its original
+ * order, with no page-wide image scanning. This wrapper simply delegates there,
+ * so nothing in the codebase can produce a "generic page images" gallery.
  */
 export function extractGalleryImages(html: string, baseUrl: string, reference: string): string[] {
-  const ref = alnum(reference);
-  const abs = (raw: string) => {
-    try {
-      const url = new URL(raw.trim().replace(/&amp;/g, "&"), baseUrl).toString();
-      if (!/^https?:\/\//.test(url)) return "";
-      if (/\.(svg|gif)(\?|$)/i.test(url)) return "";
-      if (NON_GALLERY.test(url)) return "";
-      return url;
-    } catch {
-      return "";
-    }
-  };
-
-  const fromJsonLd: string[] = [];
-  const visit = (value: unknown) => {
-    if (Array.isArray(value)) return value.forEach(visit);
-    if (!value || typeof value !== "object") return;
-    const item = value as Record<string, unknown>;
-    const types = (Array.isArray(item["@type"]) ? item["@type"] : [item["@type"]]).map((t) =>
-      String(t ?? "").toLowerCase(),
-    );
-    if (types.includes("product")) {
-      const identity = alnum(
-        [item["sku"], item["mpn"], item["model"], item["name"]].map((v) => String(v ?? "")).join(" "),
-      );
-      if (!ref || !identity || identity.includes(ref)) {
-        const images = item["image"];
-        const list = Array.isArray(images) ? images : [images];
-        for (const entry of list) {
-          const url =
-            typeof entry === "string"
-              ? entry
-              : String((entry as Record<string, unknown> | null)?.["url"] ?? "");
-          const resolved = abs(url);
-          if (resolved) fromJsonLd.push(resolved);
-        }
-      }
-    }
-    Object.values(item).forEach(visit);
-  };
-  for (const match of html.matchAll(
-    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
-  )) {
-    try {
-      visit(JSON.parse((match[1] ?? "").trim()));
-    } catch {
-      /* ignore invalid structured data */
-    }
-  }
-
-  const og: string[] = [];
-  for (const m of html.matchAll(
-    /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/gi,
-  )) {
-    const url = abs(m[1] ?? "");
-    if (url) og.push(url);
-  }
-
-  // Manufacturer galleries name their files after the model reference
-  // (…/rb34t672eww-ef-…jpg), which is the most reliable product-only signal.
-  const byReference: string[] = [];
-  if (ref.length >= 4) {
-    const candidates: string[] = [];
-    for (const m of html.matchAll(
-      /(?:data-src|data-original|data-zoom-image|srcset|src)=["']([^"']+)["']/gi,
-    )) {
-      const raw = (m[1] ?? "").split(",")[0]?.trim().split(/\s+/)[0] ?? "";
-      candidates.push(raw);
-    }
-    for (const m of html.matchAll(/https?:(?:\\\/\\\/|\/\/)[^"'\s\\<>]+\.(?:jpe?g|png|webp)/gi)) {
-      candidates.push((m[0] ?? "").replace(/\\\//g, "/"));
-    }
-    for (const candidate of candidates) {
-      const url = abs(candidate);
-      if (!url) continue;
-      if (alnum(decodeURIComponent(url)).includes(ref)) byReference.push(url);
-    }
-  }
-
-  return dedupeImages([...fromJsonLd, ...byReference, ...og]);
+  return extractProductGallery(html, baseUrl, { model: reference }).images;
 }
 
 /**
@@ -637,34 +560,42 @@ export function extractOfficialPrice(html: string): { price: number | null; curr
  * exact requested reference really appears on it (identity verification).
  */
 export async function readProductPage(url: string, reference: string) {
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
-      "Accept-Language": "fr,en;q=0.8",
-    },
-  });
-  if (!res.ok) throw new Error(`PAGE_FAILED: ${res.status}`);
-  const html = await res.text();
-  const text = html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/[ \t\u00a0]+/g, " ")
-    .trim();
+  // Retrieval with the legitimate fallback chain (403 / JavaScript-rendered
+  // official pages included). Failure is reported as OFFICIAL_PAGE_INACCESSIBLE
+  // with the exact URL: never replaced by another source.
+  const { fetchOfficialPage, htmlToText } = await import("./page-fetch.server");
+  const page = await fetchOfficialPage(url);
+  const html = page.html;
+  const text = htmlToText(html);
 
   const ref = alnum(reference);
   const matchesReference =
     ref.length < 4 || alnum(text).includes(ref) || alnum(decodeURIComponent(url)).includes(ref);
 
+  // Identity survival: a redirect or a rendered page must still be THIS product.
+  const { checkPageIdentity } = await import("./page-identity");
+  const identityCheck = checkPageIdentity({
+    requestedUrl: url,
+    finalUrl: page.finalUrl,
+    html,
+    pageText: text,
+    identity: { model: reference },
+  });
+
   const { price, currency } = extractOfficialPrice(html);
+
+  // THE gallery: the product's own slideshow only.
+  const gallery = extractProductGallery(html, page.finalUrl || url, { model: reference });
 
   return {
     html,
     text,
-    gallery: extractGalleryImages(html, url, reference),
+    gallery: gallery.images,
+    gallerySource: gallery.source,
+    fetchMethod: page.method,
+    finalUrl: page.finalUrl,
+    identityOk: identityCheck.ok,
+    identityReason: identityCheck.reason,
     matchesReference,
     price,
     currency,
@@ -1100,7 +1031,8 @@ export async function researchProduct(
         continue;
       }
       pages.push({ url: hit.url, title: hit.title, content: page.text });
-      gallery = dedupeImages([...gallery, ...page.gallery]);
+      // Authoritative slideshow of the official page, nothing page-wide.
+      gallery = dedupeGalleryUrls([...gallery, ...page.gallery]);
       if (officialPrice === null && page.price !== null) {
         officialPrice = page.price;
         officialCurrency = page.currency;
