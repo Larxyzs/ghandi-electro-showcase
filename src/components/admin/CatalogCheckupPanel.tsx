@@ -76,7 +76,7 @@ export function CatalogCheckupPanel({ isSuper }: { isSuper: boolean }) {
 
   useEffect(() => {
     void loadReferences();
-    void rebuildState({ data: {} }).then((job) => setProgress((job as Progress) ?? null));
+    void rebuildState({ data: { jobId: "", state: "" } }).then((job) => setProgress((job as Progress) ?? null));
   }, [loadReferences, rebuildState]);
 
   const doAudit = async () => {
@@ -111,7 +111,7 @@ export function CatalogCheckupPanel({ isSuper }: { isSuper: boolean }) {
   const doFreeze = async () => {
     setBusy("freeze");
     try {
-      const result = (await freeze({ data: {} })) as { total: number };
+      const result = (await freeze(undefined as never)) as { total: number };
       setMessage(`Liste maîtresse à jour : ${result.total} référence(s) conservée(s) définitivement.`);
       await loadReferences();
     } catch (error) {
