@@ -65,6 +65,113 @@ export type Database = {
         }
         Relationships: []
       }
+      catalog_audit_findings: {
+        Row: {
+          action: string
+          auto_repair_safe: boolean
+          created_at: string
+          evidence: string
+          id: string
+          model: string
+          problem: string
+          problem_code: string
+          product_id: string | null
+          product_label: string
+          reference_id: string | null
+          repaired_at: string | null
+          run_id: string
+          severity: string
+          source_url: string | null
+        }
+        Insert: {
+          action?: string
+          auto_repair_safe?: boolean
+          created_at?: string
+          evidence?: string
+          id?: string
+          model?: string
+          problem?: string
+          problem_code: string
+          product_id?: string | null
+          product_label?: string
+          reference_id?: string | null
+          repaired_at?: string | null
+          run_id: string
+          severity?: string
+          source_url?: string | null
+        }
+        Update: {
+          action?: string
+          auto_repair_safe?: boolean
+          created_at?: string
+          evidence?: string
+          id?: string
+          model?: string
+          problem?: string
+          problem_code?: string
+          product_id?: string | null
+          product_label?: string
+          reference_id?: string | null
+          repaired_at?: string | null
+          run_id?: string
+          severity?: string
+          source_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_audit_findings_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_audit_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_audit_runs: {
+        Row: {
+          checked: number
+          created_at: string
+          created_by: string
+          deep: boolean
+          id: string
+          incorrect: number
+          needs_review: number
+          scope: string
+          state: string
+          summary: Json
+          updated_at: string
+          verified: number
+        }
+        Insert: {
+          checked?: number
+          created_at?: string
+          created_by?: string
+          deep?: boolean
+          id?: string
+          incorrect?: number
+          needs_review?: number
+          scope?: string
+          state?: string
+          summary?: Json
+          updated_at?: string
+          verified?: number
+        }
+        Update: {
+          checked?: number
+          created_at?: string
+          created_by?: string
+          deep?: boolean
+          id?: string
+          incorrect?: number
+          needs_review?: number
+          scope?: string
+          state?: string
+          summary?: Json
+          updated_at?: string
+          verified?: number
+        }
+        Relationships: []
+      }
       catalog_nodes: {
         Row: {
           created_at: string
@@ -105,6 +212,213 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "catalog_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_rebuild_items: {
+        Row: {
+          attempts: number
+          created_at: string
+          detail: Json
+          error: string
+          id: string
+          job_id: string
+          label: string
+          position: number
+          product_id: string | null
+          reference_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          detail?: Json
+          error?: string
+          id?: string
+          job_id: string
+          label?: string
+          position?: number
+          product_id?: string | null
+          reference_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          detail?: Json
+          error?: string
+          id?: string
+          job_id?: string
+          label?: string
+          position?: number
+          product_id?: string | null
+          reference_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_rebuild_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_rebuild_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_rebuild_items_reference_id_fkey"
+            columns: ["reference_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_references"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_rebuild_jobs: {
+        Row: {
+          created_at: string
+          created_by: string
+          current_label: string
+          delete_products: boolean
+          error: string
+          failed: number
+          id: string
+          label: string
+          needs_review: number
+          processed: number
+          products_deleted: number
+          references_preserved: number
+          state: string
+          total: number
+          updated_at: string
+          verified: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          current_label?: string
+          delete_products?: boolean
+          error?: string
+          failed?: number
+          id?: string
+          label?: string
+          needs_review?: number
+          processed?: number
+          products_deleted?: number
+          references_preserved?: number
+          state?: string
+          total?: number
+          updated_at?: string
+          verified?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          current_label?: string
+          delete_products?: boolean
+          error?: string
+          failed?: number
+          id?: string
+          label?: string
+          needs_review?: number
+          processed?: number
+          products_deleted?: number
+          references_preserved?: number
+          state?: string
+          total?: number
+          updated_at?: string
+          verified?: number
+        }
+        Relationships: []
+      }
+      catalog_references: {
+        Row: {
+          active: boolean
+          brand: string
+          canonical_url: string | null
+          created_at: string
+          id: string
+          last_error: string
+          last_status: string
+          last_verified_at: string | null
+          manufacturer: string
+          model: string
+          name: string
+          node_id: string | null
+          node_path: string
+          notes: string
+          official_url: string | null
+          product_id: string | null
+          product_type: string
+          reference: string
+          region: string
+          requires_discovery: boolean
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          brand?: string
+          canonical_url?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string
+          last_status?: string
+          last_verified_at?: string | null
+          manufacturer?: string
+          model?: string
+          name?: string
+          node_id?: string | null
+          node_path?: string
+          notes?: string
+          official_url?: string | null
+          product_id?: string | null
+          product_type?: string
+          reference?: string
+          region?: string
+          requires_discovery?: boolean
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          brand?: string
+          canonical_url?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string
+          last_status?: string
+          last_verified_at?: string | null
+          manufacturer?: string
+          model?: string
+          name?: string
+          node_id?: string | null
+          node_path?: string
+          notes?: string
+          official_url?: string | null
+          product_id?: string | null
+          product_type?: string
+          reference?: string
+          region?: string
+          requires_discovery?: boolean
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_references_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_references_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]
