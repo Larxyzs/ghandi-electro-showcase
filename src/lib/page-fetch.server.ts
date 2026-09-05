@@ -178,7 +178,7 @@ export async function fetchOfficialPage(
 
   // Every legitimate attempt failed. If a plain request did return some HTML we
   // hand it back (marked with its method) rather than losing the page entirely.
-  if (fallbackHtml) {
+  if (fallbackHtml && htmlToText(fallbackHtml.html).length >= 400) {
     return {
       url,
       finalUrl: fallbackHtml.finalUrl,
