@@ -42,8 +42,8 @@ describe("stored catalog audit", () => {
     );
     const codes = findings.map((f) => f.problem_code);
     expect(codes).toContain("missing_gallery");
-    expect(codes).toContain("non_official_source");
-    expect(codes.filter((code) => code === "duplicate_model").length).toBeGreaterThan(0);
+    expect(codes).toContain("missing_official_url");
+    expect(codes.filter((code) => code === "duplicate_product").length).toBeGreaterThan(0);
   });
 
   it("does not report problems on a clean product", () => {
@@ -134,7 +134,7 @@ describe("official comparison", () => {
       snapshot({ identity: { brand: "Samsung", name: "Autre", model: "RB38T600ESA" } }),
       null,
     );
-    expect(findings.map((f) => f.problem_code)).toContain("identity_mismatch");
+    expect(findings.map((f) => f.problem_code)).toContain("model_mismatch");
   });
 });
 
@@ -156,8 +156,8 @@ describe("master references", () => {
   });
 
   it("deduplicates references and prefers the one with an official URL", () => {
-    const base = referenceFromProduct(product(), "Réfrigérateurs");
-    const noUrl = referenceFromProduct(product({ id: "p9", source_url: null }), "Réfrigérateurs");
+    const base = referenceFromProduct(product());
+    const noUrl = referenceFromProduct(product({ id: "p9", source_url: null }));
     const list = dedupeReferences([noUrl, base]);
     expect(list).toHaveLength(1);
     expect(list[0]!.official_url).toContain("samsung.com");
@@ -193,10 +193,10 @@ describe("rebuild isolation", () => {
     return {
       saved,
       deps: {
-        importFromUrl: async () => result as never,
+        importUrl: async () => result as never,
         saveProduct: async (payload: unknown) => {
           saved.push(payload);
-          return "new-id";
+          return { id: "new-id" };
         },
         resolveNode: async () => "n1",
       },
@@ -212,8 +212,8 @@ describe("rebuild isolation", () => {
       gallery: ["https://images.samsung.com/a.jpg"],
       specifications: [{ label: "Capacité totale", value: "344 L" }],
       characteristics: "",
-      marketingSections: [],
-      evidence: [],
+      price: null,
+      fields: [],
       conflicts: [],
       missing: [],
     });
@@ -235,10 +235,10 @@ describe("rebuild isolation", () => {
 
   it("isolates a failing reference", async () => {
     const failing = {
-      importFromUrl: async () => {
+      importUrl: async () => {
         throw new Error("boom");
       },
-      saveProduct: async () => "x",
+      saveProduct: async () => ({ id: "x" }),
       resolveNode: async () => "n1",
     };
     const outcome = await rebuildReference(reference(), failing as never);
@@ -247,7 +247,7 @@ describe("rebuild isolation", () => {
   });
 
   it("counts statuses", () => {
-    let counters = { processed: 0, verified: 0, needs_review: 0, failed: 0, inaccessible: 0 };
+    let counters = { total: 2, processed: 0, verified: 0, needs_review: 0, failed: 0, remaining: 2 };
     counters = countStatus(counters, "verified");
     counters = countStatus(counters, "failed");
     expect(counters.processed).toBe(2);
