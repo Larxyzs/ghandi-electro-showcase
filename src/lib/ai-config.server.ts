@@ -77,6 +77,7 @@ export type AiSetup = {
   headers: Record<string, string>;
 };
 
+
 /** Resolves the chat-completions endpoint Cindy should use right now. */
 export async function aiSetup(): Promise<AiSetup> {
   let provider: AiProviderId = "openai";
