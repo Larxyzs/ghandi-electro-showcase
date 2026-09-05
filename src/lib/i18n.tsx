@@ -7,6 +7,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { EXTRA } from "@/lib/i18n-extra";
+
+
 
 export const LANGUAGES = [
   { code: "fr", label: "Français", dir: "ltr" },
