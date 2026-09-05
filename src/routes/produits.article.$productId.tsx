@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { SiteLayout } from "@/components/SiteLayout";
 import { ProductGallery } from "@/components/ProductGallery";
 import { useI18n } from "@/lib/i18n";
+import { useDynamicText } from "@/lib/dynamic-text";
 import { useLiveEdit } from "@/lib/live-edit";
 import { ProductLiveEditor } from "@/components/live/ProductLiveEditor";
 import { dedupeGallery, pathOf, type SiteData } from "@/lib/catalog-types";
@@ -46,6 +47,7 @@ export const Route = createFileRoute("/produits/article/$productId")({
 
 function ProductDetail() {
   const { t } = useI18n();
+  const tr = useDynamicText();
   const { add } = useCart();
   const [qty, setQty] = useState(1);
   const { admin, editing, setEditing } = useLiveEdit();
