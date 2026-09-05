@@ -82,7 +82,10 @@ export function imageVariantKey(rawUrl: string): string {
     .replace(/\/\d{2,5}x\d{2,5}\//g, "/")
     .replace(/[-_]\d{2,5}x\d{2,5}(?=\.|$)/g, "")
     .replace(/[-_](?:thumb|thumbnail|small|medium|large|big|xl|xxl|zoom|full|orig(?:inal)?|preview|mini|\d{2,5}w)(?=\.|$)/g, "")
-    .replace(/[-_]\d{2,5}(?=\.(?:jpe?g|png|webp|avif)$)/g, "")
+    // Only a 3+ digit trailing number is a size variant (hero_01_1100.jpg).
+    // 1-2 digits are slideshow sequence numbers (hero_01 / hero_02) and must
+    // stay distinct, otherwise a whole gallery collapses into one photo.
+    .replace(/[-_]\d{3,5}(?=\.(?:jpe?g|png|webp|avif)$)/g, "")
     .replace(/\.(jpe?g|png|webp|avif)$/g, "");
   return `${host}${path}`;
 }

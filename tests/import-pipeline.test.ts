@@ -45,7 +45,7 @@ describe("official gallery extraction", () => {
   it("falls back to the official og:image rather than inventing pictures", () => {
     const { images, source } = extractProductGallery(page("<main><p>Fiche produit</p></main>"), "https://www.samsung.com/x");
     expect(images).toHaveLength(1);
-    expect(source).toBe("og:image");
+    expect(source).toBe("og-image");
   });
 });
 
