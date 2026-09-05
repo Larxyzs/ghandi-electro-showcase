@@ -204,6 +204,21 @@ export async function importFromUrl(
     const identity = identifyProduct(html, clean);
     if (!identity.model) identity.model = modelFromUrl(clean);
 
+    // The exact URL and identity must survive retrieval (redirect, rendered
+    // page, localisation, variant selector). Landing on another product is
+    // never imported silently.
+    const { checkPageIdentity } = await import("./page-identity");
+    const identityCheck = checkPageIdentity({
+      requestedUrl: clean,
+      finalUrl: page.finalUrl,
+      html,
+      pageText,
+      identity,
+    });
+    if (!identityCheck.ok) {
+      throw new Error(identityCheck.reason);
+    }
+
     // Gallery: authoritative slideshow only, in the manufacturer's own order.
     const gallery = extractProductGallery(html, page.finalUrl || clean, {
       brand: identity.brand,
@@ -246,7 +261,10 @@ export async function importFromUrl(
       missing,
       notes: extraction.notes,
       fetchMethod: page.method,
-      status: extraction.status === "verified" && missing.length === 0 ? "verified" : "needs_review",
+      status:
+        extraction.status === "verified" && missing.length === 0 && gallery.images.length > 0
+          ? "verified"
+          : "needs_review",
       error: "",
     };
   } catch (error) {
