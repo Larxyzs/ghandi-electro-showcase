@@ -82,10 +82,11 @@ export function imageVariantKey(rawUrl: string): string {
     .replace(/\/\d{2,5}x\d{2,5}\//g, "/")
     .replace(/[-_]\d{2,5}x\d{2,5}(?=\.|$)/g, "")
     .replace(/[-_](?:thumb|thumbnail|small|medium|large|big|xl|xxl|zoom|full|orig(?:inal)?|preview|mini|\d{2,5}w)(?=\.|$)/g, "")
-    // Only a 3+ digit trailing number is a size variant (hero_01_1100.jpg).
-    // 1-2 digits are slideshow sequence numbers (hero_01 / hero_02) and must
-    // stay distinct, otherwise a whole gallery collapses into one photo.
-    .replace(/[-_]\d{3,5}(?=\.(?:jpe?g|png|webp|avif)$)/g, "")
+    // A trailing number is a size variant only when it is a plain pixel value
+    // (hero_01_1100.jpg, hero_300.jpg). Zero-padded or small numbers are
+    // slideshow sequence numbers (rb34_001 / rb34_002) and MUST stay distinct,
+    // otherwise a whole gallery collapses into a single photo.
+    .replace(/[-_]([1-9]\d{2,4})(?=\.(?:jpe?g|png|webp|avif)$)/g, "")
     .replace(/\.(jpe?g|png|webp|avif)$/g, "");
   return `${host}${path}`;
 }
@@ -219,14 +220,34 @@ function galleryRegions(html: string): string[] {
   const regions: string[] = [];
   const openTag = /<(div|section|ul|figure|aside|swiper-container)\b([^>]*)>/gi;
   for (const match of html.matchAll(openTag)) {
+    const tag = (match[1] ?? "").toLowerCase();
     const attrs = match[2] ?? "";
     const attrText = attrs.replace(/\s+/g, " ");
     if (!GALLERY_REGION.test(attrText)) continue;
     if (FOREIGN_REGION.test(attrText)) continue;
     const start = (match.index ?? 0) + match[0].length;
-    regions.push(html.slice(start, start + 12_000));
+    regions.push(html.slice(start, start + regionLength(html, tag, start)));
   }
   return regions;
+}
+
+/**
+ * Length of the element's own content: we stop at its matching closing tag so a
+ * "recommended products" block that merely follows the slideshow is never read
+ * as part of it.
+ */
+function regionLength(html: string, tag: string, start: number): number {
+  const limit = Math.min(html.length, start + 60_000);
+  const scanner = new RegExp(`<${tag}\\b[^>]*>|</${tag}\\s*>`, "gi");
+  scanner.lastIndex = start;
+  let depth = 1;
+  let match: RegExpExecArray | null;
+  while ((match = scanner.exec(html)) !== null) {
+    if (match.index >= limit) break;
+    depth += match[0].startsWith("</") ? -1 : 1;
+    if (depth === 0) return match.index - start;
+  }
+  return Math.min(12_000, limit - start);
 }
 
 /**
