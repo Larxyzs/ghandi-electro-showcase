@@ -31,6 +31,7 @@ import {
 } from "@/components/admin/SearchApiPanel";
 import { AdminEmailsPanel, type AdminEmail } from "@/components/admin/AdminEmailsPanel";
 import { CindyWorkspace, type CindyActions } from "@/components/admin/cindy/CindyWorkspace";
+import { CatalogCheckupPanel } from "@/components/admin/CatalogCheckupPanel";
 import { SITE_MODE_LABELS, type SiteMode } from "@/lib/catalog-types";
 import type { AdminRole, StaffAccount } from "@/lib/admin-types";
 import type { Order, OrderStatus } from "@/lib/orders-types";
@@ -164,6 +165,7 @@ export function AdminDashboard({
               { id: "inventory", label: t("admin.tab.inventory"), icon: Package },
               { id: "orders", label: t("admin.tab.orders"), icon: ShoppingBag },
               { id: "cindy", label: t("admin.tab.cindy"), icon: Sparkles },
+              { id: "checkup", label: "Contrôle", icon: ShieldCheck },
               { id: "design", label: t("admin.tab.design"), icon: Palette },
               { id: "searches", label: t("admin.tab.searches"), icon: Search },
               { id: "images", label: t("admin.tab.images"), icon: ImageIcon },
@@ -230,6 +232,8 @@ export function AdminDashboard({
           )
         ) : tab === "searches" ? (
           <PopularSearchesPanel terms={data.popularSearches} actions={searchActions} />
+        ) : tab === "checkup" ? (
+          <CatalogCheckupPanel isSuper={role === "super"} />
         ) : tab === "cindy" ? (
           <CindyWorkspace data={data} actions={cindyActions} />
 
