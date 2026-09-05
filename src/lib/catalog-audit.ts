@@ -403,6 +403,14 @@ export function auditStoredCatalog(
   }
   for (const [key, group] of byUrl) {
     if (group.length < 2) continue;
+    // A shared LISTING url (…/refrigerateurs) means the products were saved
+    // with the wrong source, not that one of them is a duplicate — deleting
+    // there would destroy a real appliance, so it is never auto-repaired.
+    const looksLikeProductPage = /\/[a-z0-9][a-z0-9._-]{4,}\/?$/i.test(new URL(key).pathname) &&
+      new URL(key).pathname.split("/").filter(Boolean).length >= 3;
+    const sameModel =
+      codeOf(group[0]!.serial_number) === codeOf(group[1]!.serial_number) &&
+      Boolean(codeOf(group[0]!.serial_number));
     findings.push(
       finding({
         product_id: group[1]!.id,
@@ -410,11 +418,15 @@ export function auditStoredCatalog(
         model: group[1]!.serial_number,
         source_url: key,
         problem_code: "duplicate_canonical_url",
-        problem: `${group.length} articles pointent vers la même page officielle.`,
-        evidence: key,
+        problem: looksLikeProductPage
+          ? `${group.length} articles pointent vers la même fiche officielle.`
+          : `${group.length} articles pointent vers la même page de rayon, pas vers une fiche produit.`,
+        evidence: `${key} — ${group.map((p) => p.serial_number || p.name).join(" | ")}`,
         severity: "high",
-        action: "Supprimer le doublon et rattacher l'article restant aux catégories (réparation sûre).",
-        auto_repair_safe: true,
+        action: looksLikeProductPage && sameModel
+          ? "Supprimer le doublon et rattacher l'article restant aux catégories (réparation sûre)."
+          : "Corriger la page officielle de chaque article, puis réimporter (aucune suppression automatique).",
+        auto_repair_safe: looksLikeProductPage && sameModel,
       }),
     );
   }
