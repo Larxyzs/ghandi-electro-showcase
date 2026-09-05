@@ -1952,6 +1952,13 @@ const TOOL_LABELS: Record<string, string> = {
   set_image: "Changement d'image",
   set_gallery: "Mise à jour du diaporama",
   audit_galleries: "Analyse profonde des diaporamas",
+  freeze_references: "Sauvegarde de la liste maîtresse",
+  list_references: "Lecture de la liste maîtresse",
+  audit_catalog: "Contrôle complet du catalogue",
+  repair_audit: "Réparations sûres du catalogue",
+  rebuild_catalog: "Reconstruction du catalogue",
+  rebuild_progress: "Reconstruction — lot suivant",
+  rebuild_state: "État de la reconstruction",
 
   refresh_product_media: "Nouvelle recherche officielle",
   check_images: "Contrôle des images",
@@ -1985,6 +1992,10 @@ const MUTATING_TOOLS = new Set([
   "refresh_product_media",
   "bulk_update_products",
   "write_data",
+  "freeze_references",
+  "repair_audit",
+  "rebuild_catalog",
+  "rebuild_progress",
 ]);
 
 
