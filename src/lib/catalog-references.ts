@@ -127,17 +127,29 @@ export function referenceFromProduct(
 /** Keeps one entry per reference key, preferring the one with an official URL. */
 export function dedupeReferences(list: CatalogReferenceDraft[]): CatalogReferenceDraft[] {
   const byKey = new Map<string, CatalogReferenceDraft>();
+  // A product can appear twice: once with its official URL, once without. Both
+  // the URL key and the brand+model key point at the same stored entry so the
+  // master list never holds the same appliance twice.
+  const keysOf = (draft: CatalogReferenceDraft) => {
+    const keys = [referenceKey(draft)];
+    const model = `${clean(draft.brand).toLowerCase()}|${clean(draft.model).toUpperCase().replace(/[^A-Z0-9]/g, "")}`;
+    if (model !== "|" && !keys.includes(model)) keys.push(model);
+    return keys.filter((key) => key && key !== "|");
+  };
+
   for (const draft of list) {
-    const key = referenceKey(draft);
-    if (!key || key === "|") continue;
-    const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, draft);
+    const keys = keysOf(draft);
+    if (!keys.length) continue;
+    const existingKey = keys.find((key) => byKey.has(key));
+    if (!existingKey) {
+      for (const key of keys) byKey.set(key, draft);
       continue;
     }
-    if (!existing.official_url && draft.official_url) byKey.set(key, draft);
+    const existing = byKey.get(existingKey)!;
+    const winner = !existing.official_url && draft.official_url ? draft : existing;
+    for (const key of new Set([...keys, ...keysOf(existing)])) byKey.set(key, winner);
   }
-  return [...byKey.values()];
+  return [...new Set(byKey.values())];
 }
 
 export function referenceLabel(ref: {
