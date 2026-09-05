@@ -648,7 +648,14 @@ export function auditAgainstOfficial(
     );
   }
 
-  return findings;
+  // If the identity of the page itself is in doubt, nothing about this product
+  // may be repaired automatically: a human decides first.
+  const identityDoubt = findings.some((item) =>
+    ["identity_mismatch", "model_mismatch", "manufacturer_mismatch", "official_page_inaccessible"].includes(
+      item.problem_code,
+    ),
+  );
+  return identityDoubt ? findings.map((item) => ({ ...item, auto_repair_safe: false })) : findings;
 }
 
 /* ------------------------------- reporting ------------------------------ */
