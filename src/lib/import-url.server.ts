@@ -351,17 +351,12 @@ export async function importBatch(
   };
   const results: ImportedProduct[] = new Array(list.length);
   const concurrency = Math.max(1, Math.min(options.concurrency ?? 3, 6));
-  let cursor = 0;
 
-  const worker = async () => {
-    for (;;) {
-      const index = cursor;
-      cursor += 1;
-      if (index >= list.length) return;
-      if (options.signal?.aborted) return;
-      const url = list[index]!;
+  const { runIsolated } = await import("./batch-runner");
+  await runIsolated(
+    list,
+    async (url, index) => {
       progress.current = url;
-
       // Per-product isolation: importFromUrl never throws, a failure is data.
       const product = await importFromUrl(url, {
         ...(options.signal ? { signal: options.signal } : {}),
@@ -395,10 +390,11 @@ export async function importBatch(
           /* ignore */
         }
       }
-    }
-  };
+      return product;
+    },
+    { concurrency, ...(options.signal ? { signal: options.signal } : {}) },
+  );
 
-  await Promise.all(Array.from({ length: Math.min(concurrency, list.length) }, worker));
 
   if (batchId) {
     try {

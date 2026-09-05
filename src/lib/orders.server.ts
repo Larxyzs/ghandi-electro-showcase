@@ -1,5 +1,5 @@
 import type { OrderItem, OrderStatus, Order } from "./orders-types";
-import { normalizeMaPhone } from "./orders-types";
+import { normalizeMaPhone, validateOrderLine } from "./orders-types";
 
 function generateReference() {
   const now = new Date();
@@ -51,16 +51,9 @@ export async function createOrder(input: CreateOrderInput): Promise<{ reference:
   // re-checked here, never trusted from the browser.
   for (const line of rawItems) {
     const product = byId.get(line.product_id);
-    if (!product) throw new Error("PRODUCT_UNAVAILABLE");
-    const stock = Math.max(0, Math.floor(product.stock ?? 0));
-    if (stock <= 0) throw new Error(`OUT_OF_STOCK:${product.name}`);
-    const asked = Math.max(1, Math.min(99, Math.floor(line.qty)));
-    if (asked > stock) throw new Error(`INSUFFICIENT_STOCK:${product.name}:${stock}`);
-    const qty = asked;
-    const price = product.price ?? 0;
-    if (price <= 0) throw new Error("PRICE_UNAVAILABLE");
+    const { qty, price } = validateOrderLine(product, line.qty);
     items.push({
-      product_id: product.id,
+      product_id: product!.id,
       name: product.name,
       brand: product.brand ?? "",
       price,

@@ -52,3 +52,22 @@ export function normalizeMaPhone(raw: string): string | null {
 export function isValidMaPhone(raw: string): boolean {
   return normalizeMaPhone(raw) !== null;
 }
+
+
+/**
+ * Server-side order line check: the product must exist, be priced and have
+ * enough stock. Pure so it can be unit tested.
+ */
+export function validateOrderLine(
+  product: { id: string; name: string; price: number | null; stock: number | null } | undefined,
+  qty: number,
+): { qty: number; price: number } {
+  if (!product) throw new Error("PRODUCT_UNAVAILABLE");
+  const stock = Math.max(0, Math.floor(product.stock ?? 0));
+  if (stock <= 0) throw new Error(`OUT_OF_STOCK:${product.name}`);
+  const asked = Math.max(1, Math.min(99, Math.floor(qty)));
+  if (asked > stock) throw new Error(`INSUFFICIENT_STOCK:${product.name}:${stock}`);
+  const price = product.price ?? 0;
+  if (price <= 0) throw new Error("PRICE_UNAVAILABLE");
+  return { qty: asked, price };
+}
