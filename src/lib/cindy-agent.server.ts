@@ -1553,6 +1553,11 @@ const READABLE_TABLES = [
   "site_settings",
   "site_snapshots",
   "cindy_actions",
+  "catalog_references",
+  "catalog_rebuild_jobs",
+  "catalog_rebuild_items",
+  "catalog_audit_runs",
+  "catalog_audit_findings",
 ];
 
 const WRITABLE_TABLES = [
