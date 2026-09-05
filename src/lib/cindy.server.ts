@@ -218,15 +218,14 @@ export async function testSearchProvider(provider: SearchProvider, key: string, 
 export async function readPage(
   url: string,
 ): Promise<{ text: string; images: string[]; links: { url: string; text: string }[] }> {
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
-      "Accept-Language": "fr,en;q=0.8",
-    },
-  });
-  if (!res.ok) throw new Error(`PAGE_FAILED: ${res.status}`);
-  const html = await res.text();
+  // Retrieval uses the same legitimate fallback chain as product imports, so a
+  // 403 or JavaScript-rendered official page can still be explored.
+  // IMPORTANT: the `images` list below is for exploration only (navigation,
+  // listing discovery). It is NEVER used as a product's saved gallery — that
+  // comes exclusively from extractProductGallery().
+  const { fetchOfficialPage } = await import("./page-fetch.server");
+  const page = await fetchOfficialPage(url);
+  const html = page.html;
 
   const images: string[] = [];
   const push = (raw: string) => {
@@ -743,7 +742,7 @@ export async function extractProductFromSources(input: {
     characteristics: parsed.characteristics ?? "",
     specifications: parsed.specifications ?? [],
     // Original manufacturer slideshow images, all of them, deduplicated only.
-    images: dedupeImages(input.images),
+    images: dedupeGalleryUrls(input.images),
     // Stock is always 0 on import (the admin owns availability); the price is
     // the manufacturer's own public price, read from the official page.
     price: input.price ?? null,
