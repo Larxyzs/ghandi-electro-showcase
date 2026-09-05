@@ -247,6 +247,84 @@ export type Database = {
         }
         Relationships: []
       }
+      import_batches: {
+        Row: {
+          created_at: string
+          failed: number
+          id: string
+          needs_review: number
+          processed: number
+          state: string
+          total: number
+          updated_at: string
+          verified: number
+        }
+        Insert: {
+          created_at?: string
+          failed?: number
+          id?: string
+          needs_review?: number
+          processed?: number
+          state?: string
+          total?: number
+          updated_at?: string
+          verified?: number
+        }
+        Update: {
+          created_at?: string
+          failed?: number
+          id?: string
+          needs_review?: number
+          processed?: number
+          state?: string
+          total?: number
+          updated_at?: string
+          verified?: number
+        }
+        Relationships: []
+      }
+      manufacturer_profiles: {
+        Row: {
+          brand: string
+          corrections: Json
+          created_at: string
+          domain: string
+          gallery_patterns: Json
+          id: string
+          notes: string
+          page_patterns: Json
+          quirks: Json
+          spec_terms: Json
+          updated_at: string
+        }
+        Insert: {
+          brand?: string
+          corrections?: Json
+          created_at?: string
+          domain: string
+          gallery_patterns?: Json
+          id?: string
+          notes?: string
+          page_patterns?: Json
+          quirks?: Json
+          spec_terms?: Json
+          updated_at?: string
+        }
+        Update: {
+          brand?: string
+          corrections?: Json
+          created_at?: string
+          domain?: string
+          gallery_patterns?: Json
+          id?: string
+          notes?: string
+          page_patterns?: Json
+          quirks?: Json
+          spec_terms?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           address: string
@@ -313,6 +391,66 @@ export type Database = {
         }
         Relationships: []
       }
+      product_imports: {
+        Row: {
+          batch_id: string | null
+          brand: string
+          canonical_url: string | null
+          created_at: string
+          domain: string
+          error: string
+          fetch_method: string
+          fields: Json
+          gallery: Json
+          id: string
+          model: string
+          name: string
+          payload: Json
+          product_id: string | null
+          status: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          batch_id?: string | null
+          brand?: string
+          canonical_url?: string | null
+          created_at?: string
+          domain?: string
+          error?: string
+          fetch_method?: string
+          fields?: Json
+          gallery?: Json
+          id?: string
+          model?: string
+          name?: string
+          payload?: Json
+          product_id?: string | null
+          status?: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          batch_id?: string | null
+          brand?: string
+          canonical_url?: string | null
+          created_at?: string
+          domain?: string
+          error?: string
+          fetch_method?: string
+          fields?: Json
+          gallery?: Json
+          id?: string
+          model?: string
+          name?: string
+          payload?: Json
+          product_id?: string | null
+          status?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       product_nodes: {
         Row: {
           created_at: string
@@ -354,6 +492,7 @@ export type Database = {
           brand: string
           characteristics: string
           created_at: string
+          extraction_evidence: Json
           featured: boolean
           gallery: Json
           id: string
@@ -362,6 +501,7 @@ export type Database = {
           name: string
           node_id: string
           price: number | null
+          review_state: string
           serial_number: string
           sort_order: number
           source_name: string | null
@@ -374,6 +514,7 @@ export type Database = {
           brand?: string
           characteristics?: string
           created_at?: string
+          extraction_evidence?: Json
           featured?: boolean
           gallery?: Json
           id?: string
@@ -382,6 +523,7 @@ export type Database = {
           name: string
           node_id: string
           price?: number | null
+          review_state?: string
           serial_number?: string
           sort_order?: number
           source_name?: string | null
@@ -394,6 +536,7 @@ export type Database = {
           brand?: string
           characteristics?: string
           created_at?: string
+          extraction_evidence?: Json
           featured?: boolean
           gallery?: Json
           id?: string
@@ -402,6 +545,7 @@ export type Database = {
           name?: string
           node_id?: string
           price?: number | null
+          review_state?: string
           serial_number?: string
           sort_order?: number
           source_name?: string | null

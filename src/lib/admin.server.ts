@@ -1047,7 +1047,7 @@ export async function loginWithGoogle(accessToken: string) {
 /* ---------- Cindy: swappable research API ---------- */
 
 export type SearchProviderId = "tavily" | "serper" | "brave";
-export type AiProviderChoice = "gemini" | "lovable";
+export type AiProviderChoice = "openai" | "gemini" | "lovable";
 
 const SEARCH_ENV: Record<SearchProviderId, string> = {
   serper: "SERPER_API_KEY",
@@ -1070,10 +1070,14 @@ export async function getSearchSettings() {
   const provider = (data?.search_provider ?? "serper") as SearchProviderId;
   const key = secrets?.search_api_key ?? "";
   const envKey = (process.env[SEARCH_ENV[provider]] ?? "").trim();
-  const aiProvider = (data?.ai_provider ?? "gemini") as AiProviderChoice;
+  const aiProvider = (data?.ai_provider ?? "openai") as AiProviderChoice;
   const aiKey = secrets?.ai_api_key ?? "";
   const aiEnvKey = (
-    aiProvider === "gemini" ? (process.env["GEMINI_API_KEY"] ?? "") : (process.env["LOVABLE_API_KEY"] ?? "")
+    aiProvider === "openai"
+      ? (process.env["OPENAI_API_KEY"] ?? "")
+      : aiProvider === "gemini"
+        ? (process.env["GEMINI_API_KEY"] ?? "")
+        : (process.env["LOVABLE_API_KEY"] ?? "")
   ).trim();
 
   return {
@@ -1109,7 +1113,9 @@ export async function saveSearchSettings(input: {
     ? (input.model as string)
     : "search";
   const aiProvider: AiProviderChoice =
-    input.aiProvider === "lovable" || input.aiProvider === "gemini" ? input.aiProvider : "gemini";
+    input.aiProvider === "lovable" || input.aiProvider === "gemini" || input.aiProvider === "openai"
+      ? input.aiProvider
+      : "openai";
   const aiKey = (input.aiKey ?? "").trim();
 
   const { AI_MODELS } = await import("./ai-config.server");

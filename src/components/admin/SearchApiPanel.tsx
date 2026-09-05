@@ -3,7 +3,7 @@ import { CheckCircle2, Brain, KeyRound, Loader2, Search, XCircle } from "lucide-
 import { cn } from "@/lib/utils";
 
 export type SearchProviderId = "tavily" | "serper" | "brave";
-export type AiProviderId = "gemini" | "lovable";
+export type AiProviderId = "openai" | "gemini" | "lovable";
 
 const PROVIDERS: { id: SearchProviderId; label: string; hint: string }[] = [
   { id: "serper", label: "Serper (Google)", hint: "google.serper.dev — résultats Google" },
@@ -18,6 +18,7 @@ const SEARCH_MODELS: { id: string; label: string }[] = [
 ];
 
 const AI_PROVIDERS: { id: AiProviderId; label: string; hint: string }[] = [
+  { id: "openai", label: "OpenAI", hint: "clé OpenAI directe (GPT-5.6 Luna)" },
   { id: "gemini", label: "Google Gemini", hint: "clé Gemini directe" },
   { id: "lovable", label: "Lovable AI", hint: "passerelle Lovable (crédits)" },
 ];
@@ -26,6 +27,7 @@ type AiModelOption = { id: string; label: string };
 
 /** Fallback list; the live catalog comes from the server on load. */
 const AI_MODELS_FALLBACK: Record<AiProviderId, AiModelOption[]> = {
+  openai: [{ id: "gpt-5.6-luna", label: "GPT-5.6 Luna (par défaut)" }],
   gemini: [{ id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" }],
   lovable: [{ id: "openai/gpt-5.6-sol", label: "GPT-5.6 Sol" }],
 };
@@ -82,7 +84,7 @@ export function SearchApiPanel({
   const [preview, setPreview] = useState("");
   const [key, setKey] = useState("");
 
-  const [aiProvider, setAiProvider] = useState<AiProviderId>("gemini");
+  const [aiProvider, setAiProvider] = useState<AiProviderId>("openai");
   const [aiModel, setAiModel] = useState("gemini-2.5-flash");
   const [aiPreview, setAiPreview] = useState("");
   const [aiKey, setAiKey] = useState("");
