@@ -86,7 +86,10 @@ const RANGES: { test: RegExp; unit: RegExp; min: number; max: number; what: stri
   { test: /capacit.*(linge|lavage)|charge/i, unit: /^kg$/, min: 1, max: 30, what: "capacité de lavage" },
   { test: /(largeur|hauteur|profondeur|dimension)/i, unit: /^cm$/, min: 10, max: 260, what: "dimension" },
   { test: /(bruit|sonore)/i, unit: /^db$/, min: 20, max: 90, what: "niveau sonore" },
-  { test: /(puissance|consommation)/i, unit: /^(w|kwh)$/, min: 1, max: 12000, what: "puissance" },
+  { test: /(puissance)/i, unit: /^w$/, min: 1, max: 12000, what: "puissance" },
+  // Energy labels mix daily (0,7 kWh), 100-cycle and annual (350 kWh) figures,
+  // so the plausible band has to stay wide or every fridge looks broken.
+  { test: /(consommation|energie|énergie)/i, unit: /^kwh$/, min: 0.05, max: 2000, what: "consommation" },
   { test: /(ecran|écran|diagonale|taille.*ecran)/i, unit: /^(pouces?|"|inch)$/, min: 15, max: 120, what: "taille d'écran" },
 ];
 
