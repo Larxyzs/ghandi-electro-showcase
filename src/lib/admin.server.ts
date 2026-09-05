@@ -527,6 +527,10 @@ export type ProductInput = {
   marketing_sections?: Json[];
   source_url?: string | null;
   source_name?: string | null;
+  /** Import review state: verified | needs_review | failed. */
+  review_state?: string;
+  /** Source evidence behind each extracted value (admin review panel). */
+  extraction_evidence?: Json;
   featured?: boolean;
   imageData?: string | null;
   imageName?: string | null;
@@ -628,6 +632,10 @@ export async function saveProduct(input: ProductInput) {
     ...(input.marketing_sections ? { marketing_sections: input.marketing_sections as Json } : {}),
     ...(input.source_url !== undefined ? { source_url: input.source_url } : {}),
     ...(input.source_name !== undefined ? { source_name: input.source_name } : {}),
+    ...(input.review_state !== undefined ? { review_state: input.review_state } : {}),
+    ...(input.extraction_evidence !== undefined
+      ? { extraction_evidence: input.extraction_evidence }
+      : {}),
   };
 
   if (input.id) {
