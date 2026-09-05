@@ -5,6 +5,11 @@
 
 export const EXTRA: Record<string, Record<string, string>> = {
   fr: {
+    "filter.price": "Prix (MAD)",
+    "filter.min": "Min",
+    "filter.max": "Max",
+    "filter.priceMin": "Prix minimum",
+    "filter.priceMax": "Prix maximum",
     "cart.mine": "Mon panier",
     "cart.empty": "Votre panier est vide.",
     "cart.total": "Total",
@@ -63,6 +68,11 @@ export const EXTRA: Record<string, Record<string, string>> = {
       "Le site est momentanément fermé. Contactez-nous directement, nous restons à votre écoute.",
   },
   en: {
+    "filter.price": "Price (MAD)",
+    "filter.min": "Min",
+    "filter.max": "Max",
+    "filter.priceMin": "Minimum price",
+    "filter.priceMax": "Maximum price",
     "cart.mine": "My cart",
     "cart.empty": "Your cart is empty.",
     "cart.total": "Total",
@@ -119,6 +129,11 @@ export const EXTRA: Record<string, Record<string, string>> = {
     "mode.closed.body": "The site is temporarily closed. Contact us directly, we are here for you.",
   },
   ar: {
+    "filter.price": "السعر (درهم)",
+    "filter.min": "الأدنى",
+    "filter.max": "الأقصى",
+    "filter.priceMin": "أدنى سعر",
+    "filter.priceMax": "أقصى سعر",
     "cart.mine": "سلتي",
     "cart.empty": "سلتك فارغة.",
     "cart.total": "المجموع",
@@ -174,6 +189,11 @@ export const EXTRA: Record<string, Record<string, string>> = {
     "mode.closed.body": "الموقع مغلق مؤقتاً. اتصلوا بنا مباشرة، نحن في خدمتكم.",
   },
   es: {
+    "filter.price": "Precio (MAD)",
+    "filter.min": "Mín",
+    "filter.max": "Máx",
+    "filter.priceMin": "Precio mínimo",
+    "filter.priceMax": "Precio máximo",
     "cart.mine": "Mi carrito",
     "cart.empty": "Su carrito está vacío.",
     "cart.total": "Total",
@@ -230,6 +250,11 @@ export const EXTRA: Record<string, Record<string, string>> = {
     "mode.closed.body": "El sitio está cerrado temporalmente. Contáctenos directamente.",
   },
   it: {
+    "filter.price": "Prezzo (MAD)",
+    "filter.min": "Min",
+    "filter.max": "Max",
+    "filter.priceMin": "Prezzo minimo",
+    "filter.priceMax": "Prezzo massimo",
     "cart.mine": "Il mio carrello",
     "cart.empty": "Il tuo carrello è vuoto.",
     "cart.total": "Totale",
