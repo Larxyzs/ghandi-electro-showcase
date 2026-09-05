@@ -1484,20 +1484,8 @@ EN MASSE : si l'admin donne plusieurs références (même dans un long message),
 
 DESTRUCTIF : ne supprime un dossier ou un article qu'après une confirmation explicite de l'admin.`;
 
-type ChatMessage = {
-  role: "system" | "user" | "assistant" | "tool";
-  content?: string | null;
-  tool_calls?: {
-    id: string;
-    type: "function";
-    function: { name: string; arguments: string };
-    /** Gemini 3 requires its thought signature to be echoed back verbatim. */
-    extra_content?: { google?: { thought_signature: string } };
-  }[];
-  tool_call_id?: string;
-};
+import type { ChatMessage, StreamToolCall } from "./ai-tool-loop.server";
 
-type StreamToolCall = { id: string; name: string; args: string; signature?: string };
 
 function toolResultContent(name: string, result: unknown): string {
   const serialized = JSON.stringify(result);
