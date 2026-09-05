@@ -191,8 +191,8 @@ function BrowsePage() {
                   <PackageSearch className="h-9 w-9 text-brand" />
                   <p className="text-foreground/70">
                     {term
-                      ? "Aucun produit ne correspond à votre recherche."
-                      : "Aucun produit dans ce modèle pour le moment."}
+                      ? t("products.emptySearch")
+                      : t("catalog.emptyModel")}
                   </p>
                 </div>
               ) : (
