@@ -1567,17 +1567,14 @@ export async function runCindyAgent(input: {
     }
     const waitIds: string[] = [];
     const res = await aiFetchWithRetry(
-      ai.url,
+      endpoint,
       {
         method: "POST",
         headers: ai.headers,
         ...(input.signal ? { signal: input.signal } : {}),
-        body: JSON.stringify({
-          model: ai.model,
-          stream: true,
-          tools: toolSchemas,
-          messages: history,
-        }),
+        body: JSON.stringify(
+          buildAgentRequest({ transport, model: ai.model, history, tools: toolSchemas }),
+        ),
       },
       {
         // Rate limits on the free Gemini tier can last a couple of minutes:
@@ -1614,64 +1611,13 @@ export async function runCindyAgent(input: {
 
     if (!res.ok || !res.body) throw await aiFailure(res);
 
+    const { text, calls }: { text: string; calls: StreamToolCall[] } = await parseAgentStream(
+      transport,
+      res.body,
+      (delta) => input.emit({ type: "delta", text: delta }),
+      (index) => `call-${step}-${index}`,
+    );
 
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let text = "";
-    const pending = new Map<number, StreamToolCall>();
-
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const parts = buffer.split("\n\n");
-      buffer = parts.pop() ?? "";
-      for (const part of parts) {
-        const line = part.split("\n").find((l) => l.startsWith("data:"));
-        if (!line) continue;
-        const payload = line.slice(5).trim();
-        if (!payload || payload === "[DONE]") continue;
-        try {
-          const event = JSON.parse(payload) as {
-            choices?: {
-              delta?: {
-                content?: string | null;
-                tool_calls?: {
-                  index?: number;
-                  id?: string;
-                  function?: { name?: string; arguments?: string };
-                  extra_content?: { google?: { thought_signature?: string } };
-                }[];
-              };
-            }[];
-          };
-          const delta = event.choices?.[0]?.delta;
-          if (delta?.content) {
-            text += delta.content;
-            input.emit({ type: "delta", text: delta.content });
-          }
-          for (const call of delta?.tool_calls ?? []) {
-            const index = call.index ?? 0;
-            const current =
-              pending.get(index) ?? { id: call.id ?? `call-${step}-${index}`, name: "", args: "" };
-            if (call.id) current.id = call.id;
-            if (call.function?.name) current.name = call.function.name;
-            if (call.function?.arguments) current.args += call.function.arguments;
-            // Gemini 3 sends a thought signature on the tool-call chunk; it MUST be
-            // sent back untouched or the next request fails with a 400.
-            const signature = call.extra_content?.google?.thought_signature;
-            if (signature) current.signature = signature;
-            pending.set(index, current);
-          }
-        } catch {
-          /* ignore malformed chunk */
-        }
-      }
-    }
-
-    const calls = [...pending.values()].filter((call) => call.name);
 
     if (calls.length === 0) {
       // Some models occasionally treat the overview as the completed task and
