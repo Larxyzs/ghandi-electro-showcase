@@ -13,6 +13,7 @@ import {
   ImageIcon,
   KeyRound,
   Mail,
+  ShieldCheck,
 } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
