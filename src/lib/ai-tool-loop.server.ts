@@ -182,7 +182,7 @@ export async function parseAgentStream(
         if (!item || item.type !== "function_call") return;
         const key = String(item.id ?? item.call_id ?? pending.size);
         const current = pending.get(key) ?? { id: "", name: "", args: "" };
-        current.id = item.call_id ?? current.id || key;
+        current.id = item.call_id ?? (current.id || key);
         if (item.name) current.name = item.name;
         if (item.arguments) current.args = item.arguments;
         pending.set(key, current);
