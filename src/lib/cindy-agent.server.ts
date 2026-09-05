@@ -510,6 +510,195 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
       },
     },
     {
+      name: "import_exact_urls",
+      description:
+        "IMPORT PAR URL EXACTE — l'outil PRIORITAIRE dès que l'admin colle une ou plusieurs URL de fiches produits officielles (une par ligne, 1 à 500). Chaque URL est traitée séparément : lecture de CETTE page exacte (avec repli navigateur/rendu JS si 403 ou page JavaScript), identification du produit (marque, nom, référence), extraction du diaporama officiel dans son ordre d'origine, extraction des spécifications AVEC preuve de la source, détection des contradictions, mémoire du fabricant. Aucune recherche web n'est utilisée. Une URL inaccessible est signalée telle quelle : jamais remplacée par un revendeur, Google ou un modèle voisin. Une URL en échec n'arrête pas le lot. Les produits douteux sont créés en état « à vérifier » pour la revue admin.",
+      properties: {
+        urls: { type: "array", items: { type: "string" } },
+        folder_path: S,
+        stock: N,
+        price: N,
+        create: B,
+        skip_existing: B,
+      },
+      required: ["urls", "folder_path", "stock", "price", "create", "skip_existing"],
+      run: async (args, emit) => {
+        const raw = Array.isArray(args["urls"]) ? args["urls"].map((u) => String(u ?? "")) : [];
+        const { importBatch, parseUrls, alreadyImported } = await import("./import-url.server");
+        let urls = parseUrls(raw);
+        if (urls.length === 0) throw new Error("Donne-moi au moins une URL complète (https://…).");
+
+        if (args["skip_existing"] === true) {
+          const done = await alreadyImported(urls);
+          urls = urls.filter((u) => !done.has(u));
+          if (urls.length === 0) return { total: 0, message: "Toutes ces URL ont déjà été importées." };
+        }
+
+        const shouldCreate = args["create"] !== false;
+        const folderPath = str(args, "folder_path");
+        const stock = Math.max(0, Math.floor(num(args, "stock") ?? 0));
+        const price = num(args, "price");
+        const { saveProduct } = await import("./admin.server");
+
+        urls.forEach((url, index) =>
+          emit({ type: "bulk_item", item: { index, ref: url, status: "pending" } }),
+        );
+
+        const report: {
+          url: string;
+          reference: string;
+          name: string;
+          brand: string;
+          images: number;
+          specifications: number;
+          status: string;
+          review: string;
+          conflicts: string[];
+          missing: string[];
+          error?: string;
+        }[] = [];
+
+        const { results, progress } = await importBatch(urls, {
+          concurrency: 3,
+          ...(signal ? { signal } : {}),
+          onProgress: (p) =>
+            emit({
+              type: "activity",
+              id: `batch-${p.batchId || "run"}`,
+              kind: "extract",
+              label: `${p.processed} / ${p.total} traités`,
+              detail: `${p.verified} vérifiés · ${p.needs_review} à vérifier · ${p.failed} échecs`,
+              status: p.processed >= p.total ? "done" : "running",
+            }),
+          onProduct: async (product, index) => {
+            const reference = product.identity.model || product.identity.name || product.url;
+            const line = {
+              url: product.url,
+              reference,
+              name: product.identity.name,
+              brand: product.identity.brand,
+              images: product.gallery.length,
+              specifications: product.specifications.length,
+              status: product.status,
+              review: product.status,
+              conflicts: product.conflicts,
+              missing: product.missing,
+              ...(product.error ? { error: product.error } : {}),
+            };
+            report.push(line);
+
+            if (product.status === "failed") {
+              emit({
+                type: "bulk_item",
+                item: { index, ref: reference, status: "error", message: product.error },
+              });
+              return;
+            }
+
+            if (!shouldCreate) {
+              emit({ type: "bulk_item", item: { index, ref: reference, status: "done" } });
+              return;
+            }
+
+            try {
+              const { products: existing } = await loadCatalog();
+              const key = norm(reference);
+              const duplicate = existing.find(
+                (p) => norm(p.serial_number ?? "") === key || norm(p.name) === key,
+              );
+              if (duplicate) {
+                line.status = "duplicate";
+                emit({
+                  type: "bulk_item",
+                  item: { index, ref: reference, status: "error", message: "Déjà au catalogue" },
+                });
+                return;
+              }
+              const path =
+                folderPath ||
+                [product.identity.brand || "Divers", "Modèles", reference].filter(Boolean).join(" / ");
+              const node = await resolvePath(path, true);
+              const { id } = await saveProduct({
+                node_id: node.id,
+                name: product.identity.name || reference,
+                brand: product.identity.brand,
+                serial_number: product.identity.model || reference,
+                characteristics: product.characteristics,
+                specifications: product.specifications,
+                gallery: product.gallery,
+                marketing_sections: [] as never,
+                source_url: product.canonicalUrl,
+                source_name: product.domain,
+                review_state: product.status,
+                extraction_evidence: product.fields as never,
+                stock,
+                price: price ?? product.price ?? null,
+                ...httpsImage(product.gallery[0] ?? null),
+              });
+              line.status = "created";
+              try {
+                const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+                await supabaseAdmin
+                  .from("product_imports")
+                  .update({ product_id: id })
+                  .eq("url", product.url);
+              } catch {
+                /* traçabilité seulement */
+              }
+              emit({ type: "bulk_item", item: { index, ref: reference, status: "done" } });
+              emit({ type: "changed" });
+            } catch (error) {
+              line.status = `error: ${error instanceof Error ? error.message : "échec"}`;
+              emit({
+                type: "bulk_item",
+                item: { index, ref: reference, status: "error", message: line.status },
+              });
+            }
+          },
+        });
+
+        emit({
+          type: "bulk_summary",
+          total: progress.total,
+          ok: progress.verified + progress.needs_review,
+          failed: progress.failed,
+        });
+
+        return {
+          total: progress.total,
+          verified: progress.verified,
+          needs_review: progress.needs_review,
+          failed: progress.failed,
+          products: report,
+          note:
+            "Les URL en échec sont listées telles quelles : ne cherche PAS un autre site pour les remplacer, dis-le à l'admin.",
+          gallery_check: results.map((r) => ({
+            url: r.url,
+            images: r.gallery.length,
+            source: r.gallerySource,
+          })),
+        };
+      },
+    },
+    {
+      name: "remember_manufacturer_rule",
+      description:
+        "Mémoire fabricant : enregistre une règle d'interprétation pour UN site fabricant (domaine). À utiliser quand l'admin te corrige (« sur cette page, ce champ veut dire capacité totale ») ou quand tu découvres une particularité de structure. Les règles ne sont jamais partagées entre fabricants et sont réutilisées automatiquement lors des prochains imports de ce domaine.",
+      properties: { domain: { type: "string" }, brand: S, term: S, means: S, quirk: S, note: S },
+      required: ["domain", "brand", "term", "means", "quirk", "note"],
+      run: async (args) => {
+        const { rememberManufacturerRule } = await import("./import-url.server");
+        return rememberManufacturerRule({
+          domain: str(args, "domain"),
+          brand: str(args, "brand"),
+          term: str(args, "term"),
+          means: str(args, "means"),
+          quirk: str(args, "quirk"),
+          note: str(args, "note"),
+        });
+      },
+    },
+    {
       name: "import_from_page",
       description:
         "L'admin donne l'URL d'une page (rayon, listing, résultats d'une marque) : cet outil ouvre la page, repère TOUS les liens de fiches produits, ouvre chaque fiche une par une et en extrait toutes les informations (nom, référence, caractéristiques, spécifications, images), puis crée les articles dans le dossier demandé. Les doublons déjà au catalogue sont signalés, pas recréés. price/stock viennent uniquement de l'admin (laisse null/0 s'il ne les a pas donnés). C'est l'outil à utiliser dès que l'admin envoie un lien de page avec plusieurs produits.",
