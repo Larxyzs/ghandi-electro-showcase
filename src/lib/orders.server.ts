@@ -52,8 +52,9 @@ export async function createOrder(input: CreateOrderInput): Promise<{ reference:
   for (const line of rawItems) {
     const product = byId.get(line.product_id);
     const { qty, price } = validateOrderLine(product, line.qty);
+    if (!product) continue;
     items.push({
-      product_id: product!.id,
+      product_id: product.id,
       name: product.name,
       brand: product.brand ?? "",
       price,
