@@ -86,7 +86,10 @@ const RANGES: { test: RegExp; unit: RegExp; min: number; max: number; what: stri
   { test: /capacit.*(linge|lavage)|charge/i, unit: /^kg$/, min: 1, max: 30, what: "capacité de lavage" },
   { test: /(largeur|hauteur|profondeur|dimension)/i, unit: /^cm$/, min: 10, max: 260, what: "dimension" },
   { test: /(bruit|sonore)/i, unit: /^db$/, min: 20, max: 90, what: "niveau sonore" },
-  { test: /(puissance|consommation)/i, unit: /^(w|kwh)$/, min: 1, max: 12000, what: "puissance" },
+  { test: /(puissance)/i, unit: /^w$/, min: 1, max: 12000, what: "puissance" },
+  // Energy labels mix daily (0,7 kWh), 100-cycle and annual (350 kWh) figures,
+  // so the plausible band has to stay wide or every fridge looks broken.
+  { test: /(consommation|energie|énergie)/i, unit: /^kwh$/, min: 0.05, max: 2000, what: "consommation" },
   { test: /(ecran|écran|diagonale|taille.*ecran)/i, unit: /^(pouces?|"|inch)$/, min: 15, max: 120, what: "taille d'écran" },
 ];
 
@@ -400,6 +403,14 @@ export function auditStoredCatalog(
   }
   for (const [key, group] of byUrl) {
     if (group.length < 2) continue;
+    // A shared LISTING url (…/refrigerateurs) means the products were saved
+    // with the wrong source, not that one of them is a duplicate — deleting
+    // there would destroy a real appliance, so it is never auto-repaired.
+    const looksLikeProductPage = /\/[a-z0-9][a-z0-9._-]{4,}\/?$/i.test(new URL(key).pathname) &&
+      new URL(key).pathname.split("/").filter(Boolean).length >= 3;
+    const sameModel =
+      codeOf(group[0]!.serial_number) === codeOf(group[1]!.serial_number) &&
+      Boolean(codeOf(group[0]!.serial_number));
     findings.push(
       finding({
         product_id: group[1]!.id,
@@ -407,11 +418,15 @@ export function auditStoredCatalog(
         model: group[1]!.serial_number,
         source_url: key,
         problem_code: "duplicate_canonical_url",
-        problem: `${group.length} articles pointent vers la même page officielle.`,
-        evidence: key,
+        problem: looksLikeProductPage
+          ? `${group.length} articles pointent vers la même fiche officielle.`
+          : `${group.length} articles pointent vers la même page de rayon, pas vers une fiche produit.`,
+        evidence: `${key} — ${group.map((p) => p.serial_number || p.name).join(" | ")}`,
         severity: "high",
-        action: "Supprimer le doublon et rattacher l'article restant aux catégories (réparation sûre).",
-        auto_repair_safe: true,
+        action: looksLikeProductPage && sameModel
+          ? "Supprimer le doublon et rattacher l'article restant aux catégories (réparation sûre)."
+          : "Corriger la page officielle de chaque article, puis réimporter (aucune suppression automatique).",
+        auto_repair_safe: looksLikeProductPage && sameModel,
       }),
     );
   }
@@ -633,7 +648,14 @@ export function auditAgainstOfficial(
     );
   }
 
-  return findings;
+  // If the identity of the page itself is in doubt, nothing about this product
+  // may be repaired automatically: a human decides first.
+  const identityDoubt = findings.some((item) =>
+    ["identity_mismatch", "model_mismatch", "manufacturer_mismatch", "official_page_inaccessible"].includes(
+      item.problem_code,
+    ),
+  );
+  return identityDoubt ? findings.map((item) => ({ ...item, auto_repair_safe: false })) : findings;
 }
 
 /* ------------------------------- reporting ------------------------------ */
