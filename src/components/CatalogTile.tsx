@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { Box, Folder, Layers, Tag } from "lucide-react";
-import { LEVEL_LABELS, type CatalogNode, type NodeLevel } from "@/lib/catalog-types";
+import type { CatalogNode, NodeLevel } from "@/lib/catalog-types";
+import { useI18n } from "@/lib/i18n";
+import { useDynamicText } from "@/lib/dynamic-text";
 import { cn } from "@/lib/utils";
 
 const LEVEL_ICON: Record<NodeLevel, typeof Folder> = { 1: Folder, 2: Layers, 3: Tag, 4: Box };
@@ -19,6 +21,8 @@ export function CatalogTile({
   shape?: "square" | "circle";
 }) {
   const Icon = LEVEL_ICON[node.level];
+  const { t } = useI18n();
+  const tr = useDynamicText();
   return (
     <Link
       to="/produits/$"
@@ -37,7 +41,7 @@ export function CatalogTile({
         {node.image_url ? (
           <img
             src={node.image_url}
-            alt={node.name}
+            alt={tr(node.name)}
             loading="lazy"
             className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-105"
           />
@@ -48,9 +52,11 @@ export function CatalogTile({
         )}
       </div>
       <div className="mt-auto">
-        <p className="text-sm font-semibold group-hover:text-brand sm:text-base">{node.name}</p>
+        <p className="text-sm font-semibold group-hover:text-brand sm:text-base">{tr(node.name)}</p>
         <p className="mt-0.5 text-[0.7rem] text-foreground/50">
-          {count !== undefined ? `${count} modèle(s)` : LEVEL_LABELS[node.level]}
+          {count !== undefined
+            ? `${count} ${t("catalog.models")}`
+            : t(`catalog.level.${node.level}`)}
         </p>
       </div>
     </Link>
