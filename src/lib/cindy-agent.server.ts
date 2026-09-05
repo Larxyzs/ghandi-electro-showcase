@@ -1331,6 +1331,145 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
       },
     },
     {
+      name: "freeze_references",
+      description:
+        "Fige le catalogue actuel dans la LISTE MAÎTRESSE permanente (catalog_references) : une entrée par article avec sa marque, son modèle et son URL officielle. À faire avant toute suppression d'articles. Les références ne sont JAMAIS supprimées avec les articles.",
+      properties: {},
+      required: [],
+      run: async () => {
+        const { freezeReferences } = await import("./catalog-references.server");
+        return freezeReferences();
+      },
+    },
+    {
+      name: "list_references",
+      description:
+        "Liste la liste maîtresse permanente des articles (référence, URL officielle, dernier état de reconstruction). Sert à comparer RÉFÉRENCES / ARTICLES ACTUELS.",
+      properties: { limit: N },
+      required: ["limit"],
+      run: async (args) => {
+        const { listReferences } = await import("./catalog-references.server");
+        const list = await listReferences({ limit: Math.min(500, Math.max(1, Math.floor(num(args, "limit") ?? 200))) });
+        return list.map((ref) => ({
+          id: ref.id,
+          brand: ref.brand,
+          model: ref.model,
+          official_url: ref.official_url,
+          node_path: ref.node_path,
+          requires_discovery: ref.requires_discovery,
+          last_status: ref.last_status,
+          last_error: ref.last_error,
+        }));
+      },
+    },
+    {
+      name: "audit_catalog",
+      description:
+        "CONTRÔLE RÉEL DU CATALOGUE. Analyse tout ce qui est enregistré (identité, référence, fabricant, caractéristiques manquantes/suspectes/contradictoires, doublons d'articles, diaporamas invalides ou vides, images de revendeur, URL officielles manquantes) et compare avec la liste maîtresse. Avec deep: true, elle ouvre en plus la page officielle de chaque article et compare les valeurs et le diaporama officiel (deep_limit articles au maximum). Retourne un rapport chiffré + un constat par problème avec preuve, gravité, action et réparation automatique sûre ou non. Ne devine JAMAIS une valeur fabricant.",
+      properties: { deep: B, deep_limit: N },
+      required: ["deep", "deep_limit"],
+      run: async (args, emit) => {
+        const { runCatalogAudit } = await import("./catalog-audit.server");
+        const deep = args["deep"] === true;
+        const run = await runCatalogAudit({
+          deep,
+          deepLimit: Math.min(300, Math.max(1, Math.floor(num(args, "deep_limit") ?? 40))),
+          ...(signal ? { signal } : {}),
+          onProgress: ({ checked, total, current }) => {
+            emit({
+              type: "activity",
+              id: `audit-${checked}`,
+              kind: "read",
+              label: `Contrôle officiel ${checked + 1}/${total} — ${current}`,
+              status: "done",
+            });
+          },
+        });
+        return {
+          run_id: run.id,
+          report: run.report.slice(0, 9000),
+          totals: run.summary,
+          deep_checked: run.deep_checked,
+          findings: run.findings.slice(0, 60),
+          note: "Les valeurs viennent uniquement des pages officielles ; rien n'a été deviné.",
+        };
+      },
+    },
+    {
+      name: "repair_audit",
+      description:
+        "Applique UNIQUEMENT les réparations marquées sûres d'un contrôle (run_id d'audit_catalog) : dédoublonnage d'images, suppression d'un article en double sur la même page officielle, réextraction du diaporama officiel, réimport des valeurs officielles. Tout cas douteux reste à revoir.",
+      properties: { run_id: { type: "string" }, limit: N },
+      required: ["run_id", "limit"],
+      run: async (args, emit) => {
+        const { repairAuditFindings } = await import("./catalog-audit.server");
+        const result = await repairAuditFindings(str(args, "run_id"), {
+          limit: Math.min(300, Math.max(1, Math.floor(num(args, "limit") ?? 50))),
+          ...(signal ? { signal } : {}),
+        });
+        if (result.repaired) emit({ type: "changed" });
+        return result;
+      },
+    },
+    {
+      name: "rebuild_catalog",
+      description:
+        "REFAIRE TOUS LES ARTICLES. Étape 1 : fige la liste maîtresse permanente. Étape 2 : les références sont conservées. Étape 3 : supprime les articles actuels (delete_products: true). Étape 4 : crée la file de reconstruction. Ensuite appelle rebuild_progress en boucle pour traiter la file par lots. Chaque article est reconstruit depuis SA propre URL officielle, isolé des autres ; aucune recherche de produit de remplacement.",
+      properties: { delete_products: B, only_status: S },
+      required: ["delete_products", "only_status"],
+      run: async (args, emit) => {
+        const { startRebuild } = await import("./catalog-rebuild.server");
+        const only = str(args, "only_status");
+        const job = await startRebuild({
+          deleteProducts: args["delete_products"] !== false,
+          ...(only === "pending" ||
+          only === "failed" ||
+          only === "needs_review" ||
+          only === "official_page_inaccessible"
+            ? { onlyStatus: only }
+            : {}),
+        });
+        emit({ type: "changed" });
+        return {
+          job_id: job.id,
+          references_preserved: job.references_preserved,
+          products_deleted: job.products_deleted,
+          total: job.total,
+          next: "Appelle rebuild_progress avec ce job_id, par lots, jusqu'à done: true.",
+        };
+      },
+    },
+    {
+      name: "rebuild_progress",
+      description:
+        "Traite le lot suivant d'une reconstruction (job_id) et retourne l'avancement : références conservées, total, traités, conformes, à revoir, échecs, restants. Reprend automatiquement là où la base s'est arrêtée, même après un plantage. chunk = nombre d'articles à traiter maintenant (25 par défaut).",
+      properties: { job_id: { type: "string" }, chunk: N },
+      required: ["job_id", "chunk"],
+      run: async (args, emit) => {
+        const { runRebuildChunk } = await import("./catalog-rebuild.server");
+        const result = await runRebuildChunk(str(args, "job_id"), {
+          size: Math.min(100, Math.max(1, Math.floor(num(args, "chunk") ?? 25))),
+          ...(signal ? { signal } : {}),
+        });
+        emit({ type: "changed" });
+        return result;
+      },
+    },
+    {
+      name: "rebuild_state",
+      description:
+        "Lit l'avancement d'une reconstruction sans rien traiter, ou met une reconstruction en pause / la relance (state: 'paused' ou 'running').",
+      properties: { job_id: S, state: S },
+      required: ["job_id", "state"],
+      run: async (args) => {
+        const { rebuildProgress, latestRebuild, setRebuildState } = await import("./catalog-rebuild.server");
+        const jobId = str(args, "job_id");
+        const state = str(args, "state");
+        if (jobId && (state === "paused" || state === "running")) return setRebuildState(jobId, state);
+        return jobId ? rebuildProgress(jobId) : ((await latestRebuild()) ?? { none: true });
+      },
+    },
+    {
       name: "read_data",
       description:
         "Lit directement les données du site (table 'products', 'catalog_nodes', 'orders', 'popular_searches', 'site_settings', 'site_snapshots', 'cindy_actions'). filter = colonne=valeur (facultatif). Sert quand aucun autre outil ne suffit.",
