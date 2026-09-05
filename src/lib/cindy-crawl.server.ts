@@ -318,7 +318,7 @@ export async function crawlListingPage(input: {
       status: "running",
     });
     try {
-      const { readProductPage, extractGalleryImages, dedupeImages } = await import("./cindy.server");
+      const { readProductPage } = await import("./cindy.server");
       const page = await readProductPage(item.url, item.label);
       visited += 1;
       let product: ResearchedProduct | null = null;
@@ -349,12 +349,20 @@ export async function crawlListingPage(input: {
         }
       }
       if (!product) throw extractionError ?? new Error("EXTRACTION_FAILED");
-      // Once the exact model is known, keep every gallery image named after it.
+      // The saved gallery is ONLY the official slideshow already extracted from
+      // this exact page (authoritative pipeline). When the exact model becomes
+      // known after extraction, the slideshow is re-read with that identity —
+      // never merged with page-wide images.
       if (product.model) {
-        product.images = dedupeImages([
-          ...product.images,
-          ...extractGalleryImages(page.html, item.url, product.model),
-        ]);
+        const { extractProductGallery } = await import("./product-gallery");
+        const refined = extractProductGallery(page.html, item.url, {
+          model: product.model,
+          brand: product.brand,
+          name: product.name,
+        });
+        product.images = refined.images.length > 0 ? refined.images : page.gallery;
+      } else {
+        product.images = page.gallery;
       }
       products.push({
         ...product,
