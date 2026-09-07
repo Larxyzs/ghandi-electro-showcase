@@ -39,7 +39,12 @@ const FOREIGN_REGION =
 const GALLERY_REGION =
   /(product[-_]?gallery|gallery|slideshow|slider|swiper|carousel|fotorama|flickity|splide|glide|media[-_]?viewer|media[-_]?gallery|image[-_]?viewer|pdp[-_]?media|pdp[-_]?image|product[-_]?media|product[-_]?image|productimages|main[-_]?image|hero[-_]?image|zoom)/i;
 
-const IMAGE_EXT = /\.(jpe?g|png|webp|avif)(\?|#|$)/i;
+/**
+ * An image file, including CMS renditions where the extension is followed by a
+ * sub-path ("…/photo-1.png/jcr:content/renditions/original" on AEM sites such
+ * as whirlpool.ma).
+ */
+const IMAGE_EXT = /\.(jpe?g|png|webp|avif)(\/|\?|#|$)/i;
 
 /** Registrable-ish base of a hostname (last two labels, or three for co.uk-like). */
 export function hostBase(host: string): string {

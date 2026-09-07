@@ -148,7 +148,16 @@ export function modelFromUrl(url: string): string {
     .split(/[-_.]/)
     .filter((part) => part.length >= 5 && /\d/.test(part) && /[a-z]/i.test(part))
     .pop();
-  return (token ?? "").toUpperCase();
+  if (token) return token.toUpperCase();
+
+  // Manufacturers that split the reference across several slug segments
+  // ("…-wbmf-706564-xna" → "WBMF 706564 XNA", "…-whc18-t111" → "WHC18 T111").
+  const slug = last.toLowerCase();
+  const multi =
+    /([a-z]{2,6})[-_](\d{3,7})[-_]([a-z]{2,5})$/.exec(slug) ??
+    /([a-z]{2,6}\d{1,4})[-_]([a-z]{0,2}\d{2,5})$/.exec(slug);
+  if (multi) return multi.slice(1).join(" ").toUpperCase();
+  return "";
 }
 
 /* -------------------------- spec candidates --------------------------- */

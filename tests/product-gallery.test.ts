@@ -136,3 +136,17 @@ describe("authoritative product gallery", () => {
     expect(legacy).toHaveLength(5);
   });
 });
+
+describe("CMS rendition image URLs (whirlpool.ma / AEM)", () => {
+  it("keeps carousel photos whose extension is followed by a rendition path", () => {
+    const base = "https://www.whirlpool.ma/ma-fr/produits/x-wbmf-706564-xna";
+    const img = (n: number) =>
+      `/content/dam/whirlpool/product-images/7295848511-WBMF-706564-XNA/7295848511-MDM2-LOW-${n}.png/jcr:content/renditions/original`;
+    const html = `<html><body><div class="product-carousel">
+      ${[1, 2, 3].map((n) => `<img id="product-info-image-${n}" alt="WBMF 706564 XNA" src="${img(n)}">`).join("")}
+    </div></body></html>`;
+    const gallery = extractProductGallery(html, base, { brand: "Whirlpool", model: "WBMF 706564 XNA" });
+    expect(gallery.images.length).toBe(3);
+    expect(gallery.images[0]).toContain("MDM2-LOW-1.png/jcr:content/renditions/original");
+  });
+});
