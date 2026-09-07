@@ -280,6 +280,29 @@ function elementBody(html: string, tag: string, start: number): string {
 
 const CONTAINER_TAGS = "div|section|ul|figure|aside|swiper-container|product-gallery";
 
+/**
+ * The structural identity of a tag: id, class, role, itemprop, aria-label and
+ * short data-* values plus the attribute names themselves.
+ *
+ * Section matching (wanted / excluded) runs against this signature and NOT the
+ * raw attribute string, so analytics payloads such as
+ * data-gtm-data='{"item_MarketingCode":...,"item_category2":"Cooling"}' can
+ * never make a real carousel look like a marketing or feature section.
+ */
+export function tagSignature(attrs: string): string {
+  const parts: string[] = [];
+  for (const match of attrs.matchAll(/([a-zA-Z_:][-\w:.]*)\s*(?:=\s*("[^"]*"|'[^']*'|[^\s>]+))?/g)) {
+    const name = (match[1] ?? "").toLowerCase();
+    const value = (match[2] ?? "").replace(/^["']|["']$/g, "");
+    parts.push(name);
+    const structural = /^(id|class|role|itemprop|aria-label|title|name)$/.test(name) || name.startsWith("data-");
+    if (!structural) continue;
+    if (value.length > 90 || /[{}]|&quot;/.test(value)) continue;
+    parts.push(`${name}="${value}"`);
+  }
+  return parts.join(" ");
+}
+
 /** Regions of the document that the rules identify as THE product carousel. */
 export function galleryContainers(html: string, gallery: GalleryRules): string[] {
   const wanted = compile(gallery.container_patterns);
@@ -288,7 +311,7 @@ export function galleryContainers(html: string, gallery: GalleryRules): string[]
   const out: string[] = [];
   const openTag = new RegExp(`<(${CONTAINER_TAGS})\\b([^>]*)>`, "gi");
   for (const match of html.matchAll(openTag)) {
-    const attrs = (match[2] ?? "").replace(/\s+/g, " ");
+    const attrs = tagSignature((match[2] ?? "").replace(/\s+/g, " "));
     if (!wanted.test(attrs)) continue;
     if (excluded?.test(attrs)) continue;
     const start = (match.index ?? 0) + match[0].length;
@@ -304,7 +327,7 @@ function stripExcludedSections(region: string, excluded: RegExp | null): string 
   const openTag = new RegExp(`<(${CONTAINER_TAGS})\\b([^>]*)>`, "gi");
   const cuts: [number, number][] = [];
   for (const match of out.matchAll(openTag)) {
-    const attrs = (match[2] ?? "").replace(/\s+/g, " ");
+    const attrs = tagSignature((match[2] ?? "").replace(/\s+/g, " "));
     if (!excluded.test(attrs)) continue;
     const start = match.index ?? 0;
     const bodyStart = start + match[0].length;
@@ -329,7 +352,7 @@ function slidesFromRegion(region: string, baseUrl: string, gallery: GalleryRules
   let seen = 0;
   for (const match of region.matchAll(/<(img|source)\b([^>]*)>/gi)) {
     const attrs = (match[2] ?? "").replace(/\s+/g, " ");
-    if (slideMatcher && !slideMatcher.test(attrs)) continue;
+    if (slideMatcher && !slideMatcher.test(tagSignature(attrs))) continue;
     let raw = "";
     for (const name of gallery.image_attributes.length ? gallery.image_attributes : ["src"]) {
       const value = attrValue(attrs, name);
