@@ -1,11 +1,25 @@
 /**
- * Authoritative product gallery extraction — pure, deterministic, no AI.
+ * THE authoritative product-gallery pipeline — pure, deterministic, no AI.
  *
- * The saved gallery must be the manufacturer's own product slideshow for THIS
- * exact model, in its original order. Everything else on the page (logos,
- * banners, promos, category tiles, recommended/related products, footer, icons,
- * trackers) is rejected instead of being collected and cleaned up afterwards.
+ * A saved gallery may contain ONLY the slides of the identified product's real
+ * carousel, located through the manufacturer's VERIFIED extraction rules
+ * (src/lib/manufacturer-rules.ts, taught once by the deep inspection).
+ *
+ * There is deliberately no generic path any more: no page-wide <img> scan, no
+ * "nearby images", no JSON-LD fallback and no og:image fallback. When the
+ * verified rules do not match the page, the result is zero images plus
+ * GALLERY_NEEDS_REVIEW — a wrong gallery is worse than an empty one.
+ *
+ * Feature sections ("No Frost", "Cooling", "Inverter", "Smart", benefits,
+ * specifications) may feed the SPECIFICATION extractor; their images can never
+ * reach the gallery.
  */
+
+import {
+  extractRuleGallery,
+  UNIVERSAL_EXCLUDED_URLS,
+  type ManufacturerRules,
+} from "./manufacturer-rules";
 
 export type GalleryIdentity = {
   brand?: string;
@@ -13,11 +27,22 @@ export type GalleryIdentity = {
   name?: string;
 };
 
+export const GALLERY_NEEDS_REVIEW = "GALLERY_NEEDS_REVIEW";
+
 export type GalleryResult = {
+  /** Verified carousel slides, in the manufacturer's own order. */
   images: string[];
-  /** Where the slideshow came from, for the admin review panel. */
-  source: "json-ld" | "gallery-container" | "og-image" | "none";
+  /** "manufacturer-rules" when verified rules produced the gallery. */
+  source: "manufacturer-rules" | "none";
+  /** Brand whose registry entry was applied, when one owns the domain. */
+  brand: string;
+  /** Slide elements the rules matched before deduplication. */
+  slides: number;
   rejected: number;
+  /** True when no gallery could be proven: the admin must review. */
+  needsReview: boolean;
+  /** Human-readable reasons, shown in the admin review panel. */
+  reasons: string[];
 };
 
 export const alnum = (value: string) =>
@@ -27,17 +52,7 @@ export const alnum = (value: string) =>
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
 
-/** Never part of a product's own slideshow. */
-const JUNK_URL =
-  /(logo|favicon|sprite|icon(?:s)?[-_/.]|banner|bandeau|promo|promotion|hero[-_]?banner|campaign|advert|badge|award|label[-_]?energy?[-_]?icon|social|facebook|instagram|twitter|youtube|whatsapp|pinterest|arrow|chevron|caret|placeholder|blank|spacer|pixel|tracking|beacon|analytics|newsletter|footer|header|menu|nav[-_]|breadcrumb|payment|visa|mastercard|flag|avatar|cookie|loader|spinner|play[-_]?button|video[-_]?poster|qr[-_]?code)/i;
-
-/** Page regions that hold other products, never this product's slideshow. */
-const FOREIGN_REGION =
-  /(related|recommend|recommand|you[-_]?may|also[-_]?like|cross[-_]?sell|up[-_]?sell|similar|accessor|compare|comparison|bundle|other[-_]?product|carousel[-_]?product-list|footer|header|nav|menu|breadcrumb|banner|promo|review|blog|article|newsletter|category)/i;
-
-/** Regions that DO hold the product slideshow. */
-const GALLERY_REGION =
-  /(product[-_]?gallery|gallery|slideshow|slider|swiper|carousel|fotorama|flickity|splide|glide|media[-_]?viewer|media[-_]?gallery|image[-_]?viewer|pdp[-_]?media|pdp[-_]?image|product[-_]?media|product[-_]?image|productimages|main[-_]?image|hero[-_]?image|zoom)/i;
+const JUNK_URL = new RegExp(UNIVERSAL_EXCLUDED_URLS.join("|"), "i");
 
 /**
  * An image file, including CMS renditions where the extension is followed by a
@@ -115,17 +130,7 @@ export function dedupeGalleryUrls(urls: string[]): string[] {
   return order.map((key) => best.get(key)!).filter(Boolean);
 }
 
-function absolute(raw: string, baseUrl: string): string {
-  try {
-    const url = new URL(raw.trim().replace(/&amp;/g, "&").replace(/\\\//g, "/"), baseUrl).toString();
-    if (!/^https?:\/\//i.test(url)) return "";
-    return url;
-  } catch {
-    return "";
-  }
-}
-
-/** True when this URL can plausibly be a picture of this product. */
+/** Final per-image validation: could this URL be a picture of THIS product? */
 export function isProductImageUrl(url: string, baseUrl: string, identity: GalleryIdentity): boolean {
   if (!url) return false;
   if (/^data:/i.test(url)) return false;
@@ -157,139 +162,68 @@ export function isProductImageUrl(url: string, baseUrl: string, identity: Galler
   return false;
 }
 
-/* --------------------------- structured data --------------------------- */
-
-function jsonLdImages(html: string, baseUrl: string, identity: GalleryIdentity): string[] {
-  const ref = alnum(identity.model ?? "");
-  const found: string[] = [];
-  const visit = (value: unknown) => {
-    if (Array.isArray(value)) return value.forEach(visit);
-    if (!value || typeof value !== "object") return;
-    const item = value as Record<string, unknown>;
-    const types = (Array.isArray(item["@type"]) ? item["@type"] : [item["@type"]]).map((t) =>
-      String(t ?? "").toLowerCase(),
-    );
-    if (types.includes("product")) {
-      const identityText = alnum(
-        [item["sku"], item["mpn"], item["model"], item["name"]].map((v) => String(v ?? "")).join(" "),
-      );
-      // Only this product's structured data; a related product's block is skipped.
-      if (!ref || !identityText || identityText.includes(ref)) {
-        const images = item["image"];
-        const list = Array.isArray(images) ? images : [images];
-        for (const entry of list) {
-          const raw =
-            typeof entry === "string"
-              ? entry
-              : String((entry as Record<string, unknown> | null)?.["url"] ?? "");
-          const url = absolute(raw, baseUrl);
-          if (url) found.push(url);
-        }
-      }
-    }
-    Object.values(item).forEach(visit);
-  };
-  for (const match of html.matchAll(
-    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
-  )) {
-    try {
-      visit(JSON.parse((match[1] ?? "").trim()));
-    } catch {
-      /* ignore invalid structured data */
-    }
-  }
-  return found;
-}
-
-/* --------------------------- gallery containers ------------------------ */
-
-const ATTR_IMAGE =
-  /(?:data-zoom-image|data-large|data-large-image|data-full|data-full-image|data-hires|data-image|data-src|data-original|data-lazy|data-srcset|srcset|src)\s*=\s*["']([^"']+)["']/gi;
-
-function urlsFromRegion(region: string, baseUrl: string): string[] {
-  const out: string[] = [];
-  for (const m of region.matchAll(ATTR_IMAGE)) {
-    const candidate = (m[1] ?? "").split(",").pop()?.trim().split(/\s+/)[0] ?? "";
-    const url = absolute(candidate, baseUrl);
-    if (url) out.push(url);
-  }
-  // JSON blobs inside the gallery component (Next.js / Nuxt payloads).
-  for (const m of region.matchAll(/https?:(?:\\\/\\\/|\/\/)[^"'\s\\<>]+\.(?:jpe?g|png|webp|avif)/gi)) {
-    const url = absolute((m[0] ?? "").replace(/\\\//g, "/"), baseUrl);
-    if (url) out.push(url);
-  }
-  return out;
-}
-
-function galleryRegions(html: string): string[] {
-  const regions: string[] = [];
-  const openTag = /<(div|section|ul|figure|aside|swiper-container)\b([^>]*)>/gi;
-  for (const match of html.matchAll(openTag)) {
-    const tag = (match[1] ?? "").toLowerCase();
-    const attrs = match[2] ?? "";
-    const attrText = attrs.replace(/\s+/g, " ");
-    if (!GALLERY_REGION.test(attrText)) continue;
-    if (FOREIGN_REGION.test(attrText)) continue;
-    const start = (match.index ?? 0) + match[0].length;
-    regions.push(html.slice(start, start + regionLength(html, tag, start)));
-  }
-  return regions;
-}
-
 /**
- * Length of the element's own content: we stop at its matching closing tag so a
- * "recommended products" block that merely follows the slideshow is never read
- * as part of it.
- */
-function regionLength(html: string, tag: string, start: number): number {
-  const limit = Math.min(html.length, start + 60_000);
-  const scanner = new RegExp(`<${tag}\\b[^>]*>|</${tag}\\s*>`, "gi");
-  scanner.lastIndex = start;
-  let depth = 1;
-  let match: RegExpExecArray | null;
-  while ((match = scanner.exec(html)) !== null) {
-    if (match.index >= limit) break;
-    depth += match[0].startsWith("</") ? -1 : 1;
-    if (depth === 0) return match.index - start;
-  }
-  return Math.min(12_000, limit - start);
-}
-
-/**
- * THE authoritative gallery for one exact product page.
- * Order is the manufacturer's slideshow order; duplicates (thumbnail vs
- * full-size, CDN resizes, query-string variants, mirrors) collapse to one.
+ * THE gallery of one exact product page.
+ *
+ * `rules` are the manufacturer's verified extraction rules for this domain.
+ * Without them (unknown domain, rules not yet verified, structure changed) the
+ * gallery is empty and flagged GALLERY_NEEDS_REVIEW.
  */
 export function extractProductGallery(
   html: string,
   baseUrl: string,
   identity: GalleryIdentity = {},
+  rules: ManufacturerRules | null = null,
 ): GalleryResult {
-  let rejected = 0;
-  const keep = (urls: string[]) =>
-    urls.filter((url) => {
-      const ok = isProductImageUrl(url, baseUrl, identity);
-      if (!ok) rejected += 1;
-      return ok;
-    });
+  const empty: GalleryResult = {
+    images: [],
+    source: "none",
+    brand: rules?.brand ?? "",
+    slides: 0,
+    rejected: 0,
+    needsReview: true,
+    reasons: [],
+  };
 
-  const structured = keep(jsonLdImages(html, baseUrl, identity));
-  const container = keep(galleryRegions(html).flatMap((region) => urlsFromRegion(region, baseUrl)));
-
-  let images = dedupeGalleryUrls([...structured, ...container]);
-  let source: GalleryResult["source"] = structured.length ? "json-ld" : container.length ? "gallery-container" : "none";
-
-  if (images.length === 0) {
-    const og: string[] = [];
-    for (const m of html.matchAll(
-      /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/gi,
-    )) {
-      const url = absolute(m[1] ?? "", baseUrl);
-      if (url) og.push(url);
-    }
-    images = dedupeGalleryUrls(keep(og));
-    source = images.length ? "og-image" : "none";
+  if (!rules) {
+    return {
+      ...empty,
+      reasons: ["aucune règle d'extraction vérifiée pour ce domaine fabricant"],
+    };
   }
 
-  return { images, source, rejected };
+  const found = extractRuleGallery(html, baseUrl, rules);
+  if (found.urls.length === 0) {
+    return { ...empty, slides: found.slides, reasons: found.reasons };
+  }
+
+  let rejected = 0;
+  const valid = found.urls.filter((url) => {
+    const ok = isProductImageUrl(url, baseUrl, identity);
+    if (!ok) rejected += 1;
+    return ok;
+  });
+
+  const images = dedupeGalleryUrls(valid);
+  if (images.length < Math.max(1, rules.gallery.min_slides)) {
+    return {
+      ...empty,
+      slides: found.slides,
+      rejected,
+      reasons: [
+        ...found.reasons,
+        "diapositives insuffisantes après validation : galerie envoyée en revue",
+      ],
+    };
+  }
+
+  return {
+    images,
+    source: "manufacturer-rules",
+    brand: rules.brand,
+    slides: found.slides,
+    rejected,
+    needsReview: false,
+    reasons: found.reasons,
+  };
 }
