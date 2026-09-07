@@ -243,7 +243,7 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
     {
       name: "create_product",
       description:
-        "Crée un article dans un dossier (chemin complet ; les dossiers manquants sont créés). Le stock est toujours 0 à la création (l'admin l'ajuste ensuite). Le prix est celui affiché sur la page officielle du constructeur (Maroc / Afrique du Nord) ; s'il n'y en a pas, laisse price null.",
+        "Crée un article À LA MAIN dans un dossier EXISTANT (chemin complet). INTERDIT quand tu disposes de l'URL officielle du produit : dans ce cas c'est import_exact_urls qui crée l'article (diaporama officiel complet, spécifications, preuves) — create_product ne saurait mettre qu'une seule photo. Appelle get_site_overview avant, et réutilise l'arborescence existante : ne crée jamais un dossier parallèle qui double une catégorie déjà présente. Le stock est toujours 0 à la création (l'admin l'ajuste ensuite). Le prix est celui affiché sur la page officielle du constructeur (Maroc / Afrique du Nord) ; s'il n'y en a pas, laisse price null.",
       properties: {
         folder_path: { type: "string" },
         name: { type: "string" },
