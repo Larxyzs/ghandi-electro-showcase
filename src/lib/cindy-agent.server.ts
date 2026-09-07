@@ -711,6 +711,44 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
       },
     },
     {
+      name: "inspect_manufacturer",
+      description:
+        "INSPECTION PROFONDE (une seule fois par fabricant, coûteuse) : lit la STRUCTURE DOM réelle de 2 à 4 fiches produits officielles d'un fabricant avec le modèle de raisonnement le plus puissant (GPT-5.6 Sol) et enregistre les règles vérifiées d'extraction du vrai carrousel d'images (conteneur, diapositives, attributs d'image, ordre, motifs CDN, sections à exclure). Les imports normaux réutilisent ensuite ces règles avec GPT-5.6 Luna : n'appelle donc JAMAIS cet outil pour chaque produit, seulement quand un fabricant n'a pas encore de règles vérifiées ou quand son site a changé.",
+      properties: {
+        brand: { type: "string" },
+        sample_urls: { type: "array", items: { type: "string" } },
+      },
+      required: ["brand", "sample_urls"],
+      run: async (args) => {
+        const { inspectManufacturer } = await import("./manufacturer-inspect.server");
+        const raw = (args as Record<string, unknown>)["sample_urls"];
+        const sampleUrls = Array.isArray(raw)
+          ? raw.map((v) => String(v))
+          : String(raw ?? "").split(/\s+/);
+        return inspectManufacturer({ brand: str(args, "brand"), sampleUrls });
+      },
+    },
+    {
+      name: "list_manufacturer_gallery_rules",
+      description:
+        "Registre d'extraction : liste les fabricants, leurs domaines officiels et si leurs règles de galerie sont VÉRIFIÉES. Un fabricant sans règles vérifiées ne peut pas produire de galerie (les produits partent en revue avec GALLERY_NEEDS_REVIEW) : il faut d'abord lancer inspect_manufacturer.",
+      properties: {},
+      required: [],
+      run: async () => {
+        const { manufacturerRegistry } = await import("./manufacturer-rules.server");
+        const registry = await manufacturerRegistry({ fresh: true });
+        return {
+          manufacturers: registry.map((entry) => ({
+            brand: entry.brand,
+            domains: entry.domains,
+            verified: entry.verified,
+            verified_by: entry.verified_by,
+            samples: entry.sample_urls.length,
+          })),
+        };
+      },
+    },
+    {
       name: "import_from_page",
       description:
         "L'admin donne l'URL d'une page (rayon, listing, résultats d'une marque) : cet outil ouvre la page, repère TOUS les liens de fiches produits, ouvre chaque fiche une par une et en extrait toutes les informations (nom, référence, caractéristiques, spécifications, images), puis crée les articles dans le dossier demandé. Les doublons déjà au catalogue sont signalés, pas recréés. price/stock viennent uniquement de l'admin (laisse null/0 s'il ne les a pas donnés). C'est l'outil à utiliser dès que l'admin envoie un lien de page avec plusieurs produits.",
