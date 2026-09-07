@@ -246,7 +246,12 @@ export async function importFromUrl(
     const { price, currency } = extractOfficialPrice(html);
 
     const missing = [...extraction.missing];
-    if (gallery.images.length === 0) missing.push("galerie officielle");
+    // Fail-safe: no proven carousel ⇒ review, never a guessed gallery. The
+    // exact official URL is preserved so the admin can re-check the page.
+    if (gallery.needsReview || gallery.images.length === 0) {
+      missing.push(GALLERY_NEEDS_REVIEW);
+      for (const reason of gallery.reasons.slice(0, 3)) missing.push(`galerie : ${reason}`);
+    }
 
     result = {
       ...empty,
