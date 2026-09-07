@@ -597,6 +597,45 @@ export type Database = {
         }
         Relationships: []
       }
+      manufacturer_gallery_rules: {
+        Row: {
+          brand: string
+          created_at: string
+          domains: string[]
+          gallery: Json
+          identity: Json
+          notes: string
+          sample_urls: string[]
+          updated_at: string
+          verified: boolean
+          verified_by: string
+        }
+        Insert: {
+          brand: string
+          created_at?: string
+          domains?: string[]
+          gallery?: Json
+          identity?: Json
+          notes?: string
+          sample_urls?: string[]
+          updated_at?: string
+          verified?: boolean
+          verified_by?: string
+        }
+        Update: {
+          brand?: string
+          created_at?: string
+          domains?: string[]
+          gallery?: Json
+          identity?: Json
+          notes?: string
+          sample_urls?: string[]
+          updated_at?: string
+          verified?: boolean
+          verified_by?: string
+        }
+        Relationships: []
+      }
       manufacturer_profiles: {
         Row: {
           brand: string
