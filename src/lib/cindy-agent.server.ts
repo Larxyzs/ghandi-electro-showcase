@@ -711,6 +711,44 @@ function buildTools(signal?: AbortSignal): ToolDef[] {
       },
     },
     {
+      name: "inspect_manufacturer",
+      description:
+        "INSPECTION PROFONDE (une seule fois par fabricant, coûteuse) : lit la STRUCTURE DOM réelle de 2 à 4 fiches produits officielles d'un fabricant avec le modèle de raisonnement le plus puissant (GPT-5.6 Sol) et enregistre les règles vérifiées d'extraction du vrai carrousel d'images (conteneur, diapositives, attributs d'image, ordre, motifs CDN, sections à exclure). Les imports normaux réutilisent ensuite ces règles avec GPT-5.6 Luna : n'appelle donc JAMAIS cet outil pour chaque produit, seulement quand un fabricant n'a pas encore de règles vérifiées ou quand son site a changé.",
+      properties: {
+        brand: { type: "string" },
+        sample_urls: { type: "array", items: { type: "string" } },
+      },
+      required: ["brand", "sample_urls"],
+      run: async (args) => {
+        const { inspectManufacturer } = await import("./manufacturer-inspect.server");
+        const raw = (args as Record<string, unknown>)["sample_urls"];
+        const sampleUrls = Array.isArray(raw)
+          ? raw.map((v) => String(v))
+          : String(raw ?? "").split(/\s+/);
+        return inspectManufacturer({ brand: str(args, "brand"), sampleUrls });
+      },
+    },
+    {
+      name: "list_manufacturer_gallery_rules",
+      description:
+        "Registre d'extraction : liste les fabricants, leurs domaines officiels et si leurs règles de galerie sont VÉRIFIÉES. Un fabricant sans règles vérifiées ne peut pas produire de galerie (les produits partent en revue avec GALLERY_NEEDS_REVIEW) : il faut d'abord lancer inspect_manufacturer.",
+      properties: {},
+      required: [],
+      run: async () => {
+        const { manufacturerRegistry } = await import("./manufacturer-rules.server");
+        const registry = await manufacturerRegistry({ fresh: true });
+        return {
+          manufacturers: registry.map((entry) => ({
+            brand: entry.brand,
+            domains: entry.domains,
+            verified: entry.verified,
+            verified_by: entry.verified_by,
+            samples: entry.sample_urls.length,
+          })),
+        };
+      },
+    },
+    {
       name: "import_from_page",
       description:
         "L'admin donne l'URL d'une page (rayon, listing, résultats d'une marque) : cet outil ouvre la page, repère TOUS les liens de fiches produits, ouvre chaque fiche une par une et en extrait toutes les informations (nom, référence, caractéristiques, spécifications, images), puis crée les articles dans le dossier demandé. Les doublons déjà au catalogue sont signalés, pas recréés. price/stock viennent uniquement de l'admin (laisse null/0 s'il ne les a pas donnés). C'est l'outil à utiliser dès que l'admin envoie un lien de page avec plusieurs produits.",
@@ -1460,7 +1498,7 @@ DIAPORAMAS — ANALYSE PROFONDE ET NETTOYAGE : dès que l'admin parle de doublon
 
 
 
-IMPORT PAR URL EXACTE (PRIORITÉ ABSOLUE) : dès que le message de l'admin contient une ou plusieurs URL de fiches produits (même 100 d'un coup), appelle import_exact_urls avec TOUTES ces URL d'un seul coup. Tu n'appelles ni web_search ni research_product ni Serper dans ce cas : l'URL EST la source. Chaque URL est traitée indépendamment : jamais une valeur d'un produit sur un autre produit (si la page A dit « Capacité totale : 512 L », le produit A garde 512 L, même si un autre modèle fait 462 L). Tu n'inventes, ne complètes, ne corriges JAMAIS une caractéristique avec tes connaissances : si l'information n'est pas sur la page, elle est marquée inconnue/à vérifier et le produit part en revue admin. Si une URL est inaccessible (403, page supprimée), tu le dis clairement avec l'erreur réelle et tu ne la remplaces PAS par un revendeur, Google, une marketplace ou un modèle voisin. Une URL en échec n'arrête pas le lot : tu termines les autres et tu donnes le bilan (traités / vérifiés / à vérifier / échecs). Les images viennent uniquement du diaporama officiel du produit, dans l'ordre d'origine, sans doublons ni bannières/logos/produits recommandés. Quand l'admin te corrige sur l'interprétation d'un champ d'un site fabricant, appelle remember_manufacturer_rule pour t'en souvenir pour ce domaine.
+IMPORT PAR URL EXACTE (PRIORITÉ ABSOLUE) : dès que le message de l'admin contient une ou plusieurs URL de fiches produits (même 100 d'un coup), appelle import_exact_urls avec TOUTES ces URL d'un seul coup. Tu n'appelles ni web_search ni research_product ni Serper dans ce cas : l'URL EST la source. Chaque URL est traitée indépendamment : jamais une valeur d'un produit sur un autre produit (si la page A dit « Capacité totale : 512 L », le produit A garde 512 L, même si un autre modèle fait 462 L). Tu n'inventes, ne complètes, ne corriges JAMAIS une caractéristique avec tes connaissances : si l'information n'est pas sur la page, elle est marquée inconnue/à vérifier et le produit part en revue admin. Si une URL est inaccessible (403, page supprimée), tu le dis clairement avec l'erreur réelle et tu ne la remplaces PAS par un revendeur, Google, une marketplace ou un modèle voisin. Une URL en échec n'arrête pas le lot : tu termines les autres et tu donnes le bilan (traités / vérifiés / à vérifier / échecs). Les images viennent uniquement du diaporama officiel du produit, dans l'ordre d'origine, sans doublons ni bannières/logos/produits recommandés. Les images de la galerie viennent UNIQUEMENT du vrai carrousel du produit, identifié par les règles vérifiées du fabricant (registre d'extraction) : jamais une image de section « No Frost », « Cooling », « Inverter », « Smart », caractéristiques, bannière, catégorie ou produit recommandé, même si elle montre le même appareil. Si les règles ne correspondent pas à la page, la galerie est vide et marquée GALLERY_NEEDS_REVIEW : tu ne devines JAMAIS et tu ne prends aucune image au hasard. Si un fabricant n'a pas encore de règles vérifiées (list_manufacturer_gallery_rules), propose à l'admin de lancer inspect_manufacturer une seule fois avec 2 à 4 URL officielles de ce fabricant. Quand l'admin te corrige sur l'interprétation d'un champ d'un site fabricant, appelle remember_manufacturer_rule pour t'en souvenir pour ce domaine.
 
 RECHERCHE PRODUIT — SOURCES OFFICIELLES UNIQUEMENT : quand l'admin écrit juste « RB34T672EWW, Samsung » ou « Samsung RB34T672EWW », c'est une référence exacte + une marque : appelle directement research_product avec ce texte. Tu n'utilises QUE le site officiel du fabricant, et EN PRIORITÉ sa version Maroc puis Afrique du Nord (samsung.com/n_africa, lg.com/africa, bosch-home.ma, …) : c'est cette version qui donne les bons modèles et le bon prix public. Passe sur une autre version (Europe/monde) uniquement si la version Maroc/Afrique du Nord n'existe pas, et signale-le. Jamais Tangerois, Electroplanet, Jumia, Avito, un revendeur, une marketplace, un blog, Pinterest ou Google Images. Si la page officielle de cette référence exacte est introuvable, dis-le à l'admin au lieu de deviner ou d'importer un modèle voisin. Toutes les images du diaporama d'origine sont conservées, sans limite de nombre.
 

@@ -14,7 +14,8 @@
  *    the AI is called once per product.
  */
 import { fetchOfficialPage, htmlToText } from "./page-fetch.server";
-import { extractProductGallery } from "./product-gallery";
+import { GALLERY_NEEDS_REVIEW } from "./product-gallery";
+import { resolveProductGallery } from "./product-gallery.server";
 import {
   collectSpecCandidates,
   extractProductFromPage,
@@ -219,8 +220,9 @@ export async function importFromUrl(
       throw new Error(identityCheck.reason);
     }
 
-    // Gallery: authoritative slideshow only, in the manufacturer's own order.
-    const gallery = extractProductGallery(html, page.finalUrl || clean, {
+    // Gallery: ONLY the verified carousel slides described by this
+    // manufacturer's stored extraction rules, in its own order.
+    const gallery = await resolveProductGallery(html, page.finalUrl || clean, {
       brand: identity.brand,
       model: identity.model,
       name: identity.name,
@@ -244,7 +246,12 @@ export async function importFromUrl(
     const { price, currency } = extractOfficialPrice(html);
 
     const missing = [...extraction.missing];
-    if (gallery.images.length === 0) missing.push("galerie officielle");
+    // Fail-safe: no proven carousel ⇒ review, never a guessed gallery. The
+    // exact official URL is preserved so the admin can re-check the page.
+    if (gallery.needsReview || gallery.images.length === 0) {
+      missing.push(GALLERY_NEEDS_REVIEW);
+      for (const reason of gallery.reasons.slice(0, 3)) missing.push(`galerie : ${reason}`);
+    }
 
     result = {
       ...empty,

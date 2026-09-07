@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { extractProductGallery, dedupeGalleryUrls, imageVariantKey } from "../src/lib/product-gallery";
+import { BUILTIN_MANUFACTURER_RULES, rulesForUrl } from "../src/lib/manufacturer-rules";
+
+const SAMSUNG_URL = "https://www.samsung.com/n_africa/refrigerators/rb34/";
+const samsungRules = rulesForUrl(SAMSUNG_URL, BUILTIN_MANUFACTURER_RULES);
 import { runIsolated } from "../src/lib/batch-runner";
 import { validateOrderLine } from "../src/lib/orders-types";
 
@@ -21,7 +25,7 @@ describe("official gallery extraction", () => {
       </section>
       <footer><img src="https://images.samsung.com/logo.svg"><img src="https://images.samsung.com/icons/sprite.png"></footer>`);
 
-    const { images } = extractProductGallery(html, "https://www.samsung.com/n_africa/refrigerators/rb34/");
+    const { images } = extractProductGallery(html, SAMSUNG_URL, {}, samsungRules);
     expect(images).toEqual([
       "https://images.samsung.com/is/image/samsung/p6pim/ma/rb34_001.jpg?$650_519_PNG$",
       "https://images.samsung.com/is/image/samsung/p6pim/ma/rb34_002.jpg?$650_519_PNG$",
@@ -42,10 +46,24 @@ describe("official gallery extraction", () => {
     );
   });
 
-  it("falls back to the official og:image rather than inventing pictures", () => {
-    const { images, source } = extractProductGallery(page("<main><p>Fiche produit</p></main>"), "https://www.samsung.com/x");
-    expect(images).toHaveLength(1);
-    expect(source).toBe("og-image");
+  it("returns zero images and a review flag when no carousel matches (never og:image)", () => {
+    const { images, source, needsReview } = extractProductGallery(
+      page("<main><p>Fiche produit</p></main>"),
+      "https://www.samsung.com/x",
+      {},
+      samsungRules,
+    );
+    expect(images).toEqual([]);
+    expect(source).toBe("none");
+    expect(needsReview).toBe(true);
+  });
+
+  it("gives no gallery at all for a manufacturer without verified rules", () => {
+    const html = page('<div class="product-gallery"><img src="https://cdn.lg.com/img/hero_01.jpg"></div>');
+    const lg = rulesForUrl("https://www.lg.com/ma/x", BUILTIN_MANUFACTURER_RULES);
+    const result = extractProductGallery(html, "https://www.lg.com/ma/x", {}, lg);
+    expect(result.images).toEqual([]);
+    expect(result.needsReview).toBe(true);
   });
 });
 

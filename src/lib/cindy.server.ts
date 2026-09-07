@@ -1,6 +1,7 @@
 import type { MarketingSection, ProductSpec } from "./catalog-types";
 import type { CindyEvent, CindySource, ResearchedProduct } from "./cindy-types";
-import { extractProductGallery, dedupeGalleryUrls } from "./product-gallery";
+import { dedupeGalleryUrls } from "./product-gallery";
+import { resolveProductGallery } from "./product-gallery.server";
 
 /** Official manufacturer domains, used to flag/prioritize trustworthy sources. */
 const OFFICIAL_DOMAINS: Record<string, string[]> = {
@@ -476,8 +477,12 @@ const NON_GALLERY =
  * order, with no page-wide image scanning. This wrapper simply delegates there,
  * so nothing in the codebase can produce a "generic page images" gallery.
  */
-export function extractGalleryImages(html: string, baseUrl: string, reference: string): string[] {
-  return extractProductGallery(html, baseUrl, { model: reference }).images;
+export async function extractGalleryImages(
+  html: string,
+  baseUrl: string,
+  reference: string,
+): Promise<string[]> {
+  return (await resolveProductGallery(html, baseUrl, { model: reference })).images;
 }
 
 /**
@@ -584,7 +589,7 @@ export async function readProductPage(url: string, reference: string) {
   const { price, currency } = extractOfficialPrice(html);
 
   // THE gallery: the product's own slideshow only.
-  const gallery = extractProductGallery(html, page.finalUrl || url, { model: reference });
+  const gallery = await resolveProductGallery(html, page.finalUrl || url, { model: reference });
 
   return {
     html,
