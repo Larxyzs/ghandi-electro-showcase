@@ -334,7 +334,19 @@ function stripExcludedSections(region: string, excluded: RegExp | null): string 
     const body = elementBody(out, (match[1] ?? "div").toLowerCase(), bodyStart);
     cuts.push([start, bodyStart + body.length]);
   }
-  for (const [from, to] of cuts.reverse()) out = out.slice(0, from) + out.slice(to);
+  // Keep only outermost ranges: a nested cut removed first would shift the
+  // outer range's end and delete unrelated content after it (which is how the
+  // real carousel used to disappear).
+  const merged: [number, number][] = [];
+  for (const [from, to] of cuts.sort((a, b) => a[0] - b[0] || b[1] - a[1])) {
+    const last = merged[merged.length - 1];
+    if (last && from < last[1]) {
+      last[1] = Math.max(last[1], to);
+      continue;
+    }
+    merged.push([from, to]);
+  }
+  for (const [from, to] of merged.reverse()) out = out.slice(0, from) + out.slice(to);
   return out;
 }
 
