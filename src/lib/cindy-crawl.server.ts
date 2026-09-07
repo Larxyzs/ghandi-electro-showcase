@@ -354,8 +354,8 @@ export async function crawlListingPage(input: {
       // known after extraction, the slideshow is re-read with that identity —
       // never merged with page-wide images.
       if (product.model) {
-        const { extractProductGallery } = await import("./product-gallery");
-        const refined = extractProductGallery(page.html, item.url, {
+        const { resolveProductGallery } = await import("./product-gallery.server");
+        const refined = await resolveProductGallery(page.html, item.url, {
           model: product.model,
           brand: product.brand,
           name: product.name,
