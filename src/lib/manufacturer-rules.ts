@@ -377,8 +377,14 @@ export function extractRuleGallery(
 
   if (candidates.length === 0 && gallery.slides_self_identifying && gallery.slide_patterns.length > 0) {
     // Slides that prove their own membership (unique carousel attributes) may
-    // be read outside a container — the page may render them flat.
-    candidates.push(...slidesFromRegion(html, baseUrl, gallery, 0));
+    // be read outside a container — the page may render them flat. Feature,
+    // related and marketing sections are still removed first, so an image
+    // inside a "No Frost" block can never be read as a slide.
+    const cleaned = stripExcludedSections(
+      html,
+      compile([...gallery.exclude_section_patterns, ...UNIVERSAL_EXCLUDED_SECTIONS]),
+    );
+    candidates.push(...slidesFromRegion(cleaned, baseUrl, gallery, 0));
   }
   if (candidates.length === 0) {
     reasons.push("carrousel officiel non identifié par les règles du fabricant");
