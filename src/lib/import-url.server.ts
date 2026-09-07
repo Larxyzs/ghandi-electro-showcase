@@ -14,7 +14,8 @@
  *    the AI is called once per product.
  */
 import { fetchOfficialPage, htmlToText } from "./page-fetch.server";
-import { extractProductGallery } from "./product-gallery";
+import { GALLERY_NEEDS_REVIEW } from "./product-gallery";
+import { resolveProductGallery } from "./product-gallery.server";
 import {
   collectSpecCandidates,
   extractProductFromPage,
@@ -219,8 +220,9 @@ export async function importFromUrl(
       throw new Error(identityCheck.reason);
     }
 
-    // Gallery: authoritative slideshow only, in the manufacturer's own order.
-    const gallery = extractProductGallery(html, page.finalUrl || clean, {
+    // Gallery: ONLY the verified carousel slides described by this
+    // manufacturer's stored extraction rules, in its own order.
+    const gallery = await resolveProductGallery(html, page.finalUrl || clean, {
       brand: identity.brand,
       model: identity.model,
       name: identity.name,
