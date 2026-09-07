@@ -437,10 +437,14 @@ export async function alreadyImported(urls: string[]): Promise<Set<string>> {
   const list = parseUrls(urls);
   if (list.length === 0) return new Set();
   const client = await db();
+  // "Déjà importée" ne compte que si un ARTICLE existe vraiment au catalogue :
+  // un import réussi sans article doit être rejoué (sinon l'agent recrée le
+  // produit à la main, avec une seule photo au lieu du diaporama officiel).
   const { data } = await client
     .from("product_imports")
-    .select("url, status")
+    .select("url, status, product_id")
     .in("url", list)
-    .neq("status", "failed");
+    .neq("status", "failed")
+    .not("product_id", "is", null);
   return new Set((data ?? []).map((row) => row.url));
 }
