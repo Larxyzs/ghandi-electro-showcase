@@ -182,3 +182,34 @@ describe("Whirlpool (AEM) verified rules", () => {
     expect(gallery.images[0]).toContain("MDM2-LOW-1.png/jcr:content/renditions/original");
   });
 });
+
+describe("nested excluded sections", () => {
+  it("removes a feature block nested in a header without eating the carousel", () => {
+    const base = "https://www.whirlpool.ma/ma-fr/produits/x-wbmf-706564-xna";
+    const dam = (n: number) => `/content/dam/whirlpool/product-images/shot-${n}.png`;
+    const html = `<html><body>
+      <div class="ProductInfo__header">
+        <div class="product-features no-frost"><img src="/content/dam/whirlpool/features/nofrost.png"></div>
+        <nav class="breadcrumb"><img src="/content/dam/whirlpool/icons/arrow.png"></nav>
+      </div>
+      <div class="ProductInfo__views">
+        ${[1, 2, 3]
+          .map(
+            (n) =>
+              `<img id="product-info-image-${n}" data-modal-id="product-carousel" data-view-index="${n - 1}" src="${dam(n)}">`,
+          )
+          .join("")}
+      </div></body></html>`;
+    const gallery = extractProductGallery(html, base, { brand: "Whirlpool" }, whirlpoolRules);
+    expect(gallery.images).toEqual([1, 2, 3].map((n) => `https://www.whirlpool.ma${dam(n)}`));
+  });
+
+  it("ignores analytics payloads that merely mention marketing or cooling", () => {
+    const base = "https://www.whirlpool.ma/ma-fr/produits/y";
+    const html = `<html><body><div class="ProductInfo__views" data-gtm-data='{"item_MarketingCode":"1","item_category2":"Cooling"}'>
+      <img id="product-info-image-1" data-modal-id="product-carousel" data-view-index="0" data-gtm-data='{"item_MarketingCode":"1","item_category2":"Cooling"}' src="/content/dam/whirlpool/product-images/only.png">
+    </div></body></html>`;
+    const gallery = extractProductGallery(html, base, { brand: "Whirlpool" }, whirlpoolRules);
+    expect(gallery.images).toEqual(["https://www.whirlpool.ma/content/dam/whirlpool/product-images/only.png"]);
+  });
+});
