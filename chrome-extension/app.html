@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ghandi Product Grabber</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="logo">G</div>
+      <div>
+        <h1>Ghandi Product Grabber</h1>
+        <p class="sub">Paste product links. Get the product data. Paste it into your website.</p>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2><span class="step">1</span> Paste your product links</h2>
+        <p class="help">One link per line. You can paste hundreds at once.</p>
+        <textarea id="links" rows="6" placeholder="https://www.whirlpool.ma/..."></textarea>
+
+        <div class="row">
+          <button id="go" class="big">2 &nbsp; Get the data</button>
+          <button id="stop" class="ghost" hidden>Stop</button>
+          <label class="speed">
+            Speed
+            <select id="workers">
+              <option value="1">Careful (1 page at a time)</option>
+              <option value="2" selected>Normal (2 pages at a time)</option>
+              <option value="3">Fast (3 pages at a time)</option>
+            </select>
+          </label>
+        </div>
+        <p id="status" class="status"></p>
+        <div class="bar" id="barWrap" hidden><div id="bar"></div></div>
+        <p class="tiny">
+          Small windows will open and close by themselves while the extension works. Please leave this tab
+          open, and don't minimize those small windows.
+        </p>
+        <p class="tiny" id="brands"></p>
+      </section>
+
+      <section class="card">
+        <h2><span class="step">3</span> Copy the result</h2>
+        <p class="help">
+          Then go to your website: <b>Admin → Import en masse</b>, and paste.
+        </p>
+        <div class="row">
+          <button id="copyNew" class="big">Copy the NEW ones</button>
+          <button id="copyAll" class="ghost">Copy everything</button>
+          <button id="download" class="ghost">Download as a file</button>
+        </div>
+        <p id="copyMsg" class="status"></p>
+        <div class="row small-row">
+          <span id="count"></span>
+          <span class="spacer"></span>
+          <button id="retry" class="link" hidden>Try the failed ones again</button>
+          <button id="clearAll" class="link danger">Delete everything below</button>
+        </div>
+      </section>
+
+      <section id="list" class="list"></section>
+    </main>
+
+    <script src="recipes.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
