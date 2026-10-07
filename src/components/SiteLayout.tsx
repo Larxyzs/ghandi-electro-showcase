@@ -9,7 +9,6 @@ import { CartDrawer } from "@/components/CartDrawer";
 import { useCart } from "@/lib/cart";
 import { useI18n } from "@/lib/i18n";
 import { useLiveEdit } from "@/lib/live-edit";
-import { CindyDock } from "@/components/live/CindyDock";
 import { COMPANY } from "@/lib/company";
 
 
@@ -155,7 +154,6 @@ function SiteShell({ children }: { children: ReactNode }) {
       <main className="flex-1">{children}</main>
 
       <WhatsAppFloating />
-      <CindyDock />
       <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
 
       <footer className="mt-24 border-t border-border bg-brand-soft/60">

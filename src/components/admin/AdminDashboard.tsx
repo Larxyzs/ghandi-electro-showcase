@@ -30,7 +30,6 @@ import {
   type SearchSettings,
 } from "@/components/admin/SearchApiPanel";
 import { AdminEmailsPanel, type AdminEmail } from "@/components/admin/AdminEmailsPanel";
-import { CindyWorkspace, type CindyActions } from "@/components/admin/cindy/CindyWorkspace";
 import { SITE_MODE_LABELS, type SiteMode } from "@/lib/catalog-types";
 import type { AdminRole, StaffAccount } from "@/lib/admin-types";
 import type { Order, OrderStatus } from "@/lib/orders-types";
@@ -45,7 +44,6 @@ export function AdminDashboard({
   username,
   staffActions,
   catalogActions,
-  cindyActions,
   searchActions,
   orderActions,
   imageActions,
@@ -66,7 +64,6 @@ export function AdminDashboard({
     remove: (id: string) => Promise<void>;
   };
   catalogActions: CatalogActions;
-  cindyActions: CindyActions;
   onSetSiteMode: (mode: SiteMode) => Promise<void>;
   searchActions: {
     add: (term: string) => Promise<void>;
@@ -101,11 +98,9 @@ export function AdminDashboard({
   const [tab, setTab] = useState<
     | "inventory"
     | "orders"
-    | "cindy"
     | "design"
     | "searches"
     | "images"
-    | "api"
     | "emails"
     | "staff"
   >("inventory");
@@ -162,11 +157,9 @@ export function AdminDashboard({
             [
               { id: "inventory", label: t("admin.tab.inventory"), icon: Package },
               { id: "orders", label: t("admin.tab.orders"), icon: ShoppingBag },
-              { id: "cindy", label: t("admin.tab.cindy"), icon: Sparkles },
               { id: "design", label: t("admin.tab.design"), icon: Palette },
               { id: "searches", label: t("admin.tab.searches"), icon: Search },
               { id: "images", label: t("admin.tab.images"), icon: ImageIcon },
-              { id: "api", label: t("admin.tab.api"), icon: KeyRound },
               ...(role === "super"
                 ? ([
                     { id: "emails", label: t("admin.tab.emails"), icon: Mail },
@@ -195,7 +188,7 @@ export function AdminDashboard({
       <main
         className={cn(
           "mx-auto w-full px-4 py-6 sm:px-5 sm:py-10",
-          tab === "cindy" ? "max-w-6xl" : "max-w-5xl",
+          "max-w-5xl",
         )}
       >
         {tab === "staff" && role === "super" ? (
@@ -211,8 +204,6 @@ export function AdminDashboard({
             add={emailActions.add}
             remove={emailActions.remove}
           />
-        ) : tab === "api" ? (
-          <SearchApiPanel load={apiActions.load} save={apiActions.save} />
         ) : tab === "orders" ? (
           <OrdersPanel
             list={orderActions.list}
@@ -229,35 +220,8 @@ export function AdminDashboard({
           )
         ) : tab === "searches" ? (
           <PopularSearchesPanel terms={data.popularSearches} actions={searchActions} />
-        ) : tab === "cindy" ? (
-          <CindyWorkspace data={data} actions={cindyActions} />
-
         ) : tab === "inventory" ? (
           <div className="space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-brand/25 bg-brand-soft/30 p-5">
-              <div className="flex items-start gap-3">
-                <span
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl text-primary-foreground"
-                  style={{ background: "var(--gradient-brand)" }}
-                >
-                  <Sparkles className="h-4 w-4" />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold">{t("admin.cindy.title")}</p>
-                  <p className="text-xs text-foreground/60">
-                    {t("admin.cindy.desc")}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setTab("cindy")}
-                className="rounded-full px-5 py-2.5 text-sm font-semibold text-primary-foreground"
-                style={{ background: "var(--gradient-brand)" }}
-              >
-                {t("admin.cindy.cta")}
-              </button>
-            </div>
             <CatalogExplorer data={data} busy={busy} actions={catalogActions} />
           </div>
         ) : (
