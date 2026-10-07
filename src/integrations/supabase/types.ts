@@ -856,15 +856,20 @@ export type Database = {
           gallery: Json
           id: string
           image_url: string | null
+          imported_at: string | null
           marketing_sections: Json
+          model: string
           name: string
+          needs_review: boolean
           node_id: string
           price: number | null
+          price_text: string
           review_state: string
           serial_number: string
           sort_order: number
           source_name: string | null
           source_url: string | null
+          spec_groups: Json
           specifications: Json
           stock: number
           updated_at: string
@@ -878,15 +883,20 @@ export type Database = {
           gallery?: Json
           id?: string
           image_url?: string | null
+          imported_at?: string | null
           marketing_sections?: Json
+          model?: string
           name: string
+          needs_review?: boolean
           node_id: string
           price?: number | null
+          price_text?: string
           review_state?: string
           serial_number?: string
           sort_order?: number
           source_name?: string | null
           source_url?: string | null
+          spec_groups?: Json
           specifications?: Json
           stock?: number
           updated_at?: string
@@ -900,15 +910,20 @@ export type Database = {
           gallery?: Json
           id?: string
           image_url?: string | null
+          imported_at?: string | null
           marketing_sections?: Json
+          model?: string
           name?: string
+          needs_review?: boolean
           node_id?: string
           price?: number | null
+          price_text?: string
           review_state?: string
           serial_number?: string
           sort_order?: number
           source_name?: string | null
           source_url?: string | null
+          spec_groups?: Json
           specifications?: Json
           stock?: number
           updated_at?: string
