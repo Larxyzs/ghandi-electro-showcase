@@ -8,7 +8,7 @@ type Verdict = {
   advice: string;
 };
 
-const SYSTEM = `Tu es Cindy, assistante qualité images pour un site d'électroménager (Ghandi Home Electro).
+const SYSTEM = `Tu es une assistante qualité images pour un site d'électroménager (Ghandi Home Electro).
 On te donne une image destinée à une fiche produit ou un dossier de catalogue.
 Vérifie: le sujet est-il bien un produit d'électroménager visible et net ? le cadrage/l'échelle sont-ils bons (produit centré, pas rogné, pas minuscule, pas trop zoomé) ? le fond est-il propre ? y a-t-il des filigranes, textes parasites, logos de revendeurs, collages ou basse résolution ?
 Réponds STRICTEMENT en JSON: {"verdict":"good"|"warn"|"bad","summary":"une phrase courte en français","issues":["problème court", ...],"advice":"conseil court en français"}
