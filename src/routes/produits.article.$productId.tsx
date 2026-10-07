@@ -235,20 +235,27 @@ function ProductDetail() {
           />
         )}
 
-        {specs.length > 0 && (
+        {(product.spec_groups?.length ? product.spec_groups : specs.length ? [{ title: "", rows: specs }] : []).length > 0 && (
           <div className="mt-12 border-t border-border pt-8">
             <h2 className="text-lg font-semibold">{t("product.specs")}</h2>
-            <dl className="mt-4 grid gap-x-10 sm:grid-cols-2">
-              {specs.map((spec, i) => (
-                <div
-                  key={`${spec.label}-${i}`}
-                  className="flex items-baseline justify-between gap-6 border-b border-border/70 py-2.5 text-sm"
-                >
-                  <dt className="text-foreground/60">{tr(spec.label)}</dt>
-                  <dd className="text-end font-medium">{tr(spec.value)}</dd>
-                </div>
-              ))}
-            </dl>
+            {(product.spec_groups?.length ? product.spec_groups : [{ title: "", rows: specs }]).map((group, g) => (
+              <div key={g} className="mt-6">
+                {group.title && (
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-brand">{tr(group.title)}</h3>
+                )}
+                <dl className="mt-2 grid gap-x-10 sm:grid-cols-2">
+                  {group.rows.map((spec, i) => (
+                    <div
+                      key={`${spec.label}-${i}`}
+                      className="flex items-baseline justify-between gap-6 border-b border-border/70 py-2.5 text-sm"
+                    >
+                      <dt className="text-foreground/60">{tr(spec.label)}</dt>
+                      <dd className="text-end font-medium">{tr(spec.value)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            ))}
           </div>
         )}
       </section>
