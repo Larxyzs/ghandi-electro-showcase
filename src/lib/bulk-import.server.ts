@@ -177,7 +177,7 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions): Pro
             if (isEmpty((existing as Record<string, unknown>)[k]) && !isEmpty(v)) patch[k] = v;
           }
         }
-        const { error } = await db.from("products").update(patch).eq("id", existing.id);
+        const { error } = await db.from("products").update(patch as never).eq("id", existing.id);
         if (error) throw new Error(error.message);
         await db.from("product_nodes").upsert({ product_id: existing.id, node_id: nodeId }, { onConflict: "product_id,node_id", ignoreDuplicates: true });
         results.push({ key: item.key, outcome: "updated", productId: existing.id, warnings });
