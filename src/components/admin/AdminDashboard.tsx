@@ -138,6 +138,12 @@ export function AdminDashboard({
             {busy && <Loader2 className="h-4 w-4 animate-spin text-brand" />}
             <LanguageSwitcher />
             <Link
+              to="/admin/import"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold hover:border-brand hover:text-brand"
+            >
+              <Package className="h-3.5 w-3.5" /> Importer des produits
+            </Link>
+            <Link
               to="/"
               className="hidden items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold hover:border-brand hover:text-brand sm:flex"
             >
