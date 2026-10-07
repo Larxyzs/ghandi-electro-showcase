@@ -299,7 +299,7 @@ export function ImagePicker({
 
           {checking && (
             <p className="flex items-center gap-2 text-xs font-semibold text-foreground/60">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" /> Cindy vérifie l'image
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-brand" /> Vérification de l'image
               (netteté, cadrage, échelle)…
             </p>
           )}
@@ -345,7 +345,7 @@ export function ImagePicker({
                 }}
                 className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-semibold text-foreground/70 hover:border-brand hover:text-brand"
               >
-                <Sparkles className="h-3.5 w-3.5" /> {verdict || checkError ? "Revérifier" : "Vérifier avec Cindy"}
+                <Sparkles className="h-3.5 w-3.5" /> {verdict || checkError ? "Revérifier" : "Vérifier l'image"}
               </button>
             )}
 

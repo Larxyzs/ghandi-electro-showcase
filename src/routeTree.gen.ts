@@ -17,8 +17,6 @@ import { Route as PanierRouteImport } from './routes/panier'
 import { Route as ProduitsIndexRouteImport } from './routes/produits.index'
 import { Route as ProduitsSplatRouteImport } from './routes/produits.$'
 import { Route as ApiAdminCheckImageRouteImport } from './routes/api/admin/check-image'
-import { Route as ApiAdminCindyRouteImport } from './routes/api/admin/cindy'
-import { Route as ApiAdminCindyAgentRouteImport } from './routes/api/admin/cindy-agent'
 import { Route as ProduitsArticleProductIdRouteImport } from './routes/produits.article.$productId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -61,16 +59,6 @@ const ApiAdminCheckImageRoute = ApiAdminCheckImageRouteImport.update({
   path: '/api/admin/check-image',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAdminCindyRoute = ApiAdminCindyRouteImport.update({
-  id: '/api/admin/cindy',
-  path: '/api/admin/cindy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAdminCindyAgentRoute = ApiAdminCindyAgentRouteImport.update({
-  id: '/api/admin/cindy-agent',
-  path: '/api/admin/cindy-agent',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ProduitsArticleProductIdRoute =
   ProduitsArticleProductIdRouteImport.update({
     id: '/produits/article/$productId',
@@ -87,8 +75,6 @@ export interface FileRoutesByFullPath {
   '/produits/$': typeof ProduitsSplatRoute
   '/produits/': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
-  '/api/admin/cindy': typeof ApiAdminCindyRoute
-  '/api/admin/cindy-agent': typeof ApiAdminCindyAgentRoute
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
 }
 export interface FileRoutesByTo {
@@ -100,8 +86,6 @@ export interface FileRoutesByTo {
   '/produits/$': typeof ProduitsSplatRoute
   '/produits': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
-  '/api/admin/cindy': typeof ApiAdminCindyRoute
-  '/api/admin/cindy-agent': typeof ApiAdminCindyAgentRoute
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
 }
 export interface FileRoutesById {
@@ -114,8 +98,6 @@ export interface FileRoutesById {
   '/produits/$': typeof ProduitsSplatRoute
   '/produits/': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
-  '/api/admin/cindy': typeof ApiAdminCindyRoute
-  '/api/admin/cindy-agent': typeof ApiAdminCindyAgentRoute
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
 }
 export interface FileRouteTypes {
@@ -129,8 +111,6 @@ export interface FileRouteTypes {
     | '/produits/$'
     | '/produits/'
     | '/api/admin/check-image'
-    | '/api/admin/cindy'
-    | '/api/admin/cindy-agent'
     | '/produits/article/$productId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -142,8 +122,6 @@ export interface FileRouteTypes {
     | '/produits/$'
     | '/produits'
     | '/api/admin/check-image'
-    | '/api/admin/cindy'
-    | '/api/admin/cindy-agent'
     | '/produits/article/$productId'
   id:
     | '__root__'
@@ -155,8 +133,6 @@ export interface FileRouteTypes {
     | '/produits/$'
     | '/produits/'
     | '/api/admin/check-image'
-    | '/api/admin/cindy'
-    | '/api/admin/cindy-agent'
     | '/produits/article/$productId'
   fileRoutesById: FileRoutesById
 }
@@ -169,8 +145,6 @@ export interface RootRouteChildren {
   ProduitsSplatRoute: typeof ProduitsSplatRoute
   ProduitsIndexRoute: typeof ProduitsIndexRoute
   ApiAdminCheckImageRoute: typeof ApiAdminCheckImageRoute
-  ApiAdminCindyRoute: typeof ApiAdminCindyRoute
-  ApiAdminCindyAgentRoute: typeof ApiAdminCindyAgentRoute
   ProduitsArticleProductIdRoute: typeof ProduitsArticleProductIdRoute
 }
 
@@ -232,20 +206,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminCheckImageRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/admin/cindy': {
-      id: '/api/admin/cindy'
-      path: '/api/admin/cindy'
-      fullPath: '/api/admin/cindy'
-      preLoaderRoute: typeof ApiAdminCindyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/cindy-agent': {
-      id: '/api/admin/cindy-agent'
-      path: '/api/admin/cindy-agent'
-      fullPath: '/api/admin/cindy-agent'
-      preLoaderRoute: typeof ApiAdminCindyAgentRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/produits/article/$productId': {
       id: '/produits/article/$productId'
       path: '/produits/article/$productId'
@@ -265,8 +225,6 @@ const rootRouteChildren: RootRouteChildren = {
   ProduitsSplatRoute: ProduitsSplatRoute,
   ProduitsIndexRoute: ProduitsIndexRoute,
   ApiAdminCheckImageRoute: ApiAdminCheckImageRoute,
-  ApiAdminCindyRoute: ApiAdminCindyRoute,
-  ApiAdminCindyAgentRoute: ApiAdminCindyAgentRoute,
   ProduitsArticleProductIdRoute: ProduitsArticleProductIdRoute,
 }
 export const routeTree = rootRouteImport
