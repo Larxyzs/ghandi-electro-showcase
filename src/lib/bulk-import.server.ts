@@ -68,7 +68,7 @@ export async function previewBulk(items: BulkItem[], opts: BulkOptions): Promise
     const existing = await findExisting(db, item);
     const folder = resolveFolder(folders, item, opts);
     if (folder.problem) rows.push({ key: item.key, status: "problem", reason: folder.problem });
-    else rows.push({ key: item.key, status: existing ? "exists" : "new", existingId: existing?.id });
+    else rows.push({ key: item.key, status: existing ? "exists" : "new", ...(existing ? { existingId: existing.id } : {}) });
   }
   return rows;
 }
@@ -167,7 +167,8 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions): Pro
       };
 
       if (existing) {
-        let patch: Record<string, unknown>;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let patch: Record<string, any>;
         if (opts.mode === "all") patch = { ...full, node_id: nodeId };
         else {
           patch = { imported_at: full.imported_at };
