@@ -63,7 +63,8 @@ export function parseBulkFile(text: string): {
     ? json.failed.map((f: { sourceUrl?: unknown; error?: unknown }) => ({ sourceUrl: clean(f?.sourceUrl), error: clean(f?.error) }))
     : [];
   const items = list.map((raw, i) => {
-    const p = (raw ?? {}) as Record<string, unknown>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const p = (raw ?? {}) as any;
     const http = (u: unknown) => (typeof u === "string" && /^https?:\/\//i.test(u.trim()) ? u.trim() : "");
     const imgs = [
       http(p.mainImage),
