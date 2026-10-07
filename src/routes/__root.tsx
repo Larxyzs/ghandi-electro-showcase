@@ -88,7 +88,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     try {
       return await getSiteData();
     } catch {
-      return { settings: DEFAULT_SETTINGS, categories: [], products: [] };
+      return { settings: DEFAULT_SETTINGS, nodes: [], products: [], popularSearches: [] };
     }
   },
   head: () => ({
