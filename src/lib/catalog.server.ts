@@ -68,7 +68,7 @@ export async function fetchSiteData(): Promise<SiteData> {
     supabase
       .from("products")
       .select(
-        "id, node_id, name, brand, serial_number, stock, price, image_url, characteristics, specifications, gallery, marketing_sections, source_url, source_name, sort_order, featured",
+        "id, node_id, name, brand, serial_number, stock, price, image_url, characteristics, specifications, gallery, marketing_sections, source_url, source_name, sort_order, featured, spec_groups",
       )
       .order("sort_order")
       .order("created_at"),
@@ -117,6 +117,7 @@ export async function fetchSiteData(): Promise<SiteData> {
       image_path: p.image_url ?? null,
       image_url: resolve(p.image_url),
       specifications: Array.isArray(p.specifications) ? (p.specifications as ProductSpec[]) : [],
+      spec_groups: Array.isArray(p.spec_groups) ? (p.spec_groups as { title: string; rows: ProductSpec[] }[]) : [],
       gallery_paths: galleryOf(p),
       gallery: galleryOf(p)
         .map((value) => resolve(value))

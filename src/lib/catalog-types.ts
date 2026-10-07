@@ -175,6 +175,8 @@ export type Product = {
   /** Product characteristics (formerly "description"). */
   characteristics: string;
   specifications: ProductSpec[];
+  /** Specs grouped by section title (bulk import). */
+  spec_groups?: { title: string; rows: ProductSpec[] }[];
   /** Ready-to-render slideshow URLs (signed when stored in the bucket). */
   gallery: string[];
   /** Raw stored slideshow values (storage paths or https URLs) — admin editing. */
