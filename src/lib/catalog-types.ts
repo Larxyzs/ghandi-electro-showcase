@@ -218,8 +218,8 @@ export const LEVEL_LABELS: Record<NodeLevel, string> = {
   4: "Format",
 };
 
-export function childrenOf(nodes: CatalogNode[], parentId: string | null) {
-  return nodes
+export function childrenOf(nodes: CatalogNode[] | undefined, parentId: string | null) {
+  return (nodes ?? [])
     .filter((n) => n.parent_id === parentId)
     .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
 }
