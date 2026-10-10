@@ -39,6 +39,7 @@ function resolveFolder(
   item: BulkItem,
   opts: Pick<BulkOptions, "folderId" | "fallbackId" | "createMissing">,
 ): { id?: string; create?: { name: string; parentId: string | null; level: number }; problem?: string } {
+  if (item.nodeId && folders.some((f) => f.id === item.nodeId)) return { id: item.nodeId };
   if (opts.folderId) return { id: opts.folderId };
   const holders = folders;
   if (item.category) {

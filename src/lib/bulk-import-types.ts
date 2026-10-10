@@ -15,6 +15,9 @@ export type BulkItem = {
   specs: SpecRow[];
   specGroups: SpecGroup[];
   needsReview: boolean;
+  warnings?: string[];
+  /** Section chosen in the importer for this product. */
+  nodeId?: string | null;
 };
 
 export type BulkOptions = {
@@ -76,7 +79,7 @@ export function parseBulkFile(text: string): {
       key: `${i}-${clean(p.sourceUrl) || clean(p.model)}`,
       sourceUrl: clean(p.sourceUrl),
       brand: clean(p.brand),
-      category: clean(p.category),
+      category: clean(p.category) || clean(p.sourceCategory),
       name: clean(p.name),
       model: clean(p.model),
       priceText: clean(p.price),
@@ -90,6 +93,7 @@ export function parseBulkFile(text: string): {
             .filter((g: SpecGroup) => g.rows.length)
         : [],
       needsReview: p.needsReview === true,
+      warnings: Array.isArray(p.warnings) ? p.warnings.map(clean).filter(Boolean) : [],
     };
   });
   return { items, failed };
