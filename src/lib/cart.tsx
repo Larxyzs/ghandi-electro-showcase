@@ -12,6 +12,8 @@ export type CartItem = {
   name: string;
   brand: string;
   price: number;
+  /** No shop price yet: confirmed by phone. */
+  price_on_request?: boolean;
   image_url: string | null;
   stock: number;
   qty: number;
@@ -60,7 +62,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const add: CartContextValue["add"] = (item, qty = 1) => {
     setItems((prev) => {
       const existing = prev.find((i) => i.product_id === item.product_id);
-      const maxQty = item.stock > 0 ? item.stock : 99;
+      const maxQty = 99;
       if (existing) {
         return prev.map((i) =>
           i.product_id === item.product_id
@@ -81,7 +83,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       prev
         .map((i) =>
           i.product_id === productId
-            ? { ...i, qty: Math.max(1, Math.min(i.stock > 0 ? i.stock : 99, qty)) }
+            ? { ...i, qty: Math.max(1, Math.min(99, qty)) }
             : i,
         )
         .filter((i) => i.qty > 0),

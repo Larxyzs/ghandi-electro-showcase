@@ -348,6 +348,7 @@ function AdminPage() {
           });
         });
       }}
+      onRefresh={() => void refresh()}
       onSaveSettings={(settings: SiteSettings) => run(() => saveSettings({ data: settings }))}
     />
   );

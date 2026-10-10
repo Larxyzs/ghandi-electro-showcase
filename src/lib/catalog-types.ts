@@ -4,8 +4,8 @@ export type NodeLevel = 1 | 2 | 3 | 4;
 export const MAX_LEVEL: NodeLevel = 4;
 
 /** Products (Modèles) live in a Produit (level 3) or, when it has some, a Format (level 4). */
-export function canHoldProducts(level: NodeLevel) {
-  return level >= 3;
+export function canHoldProducts(_level: NodeLevel) {
+  return true;
 }
 
 export type CatalogNode = {
@@ -59,8 +59,12 @@ export function isUsableImage(value: string | null | undefined): value is string
   const path = url.split(/[?#]/)[0]!;
   if (path.endsWith("/")) return false; // page URL, not a file
   if (/\.(?:jpe?g|png|webp|avif)$/i.test(path)) return true;
-  // extension-less URLs are only images when served by an image service
-  return IMAGE_SERVICE.test(url) || FORMAT_TOKEN.test(url);
+  // extension-less URLs: image services, AEM renditions, or signed CDN links
+  return (
+    IMAGE_SERVICE.test(url) ||
+    FORMAT_TOKEN.test(url) ||
+    /\/renditions\/|[?&](?:w|width|wid|h|s)=/i.test(url)
+  );
 }
 
 
@@ -168,6 +172,9 @@ export type Product = {
   name: string;
   brand: string;
   serial_number: string;
+  /** Manufacturer model reference (bulk import). */
+  model?: string;
+  created_at?: string;
   stock: number;
   price: number | null;
   image_path: string | null;
@@ -202,7 +209,10 @@ export type SiteSettings = {
   secondary_color: string;
   text_color: string;
   site_mode: SiteMode;
+  home_banners?: HomeBanner[];
 };
+
+export type HomeBanner = { image: string; title: string; button: string; link: string; image_path?: string };
 
 export type PopularSearch = { id: string; term: string; sort_order: number };
 
@@ -269,22 +279,43 @@ function normalize(value: string) {
     .toLowerCase();
 }
 
-/** Loose multi-word search over product name, brand, serial and its folder path. */
+/** Loose multi-word search over name, brand, references, specs and folder path.
+ *  References match with or without spaces ("WBMF 606374" = "wbmf606374"). */
 export function searchProducts(nodes: CatalogNode[], products: Product[], query: string) {
   const terms = normalize(query).split(/\s+/).filter(Boolean);
   if (terms.length === 0) return products;
+  const compactQuery = terms.join("");
   return products.filter((product) => {
     const haystack = normalize(
       [
         product.name,
         product.brand,
         product.serial_number,
+        product.model ?? "",
         product.characteristics,
         ...pathOf(nodes, product.node_id).map((n) => n.name),
       ].join(" "),
     );
-    return terms.every((term) => haystack.includes(term));
+    if (terms.every((term) => haystack.includes(term))) return true;
+    const compact = normalize(`${product.model ?? ""} ${product.serial_number}`).replace(/[\s\-_.]/g, "");
+    return compactQuery.length >= 3 && compact.includes(compactQuery.replace(/[\-_.]/g, ""));
   });
+}
+
+/** Same label even with ’ vs ' or different case/spaces. */
+export function normLabel(label: string) {
+  return normalize(label).replace(/[’`´]/g, "'").replace(/\s+/g, " ").trim();
+}
+
+export function isNewProduct(product: Product, days = 30) {
+  if (!product.created_at) return false;
+  return Date.now() - new Date(product.created_at).getTime() < days * 86400000;
+}
+
+/** Spec groups for display: import sections, or the flat list as one section. */
+export function specSections(product: Product): { title: string; rows: ProductSpec[] }[] {
+  if (product.spec_groups?.length) return product.spec_groups;
+  return product.specifications?.length ? [{ title: "Caractéristiques", rows: product.specifications }] : [];
 }
 
 /** Level-1 / level-2 ancestor of a product's folder, if any. */

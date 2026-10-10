@@ -81,7 +81,7 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
                         </button>
                       </div>
                       <span className="text-sm font-bold text-brand">
-                        {formatMAD((item.price * item.qty))}
+                        {item.price_on_request ? "Prix confirmé par téléphone" : formatMAD(item.price * item.qty)}
                       </span>
                     </div>
                   </div>

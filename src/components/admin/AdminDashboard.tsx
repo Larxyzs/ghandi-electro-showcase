@@ -29,6 +29,7 @@ import {
   type SearchSaveResult,
   type SearchSettings,
 } from "@/components/admin/SearchApiPanel";
+import { BannersPanel, PricesPanel } from "@/components/admin/ShopPanels";
 import { AdminEmailsPanel, type AdminEmail } from "@/components/admin/AdminEmailsPanel";
 import { SITE_MODE_LABELS, type SiteMode } from "@/lib/catalog-types";
 import type { AdminRole, StaffAccount } from "@/lib/admin-types";
@@ -52,6 +53,7 @@ export function AdminDashboard({
   onSetSiteMode,
   onLogout,
   onSaveSettings,
+  onRefresh,
 }: {
   data: SiteData;
   busy: boolean;
@@ -94,10 +96,12 @@ export function AdminDashboard({
   };
   onLogout: () => void;
   onSaveSettings: (settings: SiteSettings) => Promise<void>;
+  onRefresh?: () => void;
 }) {
   const [tab, setTab] = useState<
     | "inventory"
     | "orders"
+    | "prices"
     | "design"
     | "searches"
     | "images"
@@ -163,6 +167,7 @@ export function AdminDashboard({
             [
               { id: "inventory", label: t("admin.tab.inventory"), icon: Package },
               { id: "orders", label: t("admin.tab.orders"), icon: ShoppingBag },
+              { id: "prices", label: "Prix", icon: KeyRound },
               { id: "design", label: t("admin.tab.design"), icon: Palette },
               { id: "searches", label: t("admin.tab.searches"), icon: Search },
               { id: "images", label: t("admin.tab.images"), icon: ImageIcon },
@@ -210,6 +215,8 @@ export function AdminDashboard({
             add={emailActions.add}
             remove={emailActions.remove}
           />
+        ) : tab === "prices" ? (
+          <PricesPanel products={data.products} onSaved={() => onRefresh?.()} />
         ) : tab === "orders" ? (
           <OrdersPanel
             list={orderActions.list}
@@ -231,6 +238,8 @@ export function AdminDashboard({
             <CatalogExplorer data={data} busy={busy} actions={catalogActions} />
           </div>
         ) : (
+          <div className="space-y-6">
+          <BannersPanel banners={data.settings.home_banners ?? []} onSaved={() => onRefresh?.()} />
           <form
             onSubmit={async (e) => {
               e.preventDefault();
@@ -322,6 +331,7 @@ export function AdminDashboard({
               {saved && <span className="text-sm font-semibold text-brand">{t("admin.saved")}</span>}
             </div>
           </form>
+          </div>
         )}
       </main>
     </div>

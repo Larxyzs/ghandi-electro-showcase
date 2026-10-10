@@ -45,7 +45,6 @@ function FolderPicker({
   const options = useMemo(
     () =>
       nodes
-        .filter((n) => n.level >= 3)
         .map((n) => ({ id: n.id, label: pathOf(nodes, n.id).map((p) => p.name).join(" › ") }))
         .sort((a, b) => a.label.localeCompare(b.label)),
     [nodes],

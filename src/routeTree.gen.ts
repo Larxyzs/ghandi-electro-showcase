@@ -13,6 +13,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AProposRouteImport } from './routes/a-propos'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as FavorisRouteImport } from './routes/favoris'
+import { Route as LivraisonRouteImport } from './routes/livraison'
+import { Route as MentionsLegalesRouteImport } from './routes/mentions-legales'
 import { Route as PanierRouteImport } from './routes/panier'
 import { Route as AdminImportRouteImport } from './routes/admin_.import'
 import { Route as ProduitsIndexRouteImport } from './routes/produits.index'
@@ -38,6 +41,21 @@ const AdminRoute = AdminRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FavorisRoute = FavorisRouteImport.update({
+  id: '/favoris',
+  path: '/favoris',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LivraisonRoute = LivraisonRouteImport.update({
+  id: '/livraison',
+  path: '/livraison',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MentionsLegalesRoute = MentionsLegalesRouteImport.update({
+  id: '/mentions-legales',
+  path: '/mentions-legales',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PanierRoute = PanierRouteImport.update({
@@ -77,6 +95,9 @@ export interface FileRoutesByFullPath {
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
   '/contact': typeof ContactRoute
+  '/favoris': typeof FavorisRoute
+  '/livraison': typeof LivraisonRoute
+  '/mentions-legales': typeof MentionsLegalesRoute
   '/panier': typeof PanierRoute
   '/admin/import': typeof AdminImportRoute
   '/produits/$': typeof ProduitsSplatRoute
@@ -89,6 +110,9 @@ export interface FileRoutesByTo {
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
   '/contact': typeof ContactRoute
+  '/favoris': typeof FavorisRoute
+  '/livraison': typeof LivraisonRoute
+  '/mentions-legales': typeof MentionsLegalesRoute
   '/panier': typeof PanierRoute
   '/admin/import': typeof AdminImportRoute
   '/produits/$': typeof ProduitsSplatRoute
@@ -102,6 +126,9 @@ export interface FileRoutesById {
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
   '/contact': typeof ContactRoute
+  '/favoris': typeof FavorisRoute
+  '/livraison': typeof LivraisonRoute
+  '/mentions-legales': typeof MentionsLegalesRoute
   '/panier': typeof PanierRoute
   '/admin_/import': typeof AdminImportRoute
   '/produits/$': typeof ProduitsSplatRoute
@@ -116,6 +143,9 @@ export interface FileRouteTypes {
     | '/a-propos'
     | '/admin'
     | '/contact'
+    | '/favoris'
+    | '/livraison'
+    | '/mentions-legales'
     | '/panier'
     | '/admin/import'
     | '/produits/$'
@@ -128,6 +158,9 @@ export interface FileRouteTypes {
     | '/a-propos'
     | '/admin'
     | '/contact'
+    | '/favoris'
+    | '/livraison'
+    | '/mentions-legales'
     | '/panier'
     | '/admin/import'
     | '/produits/$'
@@ -140,6 +173,9 @@ export interface FileRouteTypes {
     | '/a-propos'
     | '/admin'
     | '/contact'
+    | '/favoris'
+    | '/livraison'
+    | '/mentions-legales'
     | '/panier'
     | '/admin_/import'
     | '/produits/$'
@@ -153,6 +189,9 @@ export interface RootRouteChildren {
   AProposRoute: typeof AProposRoute
   AdminRoute: typeof AdminRoute
   ContactRoute: typeof ContactRoute
+  FavorisRoute: typeof FavorisRoute
+  LivraisonRoute: typeof LivraisonRoute
+  MentionsLegalesRoute: typeof MentionsLegalesRoute
   PanierRoute: typeof PanierRoute
   AdminImportRoute: typeof AdminImportRoute
   ProduitsSplatRoute: typeof ProduitsSplatRoute
@@ -189,6 +228,27 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/favoris': {
+      id: '/favoris'
+      path: '/favoris'
+      fullPath: '/favoris'
+      preLoaderRoute: typeof FavorisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/livraison': {
+      id: '/livraison'
+      path: '/livraison'
+      fullPath: '/livraison'
+      preLoaderRoute: typeof LivraisonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mentions-legales': {
+      id: '/mentions-legales'
+      path: '/mentions-legales'
+      fullPath: '/mentions-legales'
+      preLoaderRoute: typeof MentionsLegalesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/panier': {
@@ -241,6 +301,9 @@ const rootRouteChildren: RootRouteChildren = {
   AProposRoute: AProposRoute,
   AdminRoute: AdminRoute,
   ContactRoute: ContactRoute,
+  FavorisRoute: FavorisRoute,
+  LivraisonRoute: LivraisonRoute,
+  MentionsLegalesRoute: MentionsLegalesRoute,
   PanierRoute: PanierRoute,
   AdminImportRoute: AdminImportRoute,
   ProduitsSplatRoute: ProduitsSplatRoute,

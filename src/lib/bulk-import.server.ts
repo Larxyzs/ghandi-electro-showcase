@@ -40,7 +40,7 @@ function resolveFolder(
   opts: Pick<BulkOptions, "folderId" | "fallbackId" | "createMissing">,
 ): { id?: string; create?: { name: string; parentId: string | null; level: number }; problem?: string } {
   if (opts.folderId) return { id: opts.folderId };
-  const holders = folders.filter((f) => f.level >= 3);
+  const holders = folders;
   if (item.category) {
     const hit = holders.find((f) => norm(f.name) === norm(item.category));
     if (hit) return { id: hit.id };
@@ -116,7 +116,7 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions): Pro
       let folder = resolveFolder(folders, item, opts);
       if (folder.problem) throw new Error(folder.problem);
       if (folder.create) {
-        const again = folders.find((f) => f.level >= 3 && norm(f.name) === norm(folder.create!.name));
+        const again = folders.find((f) => norm(f.name) === norm(folder.create!.name));
         if (again) folder = { id: again.id };
         else {
           const slug = `${norm(folder.create.name).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "dossier"}-${Math.random().toString(36).slice(2, 6)}`;
