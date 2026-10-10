@@ -17,6 +17,7 @@ import { Route as FavorisRouteImport } from './routes/favoris'
 import { Route as LivraisonRouteImport } from './routes/livraison'
 import { Route as MentionsLegalesRouteImport } from './routes/mentions-legales'
 import { Route as PanierRouteImport } from './routes/panier'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AdminImportRouteImport } from './routes/admin_.import'
 import { Route as ProduitsIndexRouteImport } from './routes/produits.index'
 import { Route as ProduitsSplatRouteImport } from './routes/produits.$'
@@ -63,6 +64,11 @@ const PanierRoute = PanierRouteImport.update({
   path: '/panier',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminImportRoute = AdminImportRouteImport.update({
   id: '/admin_/import',
   path: '/admin/import',
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/livraison': typeof LivraisonRoute
   '/mentions-legales': typeof MentionsLegalesRoute
   '/panier': typeof PanierRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/import': typeof AdminImportRoute
   '/produits/$': typeof ProduitsSplatRoute
   '/produits/': typeof ProduitsIndexRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/livraison': typeof LivraisonRoute
   '/mentions-legales': typeof MentionsLegalesRoute
   '/panier': typeof PanierRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/import': typeof AdminImportRoute
   '/produits/$': typeof ProduitsSplatRoute
   '/produits': typeof ProduitsIndexRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/livraison': typeof LivraisonRoute
   '/mentions-legales': typeof MentionsLegalesRoute
   '/panier': typeof PanierRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin_/import': typeof AdminImportRoute
   '/produits/$': typeof ProduitsSplatRoute
   '/produits/': typeof ProduitsIndexRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/livraison'
     | '/mentions-legales'
     | '/panier'
+    | '/sitemap.xml'
     | '/admin/import'
     | '/produits/$'
     | '/produits/'
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/livraison'
     | '/mentions-legales'
     | '/panier'
+    | '/sitemap.xml'
     | '/admin/import'
     | '/produits/$'
     | '/produits'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/livraison'
     | '/mentions-legales'
     | '/panier'
+    | '/sitemap.xml'
     | '/admin_/import'
     | '/produits/$'
     | '/produits/'
@@ -193,6 +205,7 @@ export interface RootRouteChildren {
   LivraisonRoute: typeof LivraisonRoute
   MentionsLegalesRoute: typeof MentionsLegalesRoute
   PanierRoute: typeof PanierRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   AdminImportRoute: typeof AdminImportRoute
   ProduitsSplatRoute: typeof ProduitsSplatRoute
   ProduitsIndexRoute: typeof ProduitsIndexRoute
@@ -258,6 +271,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PanierRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin_/import': {
       id: '/admin_/import'
       path: '/admin/import'
@@ -305,6 +325,7 @@ const rootRouteChildren: RootRouteChildren = {
   LivraisonRoute: LivraisonRoute,
   MentionsLegalesRoute: MentionsLegalesRoute,
   PanierRoute: PanierRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   AdminImportRoute: AdminImportRoute,
   ProduitsSplatRoute: ProduitsSplatRoute,
   ProduitsIndexRoute: ProduitsIndexRoute,
