@@ -74,7 +74,7 @@ export const Route = createFileRoute("/api/public/ghandi-import")({
 
             const rows = products.map((p: unknown, i: number) => {
               const o = (p ?? {}) as Record<string, unknown>;
-              return { batch_id: batchId, source_url: str(o.sourceUrl) || `no-url-${Date.now()}-${i}`, payload: o as never, suggested_category_id: sid };
+              return { batch_id: batchId, source_url: str(o["sourceUrl"]) || `no-url-${Date.now()}-${i}`, payload: o as never, suggested_category_id: sid };
             });
             if (rows.length) {
               const ins = await db.from("extension_inbox_items").upsert(rows, { onConflict: "batch_id,source_url" });

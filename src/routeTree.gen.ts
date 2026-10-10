@@ -18,12 +18,15 @@ import { Route as LivraisonRouteImport } from './routes/livraison'
 import { Route as MentionsLegalesRouteImport } from './routes/mentions-legales'
 import { Route as PanierRouteImport } from './routes/panier'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as AdminExtensionRouteImport } from './routes/admin_.extension'
 import { Route as AdminImportRouteImport } from './routes/admin_.import'
 import { Route as ProduitsIndexRouteImport } from './routes/produits.index'
 import { Route as ProduitsSplatRouteImport } from './routes/produits.$'
 import { Route as ApiAdminCheckImageRouteImport } from './routes/api/admin/check-image'
 import { Route as ApiPublicGhandiImportRouteImport } from './routes/api/public/ghandi-import'
 import { Route as ProduitsArticleProductIdRouteImport } from './routes/produits.article.$productId'
+import { Route as AdminImportInboxIndexRouteImport } from './routes/admin_.import_.inbox.index'
+import { Route as AdminImportInboxBatchIdRouteImport } from './routes/admin_.import_.inbox.$batchId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -70,6 +73,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminExtensionRoute = AdminExtensionRouteImport.update({
+  id: '/admin_/extension',
+  path: '/admin/extension',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminImportRoute = AdminImportRouteImport.update({
   id: '/admin_/import',
   path: '/admin/import',
@@ -101,6 +109,16 @@ const ProduitsArticleProductIdRoute =
     path: '/produits/article/$productId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AdminImportInboxIndexRoute = AdminImportInboxIndexRouteImport.update({
+  id: '/admin_/import_/inbox/',
+  path: '/admin/import/inbox/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminImportInboxBatchIdRoute = AdminImportInboxBatchIdRouteImport.update({
+  id: '/admin_/import_/inbox/$batchId',
+  path: '/admin/import/inbox/$batchId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -112,12 +130,15 @@ export interface FileRoutesByFullPath {
   '/mentions-legales': typeof MentionsLegalesRoute
   '/panier': typeof PanierRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/extension': typeof AdminExtensionRoute
   '/admin/import': typeof AdminImportRoute
   '/produits/$': typeof ProduitsSplatRoute
   '/produits/': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
   '/api/public/ghandi-import': typeof ApiPublicGhandiImportRoute
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
+  '/admin/import/inbox/$batchId': typeof AdminImportInboxBatchIdRoute
+  '/admin/import/inbox/': typeof AdminImportInboxIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -129,12 +150,15 @@ export interface FileRoutesByTo {
   '/mentions-legales': typeof MentionsLegalesRoute
   '/panier': typeof PanierRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/extension': typeof AdminExtensionRoute
   '/admin/import': typeof AdminImportRoute
   '/produits/$': typeof ProduitsSplatRoute
   '/produits': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
   '/api/public/ghandi-import': typeof ApiPublicGhandiImportRoute
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
+  '/admin/import/inbox/$batchId': typeof AdminImportInboxBatchIdRoute
+  '/admin/import/inbox': typeof AdminImportInboxIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -147,12 +171,15 @@ export interface FileRoutesById {
   '/mentions-legales': typeof MentionsLegalesRoute
   '/panier': typeof PanierRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin_/extension': typeof AdminExtensionRoute
   '/admin_/import': typeof AdminImportRoute
   '/produits/$': typeof ProduitsSplatRoute
   '/produits/': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
   '/api/public/ghandi-import': typeof ApiPublicGhandiImportRoute
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
+  '/admin_/import_/inbox/$batchId': typeof AdminImportInboxBatchIdRoute
+  '/admin_/import_/inbox/': typeof AdminImportInboxIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -166,12 +193,15 @@ export interface FileRouteTypes {
     | '/mentions-legales'
     | '/panier'
     | '/sitemap.xml'
+    | '/admin/extension'
     | '/admin/import'
     | '/produits/$'
     | '/produits/'
     | '/api/admin/check-image'
     | '/api/public/ghandi-import'
     | '/produits/article/$productId'
+    | '/admin/import/inbox/$batchId'
+    | '/admin/import/inbox/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -183,12 +213,15 @@ export interface FileRouteTypes {
     | '/mentions-legales'
     | '/panier'
     | '/sitemap.xml'
+    | '/admin/extension'
     | '/admin/import'
     | '/produits/$'
     | '/produits'
     | '/api/admin/check-image'
     | '/api/public/ghandi-import'
     | '/produits/article/$productId'
+    | '/admin/import/inbox/$batchId'
+    | '/admin/import/inbox'
   id:
     | '__root__'
     | '/'
@@ -200,12 +233,15 @@ export interface FileRouteTypes {
     | '/mentions-legales'
     | '/panier'
     | '/sitemap.xml'
+    | '/admin_/extension'
     | '/admin_/import'
     | '/produits/$'
     | '/produits/'
     | '/api/admin/check-image'
     | '/api/public/ghandi-import'
     | '/produits/article/$productId'
+    | '/admin_/import_/inbox/$batchId'
+    | '/admin_/import_/inbox/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -218,12 +254,15 @@ export interface RootRouteChildren {
   MentionsLegalesRoute: typeof MentionsLegalesRoute
   PanierRoute: typeof PanierRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  AdminExtensionRoute: typeof AdminExtensionRoute
   AdminImportRoute: typeof AdminImportRoute
   ProduitsSplatRoute: typeof ProduitsSplatRoute
   ProduitsIndexRoute: typeof ProduitsIndexRoute
   ApiAdminCheckImageRoute: typeof ApiAdminCheckImageRoute
   ApiPublicGhandiImportRoute: typeof ApiPublicGhandiImportRoute
   ProduitsArticleProductIdRoute: typeof ProduitsArticleProductIdRoute
+  AdminImportInboxBatchIdRoute: typeof AdminImportInboxBatchIdRoute
+  AdminImportInboxIndexRoute: typeof AdminImportInboxIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -291,6 +330,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin_/extension': {
+      id: '/admin_/extension'
+      path: '/admin/extension'
+      fullPath: '/admin/extension'
+      preLoaderRoute: typeof AdminExtensionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin_/import': {
       id: '/admin_/import'
       path: '/admin/import'
@@ -333,6 +379,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProduitsArticleProductIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin_/import_/inbox/': {
+      id: '/admin_/import_/inbox/'
+      path: '/admin/import/inbox'
+      fullPath: '/admin/import/inbox/'
+      preLoaderRoute: typeof AdminImportInboxIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/import_/inbox/$batchId': {
+      id: '/admin_/import_/inbox/$batchId'
+      path: '/admin/import/inbox/$batchId'
+      fullPath: '/admin/import/inbox/$batchId'
+      preLoaderRoute: typeof AdminImportInboxBatchIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -346,12 +406,15 @@ const rootRouteChildren: RootRouteChildren = {
   MentionsLegalesRoute: MentionsLegalesRoute,
   PanierRoute: PanierRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  AdminExtensionRoute: AdminExtensionRoute,
   AdminImportRoute: AdminImportRoute,
   ProduitsSplatRoute: ProduitsSplatRoute,
   ProduitsIndexRoute: ProduitsIndexRoute,
   ApiAdminCheckImageRoute: ApiAdminCheckImageRoute,
   ApiPublicGhandiImportRoute: ApiPublicGhandiImportRoute,
   ProduitsArticleProductIdRoute: ProduitsArticleProductIdRoute,
+  AdminImportInboxBatchIdRoute: AdminImportInboxBatchIdRoute,
+  AdminImportInboxIndexRoute: AdminImportInboxIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
