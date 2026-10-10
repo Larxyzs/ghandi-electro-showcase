@@ -11,8 +11,6 @@ import {
   ShoppingCart,
   ShieldCheck,
   Pencil,
-  Truck,
-  Banknote,
   Clock,
 } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
