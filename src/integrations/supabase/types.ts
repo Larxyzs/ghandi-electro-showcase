@@ -561,6 +561,119 @@ export type Database = {
         }
         Relationships: []
       }
+      extension_batches: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          note: string
+          product_count: number
+          source: string
+          status: string
+          suggested_category_id: string | null
+          suggested_section_text: string
+          total_expected: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          label?: string
+          note?: string
+          product_count?: number
+          source?: string
+          status?: string
+          suggested_category_id?: string | null
+          suggested_section_text?: string
+          total_expected?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          note?: string
+          product_count?: number
+          source?: string
+          status?: string
+          suggested_category_id?: string | null
+          suggested_section_text?: string
+          total_expected?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      extension_inbox_items: {
+        Row: {
+          batch_id: string
+          created_at: string
+          error: string
+          id: string
+          payload: Json
+          product_id: string | null
+          source_url: string
+          status: string
+          suggested_category_id: string | null
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          error?: string
+          id?: string
+          payload: Json
+          product_id?: string | null
+          source_url: string
+          status?: string
+          suggested_category_id?: string | null
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          error?: string
+          id?: string
+          payload?: Json
+          product_id?: string | null
+          source_url?: string
+          status?: string
+          suggested_category_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extension_inbox_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "extension_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      extension_keys: {
+        Row: {
+          created_at: string
+          id: string
+          key_hash: string
+          label: string
+          last_used_at: string | null
+          revoked: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key_hash: string
+          label?: string
+          last_used_at?: string | null
+          revoked?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key_hash?: string
+          label?: string
+          last_used_at?: string | null
+          revoked?: boolean
+        }
+        Relationships: []
+      }
       import_batches: {
         Row: {
           created_at: string

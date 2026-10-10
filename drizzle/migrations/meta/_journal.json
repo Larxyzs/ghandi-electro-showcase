@@ -15,6 +15,13 @@
       "when": 1791650165879,
       "tag": "0001_home_banners",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791653691809,
+      "tag": "0002_extension_inbox",
+      "breakpoints": true
     }
   ]
 }

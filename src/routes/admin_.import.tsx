@@ -4,8 +4,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, Check, Download, FileUp, Loader2, Plus, Upload, X } from "lucide-react";
 import { adminCreateNode, adminGetData, adminStatus } from "@/lib/admin.functions";
 import { adminBulkImport, adminBulkPreview } from "@/lib/bulk-import.functions";
+import { extGetBatch, extMarkItems } from "@/lib/extension.functions";
 import {
   foldText,
+  parseBulkFile,
   readBulkText,
   type BulkItem,
   type BulkOptions,
@@ -26,7 +28,7 @@ export const Route = createFileRoute("/admin_/import")({
       { property: "og:description", content: "Espace privé d'import de produits." },
     ],
   }),
-  component: ImportPage,
+  component: () => <ImportPage />,
 });
 
 const BATCH = 10;
@@ -52,6 +54,10 @@ function useFolders(nodes: CatalogNode[], products: Product[]) {
         .sort((a, b) => a.label.localeCompare(b.label)),
     [nodes, products],
   );
+}
+
+function foldersPlain(nodes: CatalogNode[]) {
+  return nodes.map((n) => ({ id: n.id, name: n.name, label: pathOf(nodes, n.id).map((p) => p.name).join(" › ") }));
 }
 
 /** Search box over every section (full path searched). */
@@ -112,7 +118,11 @@ function SectionSearch({
   );
 }
 
-function ImportPage() {
+export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
+  const getBatch = useServerFn(extGetBatch);
+  const markItems = useServerFn(extMarkItems);
+  const [inboxLabel, setInboxLabel] = useState("");
+  const [inboxDone, setInboxDone] = useState(false);
   const status = useServerFn(adminStatus);
   const getData = useServerFn(adminGetData);
   const preview = useServerFn(adminBulkPreview);
@@ -157,12 +167,48 @@ function ImportPage() {
   useEffect(() => {
     void status().then((s) => {
       setAuth(s.authenticated);
-      if (s.authenticated) void loadData();
+      if (s.authenticated) {
+        void loadData().then(() => (inboxId ? loadInbox() : undefined));
+      }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const folders = useFolders(nodes, products);
+
+  const loadInbox = async () => {
+    if (!inboxId) return;
+    const res = await getBatch({ data: { id: inboxId } });
+    if (!res) { setInboxLabel("Lot introuvable"); return; }
+    setInboxLabel(res.batch.label || res.batch.id);
+    const parsed = parseBulkFile(JSON.stringify(res.items.map((i) => i.payload))).items;
+    const list = parsed.map((it, k) => ({ ...it, key: res.items[k]!.id }));
+    const d = await getData();
+    const all = foldersPlain(d.nodes);
+    let sid = res.batch.suggested_category_id && all.some((f) => f.id === res.batch.suggested_category_id) ? res.batch.suggested_category_id : null;
+    const txt = res.batch.suggested_section_text?.trim();
+    if (!sid && txt) {
+      const want = foldText(txt.replace(/\s*>\s*/g, " › "));
+      sid = all.find((f) => foldText(f.label) === want)?.id ?? all.find((f) => loose(f.name) === loose(txt.split(">").pop()!.trim()))?.id ?? null;
+    }
+    setMode("one");
+    setTargetId(null);
+    const ov: Record<string, string> = {};
+    res.items.forEach((row, k) => { const s2 = row.suggested_category_id ?? sid; if (s2) ov[list[k]!.key] = s2; });
+    setOverrides(ov);
+    setItems(list);
+    setSelected(new Set(list.map((i) => i.key)));
+    setInboxDone(list.length === 0);
+  };
+
+  const removeFromList = async () => {
+    if (!inboxId) return;
+    const keys = [...selected];
+    const out = await markItems({ data: { batchId: inboxId, rows: keys.map((id) => ({ id, status: "skipped" as const })) } });
+    setItems((l) => l.filter((i) => !selected.has(i.key)));
+    setSelected(new Set());
+    if (out.pending === 0) setInboxDone(true);
+  };
   const byLoose = useMemo(() => {
     const m = new Map<string, Folder>();
     for (const f of folders) if (!m.has(loose(f.name))) m.set(loose(f.name), f);
@@ -233,7 +279,7 @@ function ImportPage() {
     const r: string[] = [];
     if (i.needsReview) r.push("à vérifier (extension)");
     if (i.images.length === 0) r.push("pas de photo");
-    if (!sectionOf(i)) r.push("pas de section");
+    if (!sectionOf(i)) r.push(inboxId ? "Choisir une section" : "pas de section");
     if (!i.name) r.push("pas de nom");
     return r;
   };
@@ -281,6 +327,15 @@ function ImportPage() {
     }
     setRunning(false);
     void loadData();
+    if (inboxId) {
+      setResults((cur) => {
+        const okRows = Object.values(cur).filter((r) => r.outcome !== "problem" && list.some((i) => i.key === r.key));
+        if (okRows.length)
+          void markItems({ data: { batchId: inboxId, rows: okRows.map((r) => ({ id: r.key, status: "imported" as const, productId: r.productId ?? null })) } })
+            .then((o) => { if (o.pending === 0) setInboxDone(true); });
+        return cur;
+      });
+    }
   };
 
   const resList = Object.values(results);
@@ -319,10 +374,17 @@ function ImportPage() {
     <div className="min-h-screen bg-brand-soft/30">
       <div className="mx-auto max-w-6xl space-y-5 px-4 py-8">
         <Link to="/admin" className="inline-flex items-center gap-2 text-sm font-semibold text-brand"><ArrowLeft className="h-4 w-4" /> Retour à l'admin</Link>
-        <h1 className="text-2xl font-semibold">Importer des produits</h1>
+        <h1 className="text-2xl font-semibold">{inboxId ? `Boîte de réception — « ${inboxLabel} »` : "Importer des produits"}</h1>
+        {inboxId && <Link to="/admin/import/inbox" className="text-sm font-semibold text-brand">← Tous les lots de l'extension</Link>}
+        {inboxId && inboxDone && (
+          <div className={box}>
+            <p className="font-semibold text-brand">✓ Ce lot est terminé.</p>
+            <Link to="/admin" className="mt-2 inline-block text-sm font-semibold text-brand underline">Voir les produits ajoutés</Link>
+          </div>
+        )}
 
         {/* STEP 1 */}
-        <div className={box}>
+        <div className={cn(box, inboxId && "hidden")}>
           <h2 className="font-semibold">1. Le fichier</h2>
           {!pasteMode ? (
             <div
@@ -368,7 +430,7 @@ function ImportPage() {
         {items.length > 0 && (
           <>
             {/* STEP 2 */}
-            <div className={box}>
+            <div className={cn(box, inboxId && "hidden")}>
               <h2 className="font-semibold">2. Où mettre les produits ?</h2>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" className={chip(mode === "one")} onClick={() => setMode("one")}>Tout dans une seule section</button>
@@ -440,10 +502,15 @@ function ImportPage() {
                   <button key={f} type="button" className={chip(filter === f)} onClick={() => setFilter(f)}>{l} ({f === "all" ? items.length : items.filter((i) => statusOf(i) === f).length})</button>
                 ))}
               </div>
+              <div className="mt-3 flex gap-2 text-xs">
+                <button type="button" className="font-semibold text-brand" onClick={() => setSelected(new Set(items.map((i) => i.key)))}>Tout sélectionner</button>
+                <button type="button" className="font-semibold text-foreground/60" onClick={() => setSelected(new Set())}>Tout désélectionner</button>
+              </div>
               {selected.size > 0 && (
                 <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border p-2 text-sm">
-                  <span className="font-semibold">{selected.size} cochés — déplacer vers :</span>
+                  <span className="font-semibold">{selected.size} cochés — {inboxId ? "Mettre dans…" : "déplacer vers :"}</span>
                   <div className="min-w-64 flex-1"><SectionSearch compact folders={folders} placeholder="Choisir une section…" onPick={(id) => setOverrides((o) => ({ ...o, ...Object.fromEntries([...selected].map((k) => [k, id])) }))} /></div>
+                  {inboxId && <button type="button" onClick={() => void removeFromList()} className="rounded-full border border-destructive px-3 py-1.5 text-xs font-semibold text-destructive">Retirer de la liste</button>}
                 </div>
               )}
 
@@ -478,6 +545,7 @@ function ImportPage() {
                           <td className="p-2 text-xs">
                             {res ? (
                               <span className={res.outcome === "problem" ? "text-destructive" : "text-brand"}>
+                                {inboxId && res.productId && res.outcome !== "problem" && <a href={`/produits/article/${res.productId}`} target="_blank" rel="noreferrer" className="me-1 underline">✓</a>}
                                 {{ created: "Ajouté", updated: "Mis à jour", skipped: "Passé", problem: "Problème" }[res.outcome]}{res.error ? ` : ${res.error}` : ""}{res.warnings?.length ? ` ⚠ ${res.warnings.length} photo(s) non copiée(s)` : ""}
                               </span>
                             ) : st === "look" ? (
@@ -500,7 +568,7 @@ function ImportPage() {
             <div className={box}>
               <button type="button" disabled={running || toImport.length === 0} onClick={() => void start(toImport)}
                 className="w-full rounded-full bg-brand py-4 text-lg font-semibold text-primary-foreground disabled:opacity-50">
-                {running ? "Import en cours…" : `Ajouter ${toImport.length} produits dans ${targetLabel ?? "…"}`}
+                {running ? "Import en cours…" : inboxId ? `Ajouter les sélectionnés au site (${toImport.length})` : `Ajouter ${toImport.length} produits dans ${targetLabel ?? "…"}`}
               </button>
               {toImport.length === 0 && !running && <p className="mt-2 text-center text-sm text-foreground/60">Choisissez d'abord une section (étape 2).</p>}
               {(running || resList.length > 0) && (
