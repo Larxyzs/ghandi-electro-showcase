@@ -161,19 +161,6 @@ function SiteShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {/* Top bar */}
-      <div className="bg-brand-deep text-primary-foreground">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-center gap-x-5 gap-y-1 overflow-x-auto px-5 py-1.5 text-[0.72rem] font-medium whitespace-nowrap sm:justify-between">
-          <div className="flex items-center gap-5">
-            <span className="inline-flex items-center gap-1.5"><Truck className="h-3.5 w-3.5" /> Livraison à Casablanca et partout au Maroc</span>
-            <span className="hidden items-center gap-1.5 sm:inline-flex"><Banknote className="h-3.5 w-3.5" /> Paiement à la livraison</span>
-          </div>
-          <div className="hidden items-center gap-5 sm:flex">
-            <a href={COMPANY.phoneHref} className="inline-flex items-center gap-1.5 hover:underline"><Phone className="h-3.5 w-3.5" /> {COMPANY.phone}</a>
-            <a href={whatsappLink(WHATSAPP_GENERAL_MESSAGE)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 hover:underline"><WaIcon className="h-3.5 w-3.5" /> WhatsApp</a>
-          </div>
-        </div>
-      </div>
 
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto grid w-full max-w-7xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 md:gap-6 md:px-5">
