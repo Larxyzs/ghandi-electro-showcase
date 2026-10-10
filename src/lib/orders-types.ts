@@ -1,9 +1,9 @@
 export type OrderStatus = "nouveau" | "en_cours" | "termine" | "annule";
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
-  nouveau: "Non vu",
-  en_cours: "En cours",
-  termine: "Terminée",
+  nouveau: "Nouvelle",
+  en_cours: "Confirmée",
+  termine: "Livrée",
   annule: "Annulée",
 };
 
@@ -64,10 +64,10 @@ export function validateOrderLine(
 ): { qty: number; price: number } {
   if (!product) throw new Error("PRODUCT_UNAVAILABLE");
   const stock = Math.max(0, Math.floor(product.stock ?? 0));
-  if (stock <= 0) throw new Error(`OUT_OF_STOCK:${product.name}`);
   const asked = Math.max(1, Math.min(99, Math.floor(qty)));
-  if (asked > stock) throw new Error(`INSUFFICIENT_STOCK:${product.name}:${stock}`);
-  const price = product.price ?? 0;
-  if (price <= 0) throw new Error("PRICE_UNAVAILABLE");
+  // stock 0 = not tracked / on order: allowed. A tracked stock caps the quantity.
+  if (stock > 0 && asked > stock) throw new Error(`INSUFFICIENT_STOCK:${product.name}:${stock}`);
+  // No shop price yet: 0 here, the price is confirmed by phone.
+  const price = product.price !== null && product.price > 0 ? product.price : 0;
   return { qty: asked, price };
 }

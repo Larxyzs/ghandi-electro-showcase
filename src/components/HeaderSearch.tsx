@@ -1,150 +1,127 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLoaderData, useNavigate } from "@tanstack/react-router";
-import { PackageSearch, Search, X } from "lucide-react";
-import { searchProducts, type SiteData } from "@/lib/catalog-types";
-import { useI18n } from "@/lib/i18n";
+import { Folder, PackageSearch, Search, Tag, X } from "lucide-react";
+import { pathOf, searchProducts, type CatalogNode, type SiteData } from "@/lib/catalog-types";
 import { useDynamicText } from "@/lib/dynamic-text";
+import { formatDH } from "@/lib/company";
+import { BRAND_NAMES } from "@/lib/brands";
 
-export function HeaderSearch() {
-  const { t } = useI18n();
+const fold = (v: string) => v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+export function splatOf(nodes: CatalogNode[], id: string) {
+  return pathOf(nodes, id).map((n) => n.slug).join("/");
+}
+
+/** Big always-visible search bar with instant suggestions. */
+export function HeaderSearch({ className }: { className?: string }) {
   const tr = useDynamicText();
   const data = useLoaderData({ from: "__root__" }) as SiteData;
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const wrapRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (open) inputRef.current?.focus();
-  }, [open]);
-
-  useEffect(() => {
-    const onClick = (event: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(event.target as Node)) setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+    const onClick = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", onClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onClick);
-      document.removeEventListener("keydown", onKey);
-    };
+    return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  const suggestions = useMemo(
-    () => (query.trim() ? searchProducts(data.nodes, data.products, query).slice(0, 5) : []),
-    [data.nodes, data.products, query],
+  const q = query.trim();
+  const products = useMemo(
+    () => (q ? searchProducts(data.nodes, data.products, q).slice(0, 6) : []),
+    [data.nodes, data.products, q],
   );
+  const folders = useMemo(
+    () => (q.length >= 2 ? data.nodes.filter((n) => fold(n.name).includes(fold(q))).slice(0, 4) : []),
+    [data.nodes, q],
+  );
+  const brands = useMemo(
+    () => (q.length >= 2 ? BRAND_NAMES.filter((b) => fold(b).includes(fold(q))).slice(0, 3) : []),
+    [q],
+  );
+  const close = () => {
+    setOpen(false);
+    setQuery("");
+  };
 
   return (
-    <div ref={wrapRef} onMouseEnter={() => setOpen(true)}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label={t("products.search")}
-        aria-expanded={open}
-        className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-foreground/70 transition-colors hover:border-brand hover:text-brand"
+    <div ref={wrapRef} className={className}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!q) return;
+          close();
+          navigate({ to: "/produits", search: { q } });
+        }}
+        className="relative flex items-center rounded-full border-2 border-brand/70 bg-card ps-4 focus-within:border-brand"
       >
-        <Search className="h-4.5 w-4.5" />
-      </button>
+        <Search className="h-4.5 w-4.5 shrink-0 text-brand" />
+        <input
+          type="search"
+          value={query}
+          onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          placeholder="Rechercher un produit, une marque, une référence…"
+          aria-label="Rechercher"
+          className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm outline-none"
+        />
+        {query && (
+          <button type="button" onClick={() => setQuery("")} aria-label="Effacer" className="px-2 text-foreground/45">
+            <X className="h-4 w-4" />
+          </button>
+        )}
+        <button type="submit" className="m-1 rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-primary-foreground">
+          OK
+        </button>
+      </form>
 
-      {open && (
-        /* Full-width search bar pinned under the header — never disturbs the nav. */
-        <div className="fixed inset-x-0 top-20 z-50 border-b border-border bg-background/95 shadow-[var(--shadow-card)] backdrop-blur-xl">
-          <div className="relative mx-auto w-full max-w-3xl px-5 py-3">
-            <div className="flex items-center gap-2 rounded-full border border-brand/50 bg-card px-4 transition-colors focus-within:border-brand">
-              <Search className="h-4.5 w-4.5 shrink-0 text-brand" />
-              <input
-                ref={inputRef}
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t("products.search")}
-                aria-label={t("products.search")}
-                className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none"
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  aria-label={t("search.clear")}
-                  className="text-foreground/45 hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
+      {open && q && (
+        <div className="absolute inset-x-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
+          {(folders.length > 0 || brands.length > 0) && (
+            <div className="flex flex-wrap gap-2 border-b border-border p-3">
+              {folders.map((n) => (
+                <Link key={n.id} to="/produits/$" params={{ _splat: splatOf(data.nodes, n.id) }} onClick={close}
+                  className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand-deep">
+                  <Folder className="h-3 w-3" /> {tr(n.name)}
+                </Link>
+              ))}
+              {brands.map((b) => (
+                <Link key={b} to="/produits" search={{ q: b }} onClick={close}
+                  className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-semibold">
+                  <Tag className="h-3 w-3" /> {b}
+                </Link>
+              ))}
             </div>
-
-            {query.trim() === "" && data.popularSearches.length > 0 && (
-              <div className="absolute inset-x-5 top-full mt-2 rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
-                <p className="text-[0.7rem] font-semibold tracking-wide text-foreground/50 uppercase">
-                  {t("search.popular")}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {data.popularSearches.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        setOpen(false);
-                        setQuery("");
-                        navigate({ to: "/produits", search: { q: item.term } });
-                      }}
-                      className="rounded-full border border-border bg-brand-soft/50 px-3.5 py-1.5 text-xs font-semibold text-brand-deep transition-colors hover:border-brand/40 hover:bg-brand-soft"
-                    >
-                      {tr(item.term)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {query.trim() !== "" && (
-              <div className="absolute inset-x-5 top-full mt-2 overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]">
-                {suggestions.length === 0 ? (
-                  <p className="px-4 py-5 text-sm text-foreground/60">{t("products.emptySearch")}</p>
-                ) : (
-                  <>
-                    {suggestions.map((p) => (
-                      <Link
-                        key={p.id}
-                        to="/produits/article/$productId"
-                        params={{ productId: p.id }}
-                        onClick={() => {
-                          setOpen(false);
-                          setQuery("");
-                        }}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-brand-soft/60"
-                      >
-                        <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-brand-soft/70 text-brand/50">
-                          {p.image_url ? (
-                            <img src={p.image_url} alt="" className="h-full w-full object-contain" />
-                          ) : (
-                            <PackageSearch className="h-4 w-4" />
-                          )}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold">{tr(p.name)}</span>
-                          <span className="block truncate text-xs text-foreground/55">{p.brand}</span>
-                        </span>
-                      </Link>
-                    ))}
-                    <Link
-                      to="/produits"
-                      search={{ q: query.trim() }}
-                      onClick={() => setOpen(false)}
-                      className="block border-t border-border px-4 py-3 text-sm font-semibold text-brand hover:bg-brand-soft/60"
-                    >
-                      {t("search.all")}
-                    </Link>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+          )}
+          {products.length === 0 ? (
+            <p className="px-4 py-5 text-sm text-foreground/60">Aucun produit trouvé.</p>
+          ) : (
+            <>
+              {products.map((p) => (
+                <Link key={p.id} to="/produits/article/$productId" params={{ productId: p.id }} onClick={close}
+                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-brand-soft/60">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-md border border-border bg-card text-brand/50">
+                    {p.image_url ? <img src={p.image_url} alt="" className="h-full w-full object-contain" /> : <PackageSearch className="h-4 w-4" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">{tr(p.name)}</span>
+                    <span className="block truncate text-xs text-foreground/55">{p.brand} {p.model || p.serial_number}</span>
+                  </span>
+                  <span className="shrink-0 text-xs font-bold">{p.price !== null ? formatDH(p.price) : "Prix sur demande"}</span>
+                </Link>
+              ))}
+              <Link to="/produits" search={{ q }} onClick={close}
+                className="block border-t border-border px-4 py-3 text-sm font-semibold text-brand hover:bg-brand-soft/60">
+                Voir tous les résultats
+              </Link>
+            </>
+          )}
         </div>
       )}
     </div>

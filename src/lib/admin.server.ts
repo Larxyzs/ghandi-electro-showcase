@@ -398,7 +398,6 @@ export async function moveProductToNode(id: string, nodeId: string) {
     .eq("id", nodeId)
     .maybeSingle();
   if (!target) throw new Error("PARENT_NOT_FOUND");
-  if (target.level < 3) throw new Error("INVALID_TARGET");
   const { data: previous } = await db
     .from("products")
     .select("node_id")
@@ -425,7 +424,6 @@ export async function linkProductToNode(productId: string, nodeId: string) {
     .eq("id", nodeId)
     .maybeSingle();
   if (!target) throw new Error("PARENT_NOT_FOUND");
-  if (target.level < 3) throw new Error("INVALID_TARGET");
   const { error } = await db.from("product_nodes").upsert(
     { product_id: productId, node_id: nodeId },
     { onConflict: "product_id,node_id", ignoreDuplicates: true },

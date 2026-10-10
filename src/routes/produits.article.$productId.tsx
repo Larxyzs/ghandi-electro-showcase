@@ -1,37 +1,70 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, notFound, useLoaderData } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, Minus, Phone, Plus, ShoppingCart } from "lucide-react";
+import {
+  Banknote,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Home,
+  Maximize2,
+  Minus,
+  Phone,
+  Plus,
+  ShoppingCart,
+  Truck,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
-import { SiteLayout } from "@/components/SiteLayout";
+import { SiteLayout, WaIcon } from "@/components/SiteLayout";
 import { ProductGallery } from "@/components/ProductGallery";
-import { useI18n } from "@/lib/i18n";
+import { ProductCard, addProductToCart } from "@/components/ProductCard";
 import { useDynamicText } from "@/lib/dynamic-text";
 import { useLiveEdit } from "@/lib/live-edit";
 import { ProductLiveEditor } from "@/components/live/ProductLiveEditor";
-import { dedupeGallery, pathOf, type SiteData } from "@/lib/catalog-types";
-import { COMPANY, productWhatsappMessage, whatsappLink, formatMAD } from "@/lib/company";
+import { dedupeGallery, pathOf, specSections, type Product, type SiteData } from "@/lib/catalog-types";
+import { COMPANY, formatDH, priceRequestMessage, productWhatsappMessage, whatsappLink } from "@/lib/company";
 import { useCart } from "@/lib/cart";
+import { pushRecent, useRecent } from "@/lib/favorites";
 import { cn } from "@/lib/utils";
 
-
 export const Route = createFileRoute("/produits/article/$productId")({
-  head: () => ({
-    meta: [
-      { title: "Fiche produit | Ghandi Home Electro" },
-      {
-        name: "description",
-        content:
-          "Caractéristiques, spécifications techniques, prix et disponibilité de cet appareil électroménager chez Ghandi Home Electro, Casablanca.",
-      },
-      { property: "og:title", content: "Fiche produit | Ghandi Home Electro" },
-      {
-        property: "og:description",
-        content: "Caractéristiques, prix et disponibilité de cet appareil chez Ghandi Home Electro.",
-      },
-      { property: "og:type", content: "product" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
+  head: ({ params, matches }) => {
+    const data = matches[0]?.loaderData as SiteData | undefined;
+    const p = data?.products.find((x) => x.id === params.productId);
+    if (!p) {
+      return { meta: [{ title: "Fiche produit | Ghandi Home Electro" }, { name: "robots", content: "noindex" }] };
+    }
+    const ref = p.model || p.serial_number;
+    const title = `${p.name}${p.brand ? ` ${p.brand}` : ""}${ref && !p.name.includes(ref) ? ` ${ref}` : ""} – Ghandi Home Electro Casablanca`;
+    const description = `${p.brand} ${p.name}${ref ? ` (réf. ${ref})` : ""} chez Ghandi Home Electro, Casablanca. ${p.price !== null ? `Prix : ${p.price} DH.` : "Prix sur demande."} Livraison partout au Maroc, paiement à la livraison.`;
+    const image = p.image_url && p.image_url.startsWith("https://") ? p.image_url : null;
+    const ld = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: p.name,
+      brand: p.brand ? { "@type": "Brand", name: p.brand } : undefined,
+      sku: ref || undefined,
+      mpn: ref || undefined,
+      image: image ? [image] : undefined,
+      description,
+      ...(p.price !== null
+        ? { offers: { "@type": "Offer", priceCurrency: "MAD", price: p.price, availability: "https://schema.org/InStock" } }
+        : {}),
+    };
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:type", content: "product" },
+        { name: "twitter:card", content: "summary_large_image" },
+        ...(image ? [{ property: "og:image", content: image }, { name: "twitter:image", content: image }] : []),
+      ],
+      scripts: [{ type: "application/ld+json", children: JSON.stringify(ld) }],
+    };
+  },
   component: ProductDetail,
   notFoundComponent: () => (
     <SiteLayout>
@@ -46,219 +79,214 @@ export const Route = createFileRoute("/produits/article/$productId")({
 });
 
 function ProductDetail() {
-  const { t } = useI18n();
   const tr = useDynamicText();
   const { add } = useCart();
   const [qty, setQty] = useState(1);
+  const [tab, setTab] = useState<"specs" | "delivery">("specs");
+  const [full, setFull] = useState<number | null>(null);
   const { admin, editing, setEditing } = useLiveEdit();
+  const recentIds = useRecent();
 
   const { productId } = Route.useParams();
   const data = useLoaderData({ from: "__root__" }) as SiteData;
   const product = data.products.find((p) => p.id === productId);
 
+  useEffect(() => {
+    if (product) pushRecent(product.id);
+  }, [product]);
+
   if (!product) throw notFound();
 
   const trail = pathOf(data.nodes, product.node_id);
-  const inStock = product.stock > 0;
-  const specs = product.specifications ?? [];
-
-  // Original manufacturer slideshow: main image first, then the full gallery.
-  const images = dedupeGallery([product.image_url, ...(product.gallery ?? [])]);
+  const sections = specSections(product);
+  const keyPoints = sections[0]?.rows.slice(0, 6) ?? [];
+  const reference = product.model || product.serial_number;
+  const images = dedupeGallery([product.image_url, ...(product.gallery ?? [])]).slice(0, 15);
+  const similar = data.products.filter((p) => p.id !== product.id && p.node_id === product.node_id).slice(0, 8);
+  const recent = recentIds
+    .filter((id) => id !== product.id)
+    .map((id) => data.products.find((p) => p.id === id))
+    .filter((p): p is Product => Boolean(p))
+    .slice(0, 8);
+  const pageUrl = typeof window === "undefined" ? "" : window.location.href;
 
   return (
     <SiteLayout>
-      <section className="mx-auto w-full max-w-6xl px-5 py-10">
-        <Link
-          to="/produits"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-brand hover:underline"
-        >
-          <ArrowLeft className="h-4 w-4" /> {t("product.back")}
-        </Link>
+      <section className="mx-auto w-full max-w-7xl px-5 py-6">
+        <nav className="flex flex-wrap items-center gap-1.5 text-sm text-foreground/65">
+          <Link to="/" className="inline-flex items-center gap-1 hover:text-brand"><Home className="h-3.5 w-3.5" /> Accueil</Link>
+          {trail.map((node, index) => (
+            <span key={node.id} className="inline-flex items-center gap-1.5">
+              <ChevronRight className="h-3.5 w-3.5 text-foreground/35" />
+              <Link to="/produits/$" params={{ _splat: trail.slice(0, index + 1).map((n) => n.slug).join("/") }} className="hover:text-brand">
+                {tr(node.name)}
+              </Link>
+            </span>
+          ))}
+        </nav>
 
-        <div className="mt-6 grid gap-10 lg:grid-cols-2">
-          <ProductGallery images={images} alt={tr(product.name)} />
-
-          <div>
-            {trail.length > 0 && (
-              <nav className="flex flex-wrap items-center gap-1.5 text-xs font-semibold tracking-[0.12em] text-brand uppercase">
-                {trail.map((node, index) => (
-                  <span key={node.id} className="inline-flex items-center gap-1.5">
-                    {index > 0 && <span className="text-foreground/30">/</span>}
-                    <Link
-                      to="/produits/$"
-                      params={{ _splat: trail.slice(0, index + 1).map((n) => n.slug).join("/") }}
-                      className="hover:underline"
-                    >
-                      {tr(node.name)}
-                    </Link>
-                  </span>
-                ))}
-              </nav>
-            )}
-
-            {product.brand && (
-              <p className="mt-4 text-sm font-semibold tracking-wide text-foreground/60 uppercase">
-                {product.brand}
-              </p>
-            )}
-            <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{tr(product.name)}</h1>
-            {product.serial_number && (
-              <p className="mt-2 text-sm text-foreground/60">
-                {t("product.serial")} : <span className="font-semibold">{product.serial_number}</span>
-              </p>
-            )}
-
-            <div className="mt-5 flex flex-wrap items-center gap-4">
-              {product.price !== null && (
-                <p className="text-3xl font-bold text-brand">
-                  {formatMAD(product.price)}
-                </p>
-              )}
-              <span
-                className={cn(
-                  "rounded-full px-3.5 py-1.5 text-sm font-semibold",
-                  inStock ? "bg-brand-soft text-brand-deep" : "bg-destructive/10 text-destructive",
-                )}
-              >
-                {inStock ? t("product.inStock") : t("product.outOfStock")}
-              </span>
-            </div>
-
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              {inStock && (
-                <div className="flex items-center gap-1 rounded-full border border-border p-1">
-                  <button
-                    type="button"
-                    aria-label={t("product.qtyDec")}
-                    onClick={() => setQty((q) => Math.max(1, q - 1))}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/70 transition-colors hover:bg-brand-soft"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                  <span className="w-8 text-center text-sm font-semibold">{qty}</span>
-                  <button
-                    type="button"
-                    aria-label={t("product.qtyInc")}
-                    onClick={() => setQty((q) => Math.min(product.stock, q + 1))}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-foreground/70 transition-colors hover:bg-brand-soft"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
-              <button
-                type="button"
-                disabled={!inStock}
-                onClick={() => {
-                  add(
-                    {
-                      product_id: product.id,
-                      name: product.name,
-                      brand: product.brand ?? "",
-                      price: product.price ?? 0,
-                      image_url: product.image_url,
-                      stock: product.stock,
-                    },
-                    qty,
-                  );
-                  toast.success(t("cart.added"), {
-                    description: `${qty} × ${tr(product.name)}`,
-                  });
-                }}
-                className={cn(
-                  "flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-transform",
-                  inStock
-                    ? "text-primary-foreground shadow-[var(--shadow-soft)] hover:scale-[1.02] active:scale-[0.98]"
-                    : "cursor-not-allowed border border-border bg-muted text-foreground/45",
-                )}
-                {...(inStock ? { style: { background: "var(--gradient-brand)" } } : {})}
-              >
-                <ShoppingCart className="h-4 w-4" />
-                {inStock ? t("cart.add") : t("product.outOfStock")}
+        <div className="mt-5 grid gap-8 lg:grid-cols-2">
+          <div className="relative">
+            <ProductGallery images={images} alt={tr(product.name)} />
+            {images.length > 0 && (
+              <button type="button" onClick={() => setFull(0)} aria-label="Plein écran"
+                className="absolute top-3 start-3 z-10 grid h-9 w-9 place-items-center rounded-full border border-border bg-background/90">
+                <Maximize2 className="h-4 w-4" />
               </button>
-
-              <a
-                href={whatsappLink(productWhatsappMessage(product))}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-[oklch(0.72_0.17_147)] px-6 py-3 text-sm font-semibold text-[oklch(1_0_0)] shadow-[var(--shadow-soft)] transition-transform hover:scale-[1.02]"
-              >
-                <svg viewBox="0 0 32 32" className="h-4 w-4 fill-current" aria-hidden="true">
-                  <path d="M16.03 4C9.4 4 4.03 9.37 4.03 16c0 2.11.55 4.09 1.5 5.81L4 28l6.35-1.5A11.94 11.94 0 0 0 16.03 28c6.63 0 12-5.37 12-12s-5.37-12-12-12Zm0 21.8a9.7 9.7 0 0 1-5.03-1.36l-.36-.21-3.77.89.9-3.67-.23-.38A9.75 9.75 0 0 1 6.23 16c0-5.4 4.4-9.8 9.8-9.8s9.8 4.4 9.8 9.8-4.4 9.8-9.8 9.8Z" />
-                </svg>
-                WhatsApp
-              </a>
-              <a
-                href={COMPANY.phoneHref}
-                className="inline-flex items-center gap-2 rounded-full border border-border px-6 py-3 text-sm font-semibold text-foreground/75 transition-colors hover:border-brand/50 hover:text-brand"
-              >
-                <Phone className="h-4 w-4" /> {t("product.ask")}
-              </a>
-            </div>
-
-            {product.characteristics && (
-              <div className="mt-8 border-t border-border pt-6">
-                <h2 className="text-sm font-semibold tracking-wide text-foreground/55 uppercase">
-                  {t("product.characteristics")}
-                </h2>
-                <p className="mt-3 leading-relaxed whitespace-pre-line text-foreground/75">
-                  {tr(product.characteristics)}
-                </p>
-              </div>
-            )}
-
-            {/* Admin-only: link back to the official manufacturer page. */}
-            {admin && product.source_url && (
-              <div className="mt-8 rounded-2xl border border-dashed border-brand/40 bg-brand-soft/40 p-4">
-                <p className="text-[0.7rem] font-semibold tracking-wide text-brand-deep uppercase">
-                  Réservé aux administrateurs
-                </p>
-                <a
-                  href={product.source_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-brand hover:underline"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Page officielle{product.source_name ? ` — ${product.source_name}` : ""}
-                </a>
-              </div>
             )}
           </div>
-        </div>
 
-        {editing && product && (
-          <ProductLiveEditor
-            product={product}
-            nodes={data.nodes}
-            onClose={() => setEditing(false)}
-          />
-        )}
+          <div>
+            {product.brand && <p className="text-sm font-bold tracking-wide text-brand uppercase">{product.brand}</p>}
+            <h1 className="mt-1 text-xl font-bold sm:text-2xl">{tr(product.name)}</h1>
+            {reference && <p className="mt-1 text-sm text-foreground/55">Réf. : <span className="font-semibold">{reference}</span></p>}
 
-        {(product.spec_groups?.length ? product.spec_groups : specs.length ? [{ title: "", rows: specs }] : []).length > 0 && (
-          <div className="mt-12 border-t border-border pt-8">
-            <h2 className="text-lg font-semibold">{t("product.specs")}</h2>
-            {(product.spec_groups?.length ? product.spec_groups : [{ title: "", rows: specs }]).map((group, g) => (
-              <div key={g} className="mt-6">
-                {group.title && (
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-brand">{tr(group.title)}</h3>
-                )}
-                <dl className="mt-2 grid gap-x-10 sm:grid-cols-2">
-                  {group.rows.map((spec, i) => (
-                    <div
-                      key={`${spec.label}-${i}`}
-                      className="flex items-baseline justify-between gap-6 border-b border-border/70 py-2.5 text-sm"
-                    >
-                      <dt className="text-foreground/60">{tr(spec.label)}</dt>
-                      <dd className="text-end font-medium">{tr(spec.value)}</dd>
+            <div className="mt-5 rounded-lg border border-border bg-brand-soft/30 p-4">
+              {product.price !== null ? (
+                <p className="text-3xl font-bold">{formatDH(product.price)}</p>
+              ) : (
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-xl font-bold text-brand-deep">Prix sur demande</p>
+                  <a href={whatsappLink(priceRequestMessage(product))} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-whatsapp/50 px-4 py-1.5 text-sm font-semibold text-whatsapp">
+                    <WaIcon className="h-4 w-4" /> Demander le prix
+                  </a>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1 rounded-full border border-border p-1">
+                <button type="button" aria-label="Moins" onClick={() => setQty((q) => Math.max(1, q - 1))} className="grid h-8 w-8 place-items-center rounded-full hover:bg-brand-soft"><Minus className="h-4 w-4" /></button>
+                <span className="w-8 text-center text-sm font-semibold">{qty}</span>
+                <button type="button" aria-label="Plus" onClick={() => setQty((q) => Math.min(99, q + 1))} className="grid h-8 w-8 place-items-center rounded-full hover:bg-brand-soft"><Plus className="h-4 w-4" /></button>
+              </div>
+              <button type="button"
+                onClick={() => {
+                  addProductToCart(add, product, qty);
+                  toast.success("Ajouté au panier", { description: `${qty} × ${tr(product.name)}` });
+                }}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-brand px-6 py-3 text-sm font-semibold text-primary-foreground sm:flex-none">
+                <ShoppingCart className="h-4 w-4" /> Ajouter au panier
+              </button>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <a href={whatsappLink(`${productWhatsappMessage(product)} ${pageUrl}`)} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-whatsapp px-6 py-3 text-sm font-semibold text-primary-foreground">
+                <WaIcon className="h-4 w-4" /> Commander sur WhatsApp
+              </a>
+              <a href={COMPANY.phoneHref} className="inline-flex items-center justify-center gap-2 rounded-full border border-border px-6 py-3 text-sm font-semibold hover:border-brand hover:text-brand">
+                <Phone className="h-4 w-4" /> Appeler
+              </a>
+            </div>
+            <ul className="mt-4 space-y-1.5 text-sm text-foreground/70">
+              <li className="flex items-center gap-2"><Truck className="h-4 w-4 text-brand" /> Livraison à Casablanca et partout au Maroc</li>
+              <li className="flex items-center gap-2"><Banknote className="h-4 w-4 text-brand" /> Paiement à la livraison</li>
+            </ul>
+
+            {keyPoints.length > 0 && (
+              <div className="mt-6 rounded-lg border border-border p-4">
+                <h2 className="text-sm font-bold">Points clés</h2>
+                <dl className="mt-2 grid gap-x-6 sm:grid-cols-2">
+                  {keyPoints.map((r, i) => (
+                    <div key={i} className="flex justify-between gap-3 border-b border-border/60 py-1.5 text-sm">
+                      <dt className="text-foreground/60">{tr(r.label)}</dt>
+                      <dd className="text-end font-medium">{tr(r.value)}</dd>
                     </div>
                   ))}
                 </dl>
               </div>
+            )}
+
+            {product.characteristics && (
+              <p className="mt-6 leading-relaxed whitespace-pre-line text-foreground/75">{tr(product.characteristics)}</p>
+            )}
+
+            {admin && product.source_url && (
+              <a href={product.source_url} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-1.5 text-xs font-semibold text-brand">
+                <ExternalLink className="h-3.5 w-3.5" /> Page officielle (admin)
+              </a>
+            )}
+          </div>
+        </div>
+
+        {editing && admin && (
+          <ProductLiveEditor product={product} nodes={data.nodes} onClose={() => setEditing(false)} />
+        )}
+
+        <div className="mt-12">
+          <div className="flex gap-2 border-b border-border">
+            {([["specs", "Caractéristiques"], ["delivery", "Livraison"]] as const).map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setTab(k)}
+                className={cn("-mb-px border-b-2 px-4 py-3 text-sm font-semibold", tab === k ? "border-brand text-brand" : "border-transparent text-foreground/60")}>
+                {l}
+              </button>
             ))}
+          </div>
+          {tab === "specs" ? (
+            sections.length === 0 ? (
+              <p className="py-6 text-sm text-foreground/60">Caractéristiques disponibles sur demande.</p>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {sections.map((group, g) => (
+                  <details key={g} open={g < 2} className="group rounded-lg border border-border md:open:block [&_summary::-webkit-details-marker]:hidden">
+                    <summary className="flex cursor-pointer items-center justify-between bg-brand-soft/40 px-4 py-3 text-sm font-bold">
+                      {tr(group.title || "Caractéristiques")}
+                      <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <table className="w-full text-sm">
+                      <tbody>
+                        {group.rows.map((r, i) => (
+                          <tr key={i} className="border-t border-border/60">
+                            <th className="w-1/2 px-4 py-2 text-start font-normal text-foreground/60">{tr(r.label)}</th>
+                            <td className="px-4 py-2 font-medium">{tr(r.value)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </details>
+                ))}
+              </div>
+            )
+          ) : (
+            <div className="space-y-2 py-6 text-sm text-foreground/75">
+              <p>Livraison à Casablanca et partout au Maroc. Délai et frais confirmés par téléphone.</p>
+              <p>Paiement à la livraison. Retrait possible au magasin : {COMPANY.address}.</p>
+            </div>
+          )}
+        </div>
+
+        {similar.length > 0 && (
+          <div className="mt-12">
+            <h2 className="mb-4 text-xl font-bold">Produits similaires</h2>
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-4">
+              {similar.map((p) => <ProductCard key={p.id} product={p} />)}
+            </div>
+          </div>
+        )}
+        {recent.length > 0 && (
+          <div className="mt-12">
+            <h2 className="mb-4 text-xl font-bold">Vous avez vu récemment</h2>
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-4">
+              {recent.slice(0, 4).map((p) => <ProductCard key={p.id} product={p} />)}
+            </div>
           </div>
         )}
       </section>
+
+      {full !== null && (
+        <div className="fixed inset-0 z-[60] flex flex-col bg-ink/95">
+          <div className="flex justify-end p-3">
+            <button type="button" onClick={() => setFull(null)} aria-label="Fermer" className="grid h-10 w-10 place-items-center rounded-full bg-background"><X className="h-5 w-5" /></button>
+          </div>
+          <div className="relative flex flex-1 items-center justify-center p-4">
+            <img src={images[full]} alt="" className="max-h-full max-w-full rounded bg-card object-contain" />
+            <button type="button" aria-label="Précédent" onClick={() => setFull((full - 1 + images.length) % images.length)} className="absolute start-3 grid h-11 w-11 place-items-center rounded-full bg-background"><ChevronLeft className="h-5 w-5" /></button>
+            <button type="button" aria-label="Suivant" onClick={() => setFull((full + 1) % images.length)} className="absolute end-3 grid h-11 w-11 place-items-center rounded-full bg-background"><ChevronRight className="h-5 w-5" /></button>
+          </div>
+          <p className="pb-4 text-center text-sm text-primary-foreground">{full + 1} / {images.length}</p>
+        </div>
+      )}
     </SiteLayout>
   );
 }

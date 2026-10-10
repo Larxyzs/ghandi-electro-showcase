@@ -7,6 +7,7 @@ import {
   type ProductSpec,
   type SiteData,
   type SiteMode,
+  type HomeBanner,
 } from "./catalog-types";
 
 export { DEFAULT_SETTINGS };
@@ -57,7 +58,7 @@ export async function fetchSiteData(): Promise<SiteData> {
   const [settingsRes, nodesRes, productsRes, searchesRes] = await Promise.all([
     supabase
       .from("site_settings")
-      .select("primary_color, secondary_color, text_color, site_mode")
+      .select("primary_color, secondary_color, text_color, site_mode, home_banners")
       .eq("id", "default")
       .maybeSingle(),
     supabase
@@ -68,7 +69,7 @@ export async function fetchSiteData(): Promise<SiteData> {
     supabase
       .from("products")
       .select(
-        "id, node_id, name, brand, serial_number, stock, price, image_url, characteristics, specifications, gallery, marketing_sections, source_url, source_name, sort_order, featured, spec_groups",
+        "id, node_id, name, brand, serial_number, stock, price, image_url, characteristics, specifications, gallery, marketing_sections, source_url, source_name, sort_order, featured, spec_groups, model, created_at",
       )
       .order("sort_order")
       .order("created_at"),
@@ -94,6 +95,7 @@ export async function fetchSiteData(): Promise<SiteData> {
       ...rawProducts.map((p) => p.image_url).filter(isPath),
       ...rawProducts.flatMap((p) => galleryOf(p)).filter(isPath),
       ...rawNodes.map((n) => n.image_url).filter(isPath),
+      ...(Array.isArray(settingsRes.data?.home_banners) ? (settingsRes.data.home_banners as HomeBanner[]).map((b) => b.image) : []).filter(isPath),
     ]),
   );
   const signed = await signImagePaths(paths);
@@ -102,7 +104,13 @@ export async function fetchSiteData(): Promise<SiteData> {
 
   return {
     settings: settingsRes.data
-      ? { ...settingsRes.data, site_mode: (settingsRes.data.site_mode ?? "online") as SiteMode }
+      ? {
+          ...settingsRes.data,
+          site_mode: (settingsRes.data.site_mode ?? "online") as SiteMode,
+          home_banners: Array.isArray(settingsRes.data.home_banners)
+            ? (settingsRes.data.home_banners as HomeBanner[]).map((b) => ({ ...b, image_path: b.image, image: resolve(b.image) ?? "" }))
+            : [],
+        }
       : DEFAULT_SETTINGS,
     nodes: rawNodes.map((n) => ({
       ...n,

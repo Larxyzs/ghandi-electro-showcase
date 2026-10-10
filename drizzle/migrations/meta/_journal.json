@@ -8,6 +8,13 @@
       "when": 1791402282688,
       "tag": "0000_bulk_import_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791650165879,
+      "tag": "0001_home_banners",
+      "breakpoints": true
     }
   ]
 }

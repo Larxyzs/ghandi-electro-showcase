@@ -15,6 +15,9 @@ export type BulkItem = {
   specs: SpecRow[];
   specGroups: SpecGroup[];
   needsReview: boolean;
+  warnings?: string[];
+  /** Section chosen in the importer for this product. */
+  nodeId?: string | null;
 };
 
 export type BulkOptions = {
@@ -76,7 +79,7 @@ export function parseBulkFile(text: string): {
       key: `${i}-${clean(p.sourceUrl) || clean(p.model)}`,
       sourceUrl: clean(p.sourceUrl),
       brand: clean(p.brand),
-      category: clean(p.category),
+      category: clean(p.category) || clean(p.sourceCategory),
       name: clean(p.name),
       model: clean(p.model),
       priceText: clean(p.price),
@@ -90,7 +93,33 @@ export function parseBulkFile(text: string): {
             .filter((g: SpecGroup) => g.rows.length)
         : [],
       needsReview: p.needsReview === true,
+      warnings: Array.isArray(p.warnings) ? p.warnings.map(clean).filter(Boolean) : [],
     };
   });
   return { items, failed };
+}
+
+/** Reads a pasted/dropped text and explains problems in simple words. */
+export function readBulkText(text: string):
+  | { ok: true; items: BulkItem[]; failed: { sourceUrl: string; error: string }[] }
+  | { ok: false; error: string } {
+  const t = text.trim();
+  if (!t) return { ok: false, error: "Le fichier est vide." };
+  try {
+    const out = parseBulkFile(t);
+    if (out.items.length === 0) return { ok: false, error: "Ce n'est pas un fichier de produits (aucun produit trouvé)." };
+    return { ok: true, ...out };
+  } catch {
+    const last = t.at(-1);
+    if (t.startsWith("{") || t.startsWith("[")) {
+      if (last !== "}" && last !== "]") return { ok: false, error: "Le texte est coupé à la fin — copiez-le à nouveau en entier." };
+      return { ok: false, error: "Le texte contient une erreur — copiez-le à nouveau depuis l'extension." };
+    }
+    return { ok: false, error: "Ce n'est pas un fichier de produits (.json)." };
+  }
+}
+
+/** Accent/case-insensitive comparison used to match sections. */
+export function foldText(v: string) {
+  return v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, " ").trim();
 }

@@ -1,207 +1,241 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
-import { ArrowRight, PackageSearch, Phone, Search, Sparkles } from "lucide-react";
-import logo from "@/assets/ghandi-logo.png.asset.json";
-import { SiteLayout } from "@/components/SiteLayout";
-import { Reveal } from "@/components/Reveal";
-import { BrandMarquee } from "@/components/BrandMarquee";
+import {
+  ArrowRight,
+  Banknote,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Headphones,
+  MapPin,
+  Phone,
+  Store,
+  Truck,
+} from "lucide-react";
+import showroom from "@/assets/hero-showroom-2.png.asset.json";
+import { SiteLayout, WaIcon } from "@/components/SiteLayout";
 import { CatalogTile } from "@/components/CatalogTile";
 import { ProductCard } from "@/components/ProductCard";
-import { useI18n } from "@/lib/i18n";
-import { COMPANY } from "@/lib/company";
-import { childrenOf, productsIn, type SiteData } from "@/lib/catalog-types";
+import { splatOf } from "@/components/HeaderSearch";
+import { COMPANY, WHATSAPP_GENERAL_MESSAGE, whatsappLink } from "@/lib/company";
+import { BRANDS } from "@/lib/brands";
+import { useLiveEdit } from "@/lib/live-edit";
+import { useDynamicText } from "@/lib/dynamic-text";
+import {
+  childrenOf,
+  productsIn,
+  type CatalogNode,
+  type HomeBanner,
+  type Product,
+  type SiteData,
+} from "@/lib/catalog-types";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Ghandi Home Electro | Électroménager à Casablanca" },
+      { title: "Ghandi Home Electro | Électroménager et TV à Casablanca" },
       {
         name: "description",
         content:
-          "Ghandi Home Electro : téléviseurs, réfrigérateurs, climatiseurs et machines à laver au 41 Boulevard Ghandi, Casablanca. Parcourez le catalogue par rayon.",
+          "Téléviseurs, réfrigérateurs, lave-linge, climatiseurs et cuisson à Casablanca. Livraison partout au Maroc, paiement à la livraison.",
       },
-      { property: "og:title", content: "Ghandi Home Electro | Électroménager à Casablanca" },
+      { property: "og:title", content: "Ghandi Home Electro | Électroménager et TV à Casablanca" },
       { property: "og:type", content: "website" },
       {
         property: "og:description",
-        content: "Parcourez nos rayons : téléviseurs, réfrigérateurs, climatiseurs, lavage.",
+        content: "Électroménager et TV à Casablanca. Livraison partout au Maroc, paiement à la livraison.",
       },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Ghandi Home Electro" },
-      {
-        name: "twitter:description",
-        content: "Parcourez nos rayons : téléviseurs, réfrigérateurs, climatiseurs, lavage.",
-      },
     ],
   }),
   component: HomePage,
 });
 
-function HomePage() {
-  const { t } = useI18n();
-  const data = useLoaderData({ from: "__root__" }) as SiteData;
+const DEFAULT_BANNERS: HomeBanner[] = [
+  { image: showroom.url, title: "Votre magasin d'électroménager à Casablanca", button: "Voir le catalogue", link: "/produits" },
+  { image: showroom.url, title: "Froid, lavage, cuisson, TV et climatisation", button: "Découvrir les rayons", link: "/produits" },
+  { image: showroom.url, title: "Conseil par téléphone et WhatsApp", button: "Nous contacter", link: "/contact" },
+];
 
-  const categories = useMemo(() => childrenOf(data.nodes, null), [data.nodes]);
-  const featured = useMemo(() => data.products.filter((p) => p.featured).slice(0, 8), [data.products]);
+function HeroSlider({ banners }: { banners: HomeBanner[] }) {
+  const slides = banners.length ? banners : DEFAULT_BANNERS;
+  const [i, setI] = useState(0);
+  const touch = useRef<number | null>(null);
+  useEffect(() => {
+    const t = window.setInterval(() => setI((v) => (v + 1) % slides.length), 6000);
+    return () => window.clearInterval(t);
+  }, [slides.length]);
+  const go = (d: number) => setI((v) => (v + d + slides.length) % slides.length);
+  return (
+    <div
+      className="relative overflow-hidden rounded-lg bg-brand-deep"
+      onTouchStart={(e) => (touch.current = e.touches[0]!.clientX)}
+      onTouchEnd={(e) => {
+        if (touch.current === null) return;
+        const dx = e.changedTouches[0]!.clientX - touch.current;
+        if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
+        touch.current = null;
+      }}
+    >
+      <div className="flex transition-transform duration-700" style={{ transform: `translateX(-${i * 100}%)` }}>
+        {slides.map((s, idx) => (
+          <div key={idx} className="relative aspect-[16/9] w-full shrink-0 sm:aspect-[21/8]">
+            {s.image && <img src={s.image} alt="" className="absolute inset-0 h-full w-full object-cover" loading={idx === 0 ? "eager" : "lazy"} />}
+            <div className="absolute inset-0 bg-gradient-to-r from-ink/75 via-ink/30 to-transparent" />
+            <div className="relative flex h-full max-w-xl flex-col justify-center gap-4 p-6 text-primary-foreground sm:p-12">
+              {s.title && <h2 className="text-xl font-bold sm:text-4xl">{s.title}</h2>}
+              {s.button && s.link && (
+                <a href={s.link} className="inline-flex w-fit items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold">
+                  {s.button} <ArrowRight className="h-4 w-4" />
+                </a>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      {slides.length > 1 && (
+        <>
+          <button type="button" aria-label="Précédent" onClick={() => go(-1)} className="absolute start-3 top-1/2 hidden h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-background/85 sm:grid"><ChevronLeft className="h-5 w-5" /></button>
+          <button type="button" aria-label="Suivant" onClick={() => go(1)} className="absolute end-3 top-1/2 hidden h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-background/85 sm:grid"><ChevronRight className="h-5 w-5" /></button>
+          <div className="absolute inset-x-0 bottom-3 flex justify-center gap-2">
+            {slides.map((_, idx) => (
+              <button key={idx} type="button" aria-label={`Diapositive ${idx + 1}`} onClick={() => setI(idx)}
+                className={cn("h-2 rounded-full transition-all", idx === i ? "w-6 bg-primary-foreground" : "w-2 bg-primary-foreground/50")} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Carousel({ title, products, more }: { title: string; products: Product[]; more?: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const scroll = (d: number) => ref.current?.scrollBy({ left: d * ref.current.clientWidth * 0.8, behavior: "smooth" });
+  return (
+    <section className="mx-auto w-full max-w-7xl px-5 py-8">
+      <div className="mb-4 flex items-end justify-between gap-4">
+        <h2 className="text-xl font-bold sm:text-2xl">{title}</h2>
+        <div className="flex items-center gap-2">
+          {more}
+          <button type="button" aria-label="Précédent" onClick={() => scroll(-1)} className="hidden h-8 w-8 place-items-center rounded-full border border-border sm:grid"><ChevronLeft className="h-4 w-4" /></button>
+          <button type="button" aria-label="Suivant" onClick={() => scroll(1)} className="hidden h-8 w-8 place-items-center rounded-full border border-border sm:grid"><ChevronRight className="h-4 w-4" /></button>
+        </div>
+      </div>
+      <div ref={ref} className="-mx-5 flex snap-x gap-3 overflow-x-auto px-5 pb-3 sm:gap-5 [scrollbar-width:none]">
+        {products.map((p) => (
+          <div key={p.id} className="w-[46%] shrink-0 snap-start sm:w-[31%] lg:w-[23%]">
+            <ProductCard product={p} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HomePage() {
+  const data = useLoaderData({ from: "__root__" }) as SiteData;
+  const { admin } = useLiveEdit();
+  const tr = useDynamicText();
+  const tops = useMemo(() => childrenOf(data.nodes, null), [data.nodes]);
+  const featured = useMemo(() => data.products.filter((p) => p.featured), [data.products]);
+  const latest = useMemo(
+    () => [...data.products].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? "")).slice(0, 12),
+    [data.products],
+  );
+  const findTop = (name: string) => tops.find((n) => n.name.toLowerCase().startsWith(name.toLowerCase()));
+
+  /** Tiles: TV, Réfrigérateurs, Lave-linge, Climatiseurs, Cuisson, Petit électroménager */
+  const tileNames = ["Téléviseurs", "Réfrigérateurs", "Lave-linge", "Climatiseurs", "Cuisson", "Petit électroménager"];
+  const tiles = tileNames
+    .map((name) => data.nodes.find((n) => n.name === name && (n.level === 1 || n.parent_id && tops.some((t) => t.id === n.parent_id))))
+    .filter((n): n is CatalogNode => Boolean(n));
+
+  const voirTout = (node: CatalogNode) => (
+    <Link to="/produits/$" params={{ _splat: splatOf(data.nodes, node.id) }} className="text-sm font-semibold text-brand hover:underline">Voir tout</Link>
+  );
 
   return (
     <SiteLayout>
-      {/* Compact brand line — the catalog is the star of this page. */}
-      <section className="relative overflow-hidden border-b border-border">
-        <div
-          className="aurora pointer-events-none absolute -top-40 end-[-10%] h-[420px] w-[420px] rounded-full opacity-25"
-          style={{ background: "var(--gradient-brand)" }}
-        />
-        <div className="dot-grid pointer-events-none absolute inset-0 opacity-40 [mask-image:radial-gradient(70%_70%_at_50%_0%,black,transparent)]" />
-        <div className="relative mx-auto w-full max-w-6xl px-5 py-10 sm:py-12">
-          <Reveal variant="blur" className="flex flex-wrap items-center justify-between gap-5">
-            <div className="flex items-center gap-4">
-              <img
-                src={logo.url}
-                alt="Logo Ghandi Home Electro"
-                width={56}
-                height={56}
-                className="h-14 w-14 shrink-0 object-contain"
-              />
-              <div>
-                <h1 className="text-2xl leading-tight font-bold sm:text-3xl">
-                  <span
-                    className="gradient-pan bg-clip-text text-transparent"
-                    style={{
-                      backgroundImage:
-                        "linear-gradient(120deg, var(--ink) 0%, var(--brand-deep) 60%, var(--brand) 100%)",
-                    }}
-                  >
-                    Ghandi Home Electro
-                  </span>
-                </h1>
-                <p className="mt-1 text-sm text-foreground/65 sm:text-base">
-                  Électroménager à Casablanca — TV, froid, lavage, climatisation.
-                </p>
+      <div className="mx-auto w-full max-w-7xl px-4 pt-4 sm:px-5 sm:pt-6">
+        <HeroSlider banners={data.settings.home_banners ?? []} />
+      </div>
+
+      {tiles.length > 0 && (
+        <section className="mx-auto w-full max-w-7xl px-5 py-8">
+          <div className="-mx-5 flex snap-x gap-3 overflow-x-auto px-5 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:px-0 lg:grid-cols-6">
+            {tiles.map((node) => (
+              <div key={node.id} className="w-32 shrink-0 snap-start sm:w-auto">
+                <CatalogTile node={node} splat={splatOf(data.nodes, node.id)} count={productsIn(data.nodes, data.products, node.id).length} />
               </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Link
-                to="/produits"
-                className="shine group inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-0.5"
-                style={{ background: "var(--gradient-brand)" }}
-              >
-                <Search className="h-4 w-4" /> {t("hero.cta")}
-                <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-              </Link>
-              <a
-                href={COMPANY.phoneHref}
-                className="inline-flex items-center gap-2 rounded-full border border-brand/30 px-6 py-3 text-sm font-semibold text-brand transition-all duration-300 hover:-translate-y-0.5 hover:bg-brand-soft"
-              >
-                <Phone className="h-4 w-4" /> {COMPANY.phone}
-              </a>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* Category entry points */}
-      <section className="mx-auto w-full max-w-6xl px-5 py-12">
-        <Reveal variant="blur" className="flex flex-wrap items-end justify-between gap-4">
-          <h2 className="text-2xl font-bold sm:text-3xl">Nos rayons</h2>
-          <Link
-            to="/produits"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand hover:underline"
-          >
-            Tout le catalogue <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Reveal>
-
-        {categories.length === 0 ? (
-          <p className="mt-8 rounded-3xl border border-dashed border-border bg-card px-6 py-14 text-center text-sm text-foreground/60">
-            Le catalogue arrive très bientôt.
-          </p>
-        ) : (
-          <Reveal delay={90} className="mt-8">
-            {/* Horizontal scroll on mobile, grid from sm up. */}
-            <div className="-mx-5 flex snap-x gap-4 overflow-x-auto px-5 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-6 sm:overflow-visible sm:px-0 lg:grid-cols-5">
-              {categories.map((node) => (
-                <div key={node.id} className="w-36 shrink-0 snap-start sm:w-auto">
-                  <CatalogTile
-                    node={node}
-                    splat={node.slug}
-                    count={productsIn(data.nodes, data.products, node.id).length}
-                    shape="circle"
-                  />
-                </div>
-              ))}
-            </div>
-          </Reveal>
-        )}
-      </section>
-
-      {/* Featured models */}
-      <section className="border-y border-border bg-brand-soft/40 py-16">
-        <div className="mx-auto w-full max-w-6xl px-5">
-          <Reveal variant="blur" className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h2 className="inline-flex items-center gap-2 text-2xl font-bold sm:text-3xl">
-                <Sparkles className="h-6 w-6 text-brand" /> Modèles en vedette
-              </h2>
-              <p className="mt-2 text-foreground/65">
-                Une sélection mise en avant par le magasin.
-              </p>
-            </div>
-          </Reveal>
-
-          {featured.length === 0 ? (
-            <div className="mt-8 flex flex-col items-center gap-3 rounded-[2rem] border border-dashed border-border bg-card px-8 py-16 text-center">
-              <PackageSearch className="h-8 w-8 text-brand" />
-              <p className="text-sm text-foreground/65">
-                Aucun modèle en vedette pour l'instant.{" "}
-                <Link to="/produits" className="font-semibold text-brand hover:underline">
-                  Parcourir le catalogue
-                </Link>
-              </p>
-            </div>
-          ) : (
-            <div className="mt-10 grid gap-7 sm:grid-cols-2 lg:grid-cols-4">
-              {featured.map((p, i) => (
-                <Reveal key={p.id} delay={(i % 4) * 90}>
-                  <ProductCard product={p} />
-                </Reveal>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Brands, further down */}
-      <section className="py-14">
-        <div className="mx-auto w-full max-w-6xl px-5">
-          <Reveal>
-            <h2 className="text-center text-2xl font-bold sm:text-3xl">{t("brands.title")}</h2>
-            <p className="mx-auto mt-3 max-w-xl text-center text-foreground/65">
-              {t("brands.subtitle")}
-            </p>
-          </Reveal>
-        </div>
-        <Reveal delay={120} className="mt-8">
-          <BrandMarquee />
-        </Reveal>
-      </section>
-
-      <section className="mx-auto w-full max-w-6xl px-5 pb-20">
-        <Reveal variant="zoom">
-          <div
-            className="gradient-pan relative overflow-hidden rounded-[2rem] px-8 py-12 text-center text-primary-foreground sm:px-16"
-            style={{ background: "var(--gradient-brand)" }}
-          >
-            <h2 className="text-2xl font-bold sm:text-3xl">{t("cta.title")}</h2>
-            <p className="mx-auto mt-3 max-w-xl opacity-90">{t("cta.subtitle")}</p>
-            <a
-              href={COMPANY.phoneHref}
-              className="shine mt-7 inline-flex items-center gap-2 rounded-full bg-background px-7 py-3.5 text-sm font-semibold text-brand transition-transform duration-300 hover:scale-[1.05]"
-            >
-              <Phone className="h-4 w-4" /> {t("cta.call")}
-            </a>
+            ))}
           </div>
-        </Reveal>
+        </section>
+      )}
+
+      {featured.length > 0 ? (
+        <Carousel title="Modèles en vedette" products={featured} />
+      ) : admin ? (
+        <section className="mx-auto w-full max-w-7xl px-5 py-6">
+          <p className="rounded-lg border border-dashed border-brand/40 bg-brand-soft/40 p-5 text-sm">
+            Modèles en vedette : <Link to="/admin" className="font-semibold text-brand underline">Choisissez des modèles en vedette</Link> dans l'administration (visible seulement par vous).
+          </p>
+        </section>
+      ) : null}
+
+      {latest.length > 0 && <Carousel title="Nouveautés" products={latest} more={<Link to="/produits" className="text-sm font-semibold text-brand hover:underline">Voir tout</Link>} />}
+
+      {(["Froid", "Lavage", "TV & Son"] as const).map((name) => {
+        const node = findTop(name);
+        if (!node) return null;
+        const list = productsIn(data.nodes, data.products, node.id).slice(0, 12);
+        if (list.length === 0) return null;
+        return <Carousel key={node.id} title={tr(node.name)} products={list} more={voirTout(node)} />;
+      })}
+
+      <section className="mx-auto w-full max-w-7xl px-5 py-10">
+        <h2 className="mb-5 text-xl font-bold sm:text-2xl">Nos marques</h2>
+        <div className="grid grid-cols-4 items-center gap-4 sm:grid-cols-7">
+          {BRANDS.map((b) => (
+            <Link key={b.name} to="/produits" search={{ q: b.name }} className="grid h-16 place-items-center rounded-lg border border-border bg-card p-3 hover:border-brand/50">
+              <img src={b.logo} alt={b.name} loading="lazy" className="max-h-10 w-auto object-contain" />
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="border-y border-border bg-brand-soft/40">
+        <div className="mx-auto grid w-full max-w-7xl grid-cols-2 gap-6 px-5 py-8 lg:grid-cols-4">
+          {[
+            { icon: Truck, label: "Livraison rapide" },
+            { icon: Banknote, label: "Paiement à la livraison" },
+            { icon: Headphones, label: "Conseil par téléphone / WhatsApp" },
+            { icon: Store, label: "Magasin à Casablanca" },
+          ].map((f) => (
+            <div key={f.label} className="flex items-center gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand text-primary-foreground"><f.icon className="h-5 w-5" /></span>
+              <span className="text-sm font-semibold">{f.label}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto grid w-full max-w-7xl gap-6 px-5 py-12 lg:grid-cols-2">
+        <div className="rounded-lg border border-border bg-card p-6">
+          <h2 className="text-xl font-bold">Notre magasin</h2>
+          <p className="mt-4 flex items-start gap-2 text-sm"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" /> {COMPANY.address}</p>
+          <div className="mt-4 space-y-1.5 text-sm">
+            {COMPANY.hours.map((h) => (
+              <p key={h.days} className="flex items-start gap-2"><Clock className="mt-0.5 h-4 w-4 shrink-0 text-brand" /> <span className="font-semibold">{h.days}</span> : {h.time}</p>
+            ))}
+          </div>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <a href={COMPANY.phoneHref} className="inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-primary-foreground"><Phone className="h-4 w-4" /> Appeler</a>
+            <a href={whatsappLink(WHATSAPP_GENERAL_MESSAGE)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full bg-whatsapp px-5 py-2.5 text-sm font-semibold text-primary-foreground"><WaIcon className="h-4 w-4" /> WhatsApp</a>
+          </div>
+        </div>
+        <iframe title="Plan d'accès" src={COMPANY.mapsEmbed} loading="lazy" className="h-72 w-full rounded-lg border border-border lg:h-full" />
       </section>
     </SiteLayout>
   );

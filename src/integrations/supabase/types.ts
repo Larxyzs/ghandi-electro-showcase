@@ -966,6 +966,7 @@ export type Database = {
         Row: {
           ai_model: string
           ai_provider: string
+          home_banners: Json
           id: string
           primary_color: string
           search_model: string
@@ -978,6 +979,7 @@ export type Database = {
         Insert: {
           ai_model?: string
           ai_provider?: string
+          home_banners?: Json
           id?: string
           primary_color?: string
           search_model?: string
@@ -990,6 +992,7 @@ export type Database = {
         Update: {
           ai_model?: string
           ai_provider?: string
+          home_banners?: Json
           id?: string
           primary_color?: string
           search_model?: string
