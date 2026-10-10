@@ -22,6 +22,7 @@ import { Route as AdminImportRouteImport } from './routes/admin_.import'
 import { Route as ProduitsIndexRouteImport } from './routes/produits.index'
 import { Route as ProduitsSplatRouteImport } from './routes/produits.$'
 import { Route as ApiAdminCheckImageRouteImport } from './routes/api/admin/check-image'
+import { Route as ApiPublicGhandiImportRouteImport } from './routes/api/public/ghandi-import'
 import { Route as ProduitsArticleProductIdRouteImport } from './routes/produits.article.$productId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -89,6 +90,11 @@ const ApiAdminCheckImageRoute = ApiAdminCheckImageRouteImport.update({
   path: '/api/admin/check-image',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicGhandiImportRoute = ApiPublicGhandiImportRouteImport.update({
+  id: '/api/public/ghandi-import',
+  path: '/api/public/ghandi-import',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProduitsArticleProductIdRoute =
   ProduitsArticleProductIdRouteImport.update({
     id: '/produits/article/$productId',
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/produits/$': typeof ProduitsSplatRoute
   '/produits/': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
+  '/api/public/ghandi-import': typeof ApiPublicGhandiImportRoute
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
 }
 export interface FileRoutesByTo {
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/produits/$': typeof ProduitsSplatRoute
   '/produits': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
+  '/api/public/ghandi-import': typeof ApiPublicGhandiImportRoute
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
 }
 export interface FileRoutesById {
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/produits/$': typeof ProduitsSplatRoute
   '/produits/': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
+  '/api/public/ghandi-import': typeof ApiPublicGhandiImportRoute
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
 }
 export interface FileRouteTypes {
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/produits/$'
     | '/produits/'
     | '/api/admin/check-image'
+    | '/api/public/ghandi-import'
     | '/produits/article/$productId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/produits/$'
     | '/produits'
     | '/api/admin/check-image'
+    | '/api/public/ghandi-import'
     | '/produits/article/$productId'
   id:
     | '__root__'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/produits/$'
     | '/produits/'
     | '/api/admin/check-image'
+    | '/api/public/ghandi-import'
     | '/produits/article/$productId'
   fileRoutesById: FileRoutesById
 }
@@ -210,6 +222,7 @@ export interface RootRouteChildren {
   ProduitsSplatRoute: typeof ProduitsSplatRoute
   ProduitsIndexRoute: typeof ProduitsIndexRoute
   ApiAdminCheckImageRoute: typeof ApiAdminCheckImageRoute
+  ApiPublicGhandiImportRoute: typeof ApiPublicGhandiImportRoute
   ProduitsArticleProductIdRoute: typeof ProduitsArticleProductIdRoute
 }
 
@@ -306,6 +319,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminCheckImageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/ghandi-import': {
+      id: '/api/public/ghandi-import'
+      path: '/api/public/ghandi-import'
+      fullPath: '/api/public/ghandi-import'
+      preLoaderRoute: typeof ApiPublicGhandiImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/produits/article/$productId': {
       id: '/produits/article/$productId'
       path: '/produits/article/$productId'
@@ -330,6 +350,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProduitsSplatRoute: ProduitsSplatRoute,
   ProduitsIndexRoute: ProduitsIndexRoute,
   ApiAdminCheckImageRoute: ApiAdminCheckImageRoute,
+  ApiPublicGhandiImportRoute: ApiPublicGhandiImportRoute,
   ProduitsArticleProductIdRoute: ProduitsArticleProductIdRoute,
 }
 export const routeTree = rootRouteImport
