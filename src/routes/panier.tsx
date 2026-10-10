@@ -5,7 +5,7 @@ import { SiteLayout } from "@/components/SiteLayout";
 import { useCart } from "@/lib/cart";
 import { isValidMaPhone } from "@/lib/orders-types";
 import { placeOrder } from "@/lib/orders.functions";
-import { formatMAD } from "@/lib/company";
+import { formatMAD, whatsappLink } from "@/lib/company";
 import { useI18n } from "@/lib/i18n";
 import { useDynamicText } from "@/lib/dynamic-text";
 
@@ -81,6 +81,11 @@ function PanierPage() {
         },
       });
       setReference(result.reference);
+      const lines = items
+        .map((i) => `- ${i.qty} × ${i.brand} ${i.name} : ${i.price_on_request ? "prix à confirmer" : formatMAD(i.price * i.qty)}`)
+        .join("\n");
+      const msg = `Bonjour, nouvelle commande ${result.reference}\n${lines}\nNom : ${form.full_name}\nTél : ${form.phone}\nVille : ${form.city}\nAdresse : ${form.address}${form.note ? `\nNote : ${form.note}` : ""}\nPaiement à la livraison.`;
+      window.open(whatsappLink(msg), "_blank", "noopener");
       clear();
     } catch (error) {
       const message = error instanceof Error ? error.message : "";

@@ -99,12 +99,15 @@ describe("order safety", () => {
     expect(() => validateOrderLine(product, 5)).toThrow(/INSUFFICIENT_STOCK/);
   });
 
-  it("refuses an out-of-stock product", () => {
-    expect(() => validateOrderLine({ ...product, stock: 0 }, 1)).toThrow(/OUT_OF_STOCK/);
+  it("accepts a product with stock 0 (on order)", () => {
+    expect(validateOrderLine({ ...product, stock: 0 }, 2)).toEqual({ qty: 2, price: 8990 });
   });
 
-  it("refuses an unknown or unpriced product", () => {
+  it("accepts an unpriced product with price 0 (confirmed by phone)", () => {
+    expect(validateOrderLine({ ...product, price: null }, 1)).toEqual({ qty: 1, price: 0 });
+  });
+
+  it("refuses an unknown product", () => {
     expect(() => validateOrderLine(undefined, 1)).toThrow("PRODUCT_UNAVAILABLE");
-    expect(() => validateOrderLine({ ...product, price: null }, 1)).toThrow("PRICE_UNAVAILABLE");
   });
 });
