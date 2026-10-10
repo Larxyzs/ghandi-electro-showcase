@@ -56,7 +56,7 @@ function useFolders(nodes: CatalogNode[], products: Product[]) {
   );
 }
 
-function useFoldersPlain(nodes: CatalogNode[]) {
+function foldersPlain(nodes: CatalogNode[]) {
   return nodes.map((n) => ({ id: n.id, name: n.name, label: pathOf(nodes, n.id).map((p) => p.name).join(" › ") }));
 }
 
@@ -184,7 +184,7 @@ export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
     const parsed = parseBulkFile(JSON.stringify(res.items.map((i) => i.payload))).items;
     const list = parsed.map((it, k) => ({ ...it, key: res.items[k]!.id }));
     const d = await getData();
-    const all = useFoldersPlain(d.nodes);
+    const all = foldersPlain(d.nodes);
     let sid = res.batch.suggested_category_id && all.some((f) => f.id === res.batch.suggested_category_id) ? res.batch.suggested_category_id : null;
     const txt = res.batch.suggested_section_text?.trim();
     if (!sid && txt) {
@@ -279,7 +279,7 @@ export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
     const r: string[] = [];
     if (i.needsReview) r.push("à vérifier (extension)");
     if (i.images.length === 0) r.push("pas de photo");
-    if (!sectionOf(i)) r.push("pas de section");
+    if (!sectionOf(i)) r.push(inboxId ? "Choisir une section" : "pas de section");
     if (!i.name) r.push("pas de nom");
     return r;
   };
@@ -501,6 +501,10 @@ export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
                 {([["all", "Tous"], ["new", "Nouveaux"], ["exists", "Déjà là"], ["look", "À regarder"]] as const).map(([f, l]) => (
                   <button key={f} type="button" className={chip(filter === f)} onClick={() => setFilter(f)}>{l} ({f === "all" ? items.length : items.filter((i) => statusOf(i) === f).length})</button>
                 ))}
+              </div>
+              <div className="mt-3 flex gap-2 text-xs">
+                <button type="button" className="font-semibold text-brand" onClick={() => setSelected(new Set(items.map((i) => i.key)))}>Tout sélectionner</button>
+                <button type="button" className="font-semibold text-foreground/60" onClick={() => setSelected(new Set())}>Tout désélectionner</button>
               </div>
               {selected.size > 0 && (
                 <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border p-2 text-sm">
