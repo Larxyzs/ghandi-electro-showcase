@@ -161,7 +161,7 @@ function HomePage() {
 
       {tiles.length > 0 && (
         <section className="mx-auto w-full max-w-7xl px-5 py-8">
-          <div className="-mx-5 flex snap-x gap-3 overflow-x-auto px-5 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:px-0 lg:grid-cols-6">
+          <div className="-mx-5 flex snap-x gap-3 overflow-x-auto px-5 pb-2 sm:mx-0 sm:grid sm:grid-cols-4 sm:px-0 lg:grid-cols-7">
             {tiles.map((node) => (
               <div key={node.id} className="w-32 shrink-0 snap-start sm:w-auto">
                 <CatalogTile node={node} splat={splatOf(data.nodes, node.id)} count={productsIn(data.nodes, data.products, node.id).length} />
