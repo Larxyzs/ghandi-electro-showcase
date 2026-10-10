@@ -157,6 +157,18 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const data = Route.useLoaderData();
+  useEffect(() => {
+    const onPreloadError = (e: Event) => {
+      const last = Number(sessionStorage.getItem("chunk-reload") ?? 0);
+      if (Date.now() - last < 30000) return;
+      e.preventDefault();
+      sessionStorage.setItem("chunk-reload", String(Date.now()));
+      window.location.reload();
+    };
+    window.addEventListener("vite:preloadError", onPreloadError);
+    return () => window.removeEventListener("vite:preloadError", onPreloadError);
+  }, []);
+
 
   return (
     <QueryClientProvider client={queryClient}>
