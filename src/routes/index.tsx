@@ -146,11 +146,8 @@ function HomePage() {
   );
   const findTop = (name: string) => tops.find((n) => n.name.toLowerCase().startsWith(name.toLowerCase()));
 
-  /** Tiles: TV, Réfrigérateurs, Lave-linge, Climatiseurs, Cuisson, Petit électroménager */
-  const tileNames = ["Téléviseurs", "Réfrigérateurs", "Lave-linge", "Climatiseurs", "Cuisson", "Petit électroménager"];
-  const tiles = tileNames
-    .map((name) => data.nodes.find((n) => n.name === name && (n.level === 1 || n.parent_id && tops.some((t) => t.id === n.parent_id))))
-    .filter((n): n is CatalogNode => Boolean(n));
+  /** Tiles: every top-level category, in admin order. */
+  const tiles: CatalogNode[] = tops;
 
   const voirTout = (node: CatalogNode) => (
     <Link to="/produits/$" params={{ _splat: splatOf(data.nodes, node.id) }} className="text-sm font-semibold text-brand hover:underline">Voir tout</Link>
