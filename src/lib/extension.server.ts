@@ -1,4 +1,5 @@
 import { adminDb } from "./admin.server";
+import { runIsolated } from "./batch-runner";
 
 async function sha256(v: string) {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(v));
@@ -72,10 +73,24 @@ export async function getBatch(id: string) {
 
 export async function markItems(batchId: string, rows: { id: string; status: "imported" | "skipped"; productId?: string | null }[]) {
   const db = await adminDb();
-  for (const r of rows) {
-    await db.from("extension_inbox_items").update({ status: r.status, product_id: r.productId ?? null }).eq("id", r.id).eq("batch_id", batchId);
+  const groups = new Map<string, { status: "imported" | "skipped"; productId: string | null; ids: string[] }>();
+  for (const row of rows) {
+    const key = `${row.status}:${row.productId ?? ""}`;
+    const group = groups.get(key) ?? { status: row.status, productId: row.productId ?? null, ids: [] };
+    group.ids.push(row.id);
+    groups.set(key, group);
   }
-  const { count } = await db.from("extension_inbox_items").select("id", { count: "exact", head: true }).eq("batch_id", batchId).eq("status", "pending");
-  if ((count ?? 0) === 0) await db.from("extension_batches").update({ status: "done" }).eq("id", batchId);
+  const outcomes = await runIsolated([...groups.values()], async (group) => {
+    const { error } = await db.from("extension_inbox_items").update({ status: group.status, product_id: group.productId }).in("id", group.ids).eq("batch_id", batchId);
+    if (error) throw new Error(error.message);
+  }, { concurrency: 6 });
+  const failed = outcomes.find((r) => !r.ok);
+  if (failed && !failed.ok) throw new Error(failed.error);
+  const { count, error } = await db.from("extension_inbox_items").select("id", { count: "exact", head: true }).eq("batch_id", batchId).eq("status", "pending");
+  if (error) throw new Error(error.message);
+  if (count === 0) {
+    const { error: doneError } = await db.from("extension_batches").update({ status: "done" }).eq("id", batchId);
+    if (doneError) throw new Error(doneError.message);
+  }
   return { pending: count ?? 0 };
 }

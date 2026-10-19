@@ -6,6 +6,7 @@
 import type { Json } from "@/integrations/supabase/types";
 import { adminDb } from "./admin.server";
 import type { BulkItem, BulkOptions, BulkRowResult, PreviewRow } from "./bulk-import-types";
+import { runIsolated } from "./batch-runner";
 
 type Db = Awaited<ReturnType<typeof adminDb>>;
 
@@ -60,18 +61,16 @@ function resolveFolder(
 export async function previewBulk(items: BulkItem[], opts: BulkOptions): Promise<PreviewRow[]> {
   const db = await adminDb();
   const folders = await loadFolders(db);
-  const rows: PreviewRow[] = [];
-  for (const item of items) {
+  const outcomes = await runIsolated(items, async (item): Promise<PreviewRow> => {
     if (!item.name) {
-      rows.push({ key: item.key, status: "problem", reason: "Nom vide" });
-      continue;
+      return { key: item.key, status: "problem", reason: "Nom vide" };
     }
     const existing = await findExisting(db, item);
     const folder = resolveFolder(folders, item, opts);
-    if (folder.problem) rows.push({ key: item.key, status: "problem", reason: folder.problem });
-    else rows.push({ key: item.key, status: existing ? "exists" : "new", ...(existing ? { existingId: existing.id } : {}) });
-  }
-  return rows;
+    if (folder.problem) return { key: item.key, status: "problem", reason: folder.problem };
+    return { key: item.key, status: existing ? "exists" : "new", ...(existing ? { existingId: existing.id } : {}) };
+  }, { concurrency: 6 });
+  return outcomes.map((r) => r.ok ? r.value : { key: items[r.index]?.key ?? "", status: "problem", reason: r.error });
 }
 
 async function copyImage(db: Db, url: string): Promise<{ value: string; copied: boolean }> {
@@ -81,7 +80,7 @@ async function copyImage(db: Db, url: string): Promise<{ value: string; copied: 
       headers: { "User-Agent": "Mozilla/5.0 GhandiImporter" },
     });
     if (!res.ok) throw new Error(String(res.status));
-    const type = (res.headers.get("content-type") ?? "").split(";")[0]!.trim();
+    const type = (res.headers.get("content-type") ?? "").split(";")[0]?.trim() ?? "";
     if (!type.startsWith("image/")) throw new Error("not image");
     const bytes = new Uint8Array(await res.arrayBuffer());
     if (bytes.byteLength > 8 * 1024 * 1024) throw new Error("too large");
@@ -101,23 +100,37 @@ const isEmpty = (v: unknown) =>
 export async function importBulkBatch(items: BulkItem[], opts: BulkOptions): Promise<BulkRowResult[]> {
   const db = await adminDb();
   const folders = await loadFolders(db);
-  const results: BulkRowResult[] = [];
-
-  for (const item of items) {
+  // Serialize overlapping identities, but allow independent products in parallel.
+  const identityLocks = new Map<string, Promise<void>>();
+  const folderLocks = new Map<string, Promise<void>>();
+  const outcomes = await runIsolated(items, async (item): Promise<BulkRowResult> => {
+    const identities = [item.sourceUrl ? `url:${item.sourceUrl}` : "", item.brand && item.model ? `model:${norm(item.brand)}:${norm(item.model)}` : ""].filter(Boolean);
+    const previous = identities.map((key) => identityLocks.get(key));
+    let release = () => {};
+    const lock = new Promise<void>((resolve) => { release = resolve; });
+    identities.forEach((key) => identityLocks.set(key, lock));
+    await Promise.all(previous);
     const uploaded: string[] = [];
     let createdId: string | null = null;
     try {
       if (!item.name) throw new Error("Nom vide");
       const existing = await findExisting(db, item);
       if (existing && opts.mode === "skip") {
-        results.push({ key: item.key, outcome: "skipped", productId: existing.id });
-        continue;
+        return { key: item.key, outcome: "skipped", productId: existing.id };
       }
 
       let folder = resolveFolder(folders, item, opts);
       if (folder.problem) throw new Error(folder.problem);
       if (folder.create) {
-        const again = folders.find((f) => norm(f.name) === norm(folder.create!.name));
+        const create = folder.create;
+        const folderKey = norm(create.name);
+        const previousFolder = folderLocks.get(folderKey);
+        let releaseFolder = () => {};
+        const folderLock = new Promise<void>((resolve) => { releaseFolder = resolve; });
+        folderLocks.set(folderKey, folderLock);
+        await previousFolder;
+        try {
+        const again = folders.find((f) => norm(f.name) === folderKey);
         if (again) folder = { id: again.id };
         else {
           const slug = `${norm(folder.create.name).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "dossier"}-${Math.random().toString(36).slice(2, 6)}`;
@@ -130,21 +143,25 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions): Pro
           folders.push(node);
           folder = { id: node.id };
         }
+        } finally { releaseFolder(); }
       }
-      const nodeId = folder.id!;
+      const nodeId = folder.id;
+      if (!nodeId) throw new Error("Aucune catégorie");
 
       // Pictures
       const warnings: string[] = [];
       const urls = Array.from(new Set(item.images.filter((u) => /^https?:\/\//i.test(u))));
       const gallery: string[] = [];
-      for (const url of urls) {
+      const images = await runIsolated(urls, async (url) => {
         if (opts.copyImages) {
           const r = await copyImage(db, url);
           if (r.copied) uploaded.push(r.value);
           else warnings.push(`Image non copiée : ${url}`);
-          gallery.push(r.value);
-        } else gallery.push(url);
-      }
+          return r.value;
+        }
+        return url;
+      }, { concurrency: 2 });
+      images.forEach((r) => { if (r.ok) gallery.push(r.value); });
 
       const foreign = item.currency && item.currency !== "MAD";
       const price = foreign && opts.dropForeignPrice ? null : item.priceValue;
@@ -180,9 +197,9 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions): Pro
         }
         const { error } = await db.from("products").update(patch as never).eq("id", existing.id);
         if (error) throw new Error(error.message);
-        await db.from("product_nodes").upsert({ product_id: existing.id, node_id: nodeId }, { onConflict: "product_id,node_id", ignoreDuplicates: true });
-        results.push({ key: item.key, outcome: "updated", productId: existing.id, warnings });
-        continue;
+        const link = await db.from("product_nodes").upsert({ product_id: existing.id, node_id: nodeId }, { onConflict: "product_id,node_id", ignoreDuplicates: true });
+        if (link.error) throw new Error(link.error.message);
+        return { key: item.key, outcome: "updated", productId: existing.id, warnings };
       }
 
       const { data, error } = await db
@@ -194,7 +211,7 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions): Pro
       createdId = data.id;
       const link = await db.from("product_nodes").insert({ product_id: data.id, node_id: nodeId });
       if (link.error) throw new Error(link.error.message);
-      results.push({ key: item.key, outcome: "created", productId: data.id, warnings });
+      return { key: item.key, outcome: "created", productId: data.id, warnings };
     } catch (error) {
       // never leave half a product behind
       if (createdId) {
@@ -202,8 +219,10 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions): Pro
         await db.from("products").delete().eq("id", createdId);
       }
       if (uploaded.length) await db.storage.from("product-images").remove(uploaded);
-      results.push({ key: item.key, outcome: "problem", error: error instanceof Error ? error.message : "Erreur" });
+      return { key: item.key, outcome: "problem", error: error instanceof Error ? error.message : "Erreur" };
+    } finally {
+      release();
     }
-  }
-  return results;
+  }, { concurrency: 3 });
+  return outcomes.map((r) => r.ok ? r.value : { key: items[r.index]?.key ?? "", outcome: "problem", error: r.error });
 }

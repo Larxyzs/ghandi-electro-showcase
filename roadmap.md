@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Speed up inbox imports, photo copying, previews and completion updates; verify duplicate safety.
+
 - [x] New shop layout (top bar, big search, mega-menu, cards, filters, product page, footer)
 - [x] Category tree created, spelling fixed, one phone number
 - [x] Home banners + quick price list in admin

@@ -163,12 +163,14 @@ export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
   const loadData = () => getData().then((d) => {
     setNodes(d.nodes);
     setProducts(d.products);
+    return d;
   });
   useEffect(() => {
     void status().then((s) => {
       setAuth(s.authenticated);
       if (s.authenticated) {
-        void loadData().then(() => (inboxId ? loadInbox() : undefined));
+        void Promise.all([loadData(), inboxId ? getBatch({ data: { id: inboxId } }) : Promise.resolve(null)])
+          .then(([d, batch]) => { if (inboxId) loadInbox(d.nodes, batch); });
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -176,25 +178,23 @@ export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
 
   const folders = useFolders(nodes, products);
 
-  const loadInbox = async () => {
+  const loadInbox = (catalogNodes: CatalogNode[], res: Awaited<ReturnType<typeof getBatch>>) => {
     if (!inboxId) return;
-    const res = await getBatch({ data: { id: inboxId } });
     if (!res) { setInboxLabel("Lot introuvable"); return; }
     setInboxLabel(res.batch.label || res.batch.id);
     const parsed = parseBulkFile(JSON.stringify(res.items.map((i) => i.payload))).items;
-    const list = parsed.map((it, k) => ({ ...it, key: res.items[k]!.id }));
-    const d = await getData();
-    const all = foldersPlain(d.nodes);
+    const list = parsed.flatMap((it, k) => { const row = res.items[k]; return row ? [{ ...it, key: row.id }] : []; });
+    const all = foldersPlain(catalogNodes);
     let sid = res.batch.suggested_category_id && all.some((f) => f.id === res.batch.suggested_category_id) ? res.batch.suggested_category_id : null;
     const txt = res.batch.suggested_section_text?.trim();
     if (!sid && txt) {
       const want = foldText(txt.replace(/\s*>\s*/g, " › "));
-      sid = all.find((f) => foldText(f.label) === want)?.id ?? all.find((f) => loose(f.name) === loose(txt.split(">").pop()!.trim()))?.id ?? null;
+      sid = all.find((f) => foldText(f.label) === want)?.id ?? all.find((f) => loose(f.name) === loose(txt.split(">").pop()?.trim() ?? ""))?.id ?? null;
     }
     setMode("one");
     setTargetId(null);
     const ov: Record<string, string> = {};
-    res.items.forEach((row, k) => { const s2 = row.suggested_category_id ?? sid; if (s2) ov[list[k]!.key] = s2; });
+    res.items.forEach((row) => { const s2 = row.suggested_category_id ?? sid; if (s2) ov[row.id] = s2; });
     setOverrides(ov);
     setItems(list);
     setSelected(new Set(list.map((i) => i.key)));
@@ -312,12 +312,14 @@ export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
     setRunning(true);
     setDone(0);
     setTotal(list.length);
+    const completed: BulkRowResult[] = [];
     for (let k = 0; k < list.length; k += BATCH) {
       const chunk = list.slice(k, k + BATCH).map((i) => ({ ...i, nodeId: sectionOf(i) }));
       try {
         const out = await runBatch({
           data: { items: chunk, options: { ...opts, folderId: null, fallbackId: null, createMissing: false } },
         });
+        completed.push(...out);
         setResults((prev) => ({ ...prev, ...Object.fromEntries(out.map((r) => [r.key, r])) }));
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Erreur";
@@ -325,17 +327,19 @@ export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
       }
       setDone((d) => d + chunk.length);
     }
+    if (inboxId) {
+      const okRows = completed.filter((r) => r.outcome !== "problem");
+      try {
+        for (let k = 0; k < okRows.length; k += 500) {
+          const out = await markItems({ data: { batchId: inboxId, rows: okRows.slice(k, k + 500).map((r) => ({ id: r.key, status: r.outcome === "skipped" ? "skipped" as const : "imported" as const, productId: r.productId ?? null })) } });
+          if (out.pending === 0) setInboxDone(true);
+        }
+      } catch {
+        setReadError("Produits enregistrés, mais la boîte de réception n'a pas pu être actualisée. Réessayez : les doublons seront ignorés.");
+      }
+    }
     setRunning(false);
     void loadData();
-    if (inboxId) {
-      setResults((cur) => {
-        const okRows = Object.values(cur).filter((r) => r.outcome !== "problem" && list.some((i) => i.key === r.key));
-        if (okRows.length)
-          void markItems({ data: { batchId: inboxId, rows: okRows.map((r) => ({ id: r.key, status: "imported" as const, productId: r.productId ?? null })) } })
-            .then((o) => { if (o.pending === 0) setInboxDone(true); });
-        return cur;
-      });
-    }
   };
 
   const resList = Object.values(results);
