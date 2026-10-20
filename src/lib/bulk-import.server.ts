@@ -97,8 +97,8 @@ async function copyImage(db: Db, url: string): Promise<{ value: string; copied: 
 const isEmpty = (v: unknown) =>
   v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0);
 
-export async function importBulkBatch(items: BulkItem[], opts: BulkOptions): Promise<BulkRowResult[]> {
-  const db = await adminDb();
+export async function importBulkBatch(items: BulkItem[], opts: BulkOptions, dbOverride?: Db): Promise<BulkRowResult[]> {
+  const db = dbOverride ?? (await adminDb());
   const folders = await loadFolders(db);
   // Serialize overlapping identities, but allow independent products in parallel.
   const identityLocks = new Map<string, Promise<void>>();
@@ -177,8 +177,8 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions): Pro
         gallery: gallery as Json,
         specifications: item.specs as Json,
         spec_groups: item.specGroups as Json,
-        needs_review: item.needsReview,
-        review_state: item.needsReview ? "needs_review" : "verified",
+        needs_review: false,
+        review_state: "verified",
         source_url: item.sourceUrl || null,
         source_name: item.brand || null,
         imported_at: new Date().toISOString(),
