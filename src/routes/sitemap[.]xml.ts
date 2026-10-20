@@ -23,7 +23,10 @@ export const Route = createFileRoute("/sitemap.xml")({
         const readAll = async (table: "catalog_nodes" | "products") => {
           const rows: Record<string, unknown>[] = [];
           for (let offset = 0; ; offset += 500) {
-            const { data, error } = await db.from(table).select(table === "products" ? "id" : "id,parent_id,name,slug,level,sort_order,image_url").order("id").range(offset, offset + 499);
+            const query = table === "products"
+              ? db.from("products").select("id")
+              : db.from("catalog_nodes").select("id,parent_id,name,slug,level,sort_order,image_url");
+            const { data, error } = await query.order("id").range(offset, offset + 499);
             if (error) throw new Error(`Sitemap query failed: ${table}`);
             if (!data) throw new Error(`Sitemap data unavailable: ${table}`);
             rows.push(...data);
@@ -41,7 +44,7 @@ export const Route = createFileRoute("/sitemap.xml")({
           "/livraison",
           "/mentions-legales",
           ...nodes.map((n) => `/produits/${pathOf(nodes, n.id).map((p) => encodeURIComponent(p.slug)).join("/")}`),
-          ...products.map((p) => `/produits/article/${encodeURIComponent(String(p.id))}`),
+          ...products.map((p) => `/produits/article/${encodeURIComponent(String(p["id"]))}`),
         ];
         const escapeXml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
         const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${Array.from(new Set(urls))
