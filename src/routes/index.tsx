@@ -189,10 +189,10 @@ function HomePage() {
 
       <section className="mx-auto w-full max-w-7xl px-5 py-10">
         <h2 className="mb-5 text-xl font-bold sm:text-2xl">Nos marques</h2>
-        <div className="grid grid-cols-4 items-center gap-4 sm:grid-cols-7">
+        <div className="grid grid-cols-4 items-center gap-2 sm:grid-cols-8">
           {BRANDS.map((b) => (
-            <Link key={b.name} to="/produits" search={{ q: b.name }} className="grid h-16 place-items-center rounded-lg border border-border bg-card p-3 hover:border-brand/50">
-              <img src={b.logo} alt={b.name} loading="lazy" className="max-h-10 w-auto object-contain" />
+            <Link key={b.name} to="/produits" search={{ q: b.name }} className="grid h-14 place-items-center rounded-lg border border-border bg-card px-2 py-2 hover:border-brand/50">
+              <img src={b.logo} alt={b.name} loading="lazy" className="max-h-9 w-auto object-contain" />
             </Link>
           ))}
         </div>
