@@ -76,15 +76,31 @@ export const Route = createFileRoute("/api/public/ghandi-import")({
               const o = (p ?? {}) as Record<string, unknown>;
               return { batch_id: batchId, source_url: str(o["sourceUrl"]) || `no-url-${Date.now()}-${i}`, payload: o as never, suggested_category_id: sid };
             });
+            let added = 0;
             if (rows.length) {
-              const ins = await db.from("extension_inbox_items").upsert(rows, { onConflict: "batch_id,source_url" });
+              const ins = await db.from("extension_inbox_items").upsert(rows, { onConflict: "batch_id,source_url" }).select("id, payload");
               if (ins.error) return fail("Could not save the products.", 500);
+              // Straight to the shop: no admin review step.
+              const { parseBulkFile } = await import("@/lib/bulk-import-types");
+              const { importBulkBatch } = await import("@/lib/bulk-import.server");
+              const saved = ins.data ?? [];
+              const items = parseBulkFile(JSON.stringify(saved.map((r) => r.payload))).items
+                .map((it, k) => ({ ...it, key: saved[k]?.id ?? it.key }));
+              const results = await importBulkBatch(items, {
+                mode: "skip", folderId: sid, fallbackId: sid, createMissing: false, copyImages: false, dropForeignPrice: false,
+              }, db as never);
+              for (const r of results) {
+                if (r.outcome === "problem") continue;
+                added++;
+                await db.from("extension_inbox_items").update({ status: "imported", product_id: r.productId ?? null }).eq("id", r.key);
+              }
             }
             if (body.final === true) {
               const { count } = await db.from("extension_inbox_items").select("id", { count: "exact", head: true }).eq("batch_id", batchId);
-              await db.from("extension_batches").update({ status: "ready", product_count: count ?? 0 }).eq("id", batchId);
+              const { count: pending } = await db.from("extension_inbox_items").select("id", { count: "exact", head: true }).eq("batch_id", batchId).eq("status", "pending");
+              await db.from("extension_batches").update({ status: pending ? "ready" : "done", product_count: count ?? 0 }).eq("id", batchId);
             }
-            return json({ ok: true, batchId, received: rows.length });
+            return json({ ok: true, batchId, received: rows.length, added });
           }
           return fail("Unknown action (use ping or push).", 400);
         } catch {
