@@ -49,11 +49,6 @@ export function CatalogTile({
       </div>
       <div className="mt-auto">
         <p className="text-sm font-semibold group-hover:text-brand sm:text-base">{tr(node.name)}</p>
-        <p className="mt-0.5 text-[0.7rem] text-foreground/50">
-          {count !== undefined
-            ? `${count} ${t("catalog.models")}`
-            : t(`catalog.level.${node.level}`)}
-        </p>
       </div>
     </Link>
   );
