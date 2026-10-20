@@ -26,6 +26,8 @@ export const Route = createFileRoute("/admin_/import")({
       { name: "robots", content: "noindex, nofollow" },
       { property: "og:title", content: "Importer des produits | Ghandi Home Electro" },
       { property: "og:description", content: "Espace privé d'import de produits." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: () => <ImportPage />,

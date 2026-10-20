@@ -10,6 +10,7 @@
 <!-- LOVABLE:END -->
 
 ## Architecture rules
+- The existing sitemap route reads all catalog IDs through paginated public queries and fails on query errors; omit lastmod without authoritative page-specific timestamps — prevents incomplete or misleading search discovery.
 - Bulk product import logic lives only in `src/lib/bulk-import.server.ts` (`importBulkBatch`); UI and any future API endpoint must call it, never duplicate it — one place guarantees identical duplicate checks and image copying.
 - Bulk imports use bounded parallel workers with shared-identity and folder-creation locks; photo workers stay within the per-invocation outbound budget — speeds independent products without racing duplicates or folder creation.
 - Shop contact details (phone, WhatsApp, hours, address) come only from `src/lib/company.ts` — prevents mismatched numbers across pages.
