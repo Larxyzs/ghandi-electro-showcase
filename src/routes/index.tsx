@@ -140,10 +140,6 @@ function HomePage() {
   const tr = useDynamicText();
   const tops = useMemo(() => childrenOf(data.nodes, null), [data.nodes]);
   const featured = useMemo(() => data.products.filter((p) => p.featured), [data.products]);
-  const latest = useMemo(
-    () => [...data.products].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? "")).slice(0, 12),
-    [data.products],
-  );
   const findTop = (name: string) => tops.find((n) => n.name.toLowerCase().startsWith(name.toLowerCase()));
 
   /** Tiles: every top-level category, in admin order. */
@@ -182,7 +178,6 @@ function HomePage() {
         </section>
       ) : null}
 
-      {latest.length > 0 && <Carousel title="Nouveautés" products={latest} more={<Link to="/produits" className="text-sm font-semibold text-brand hover:underline">Voir tout</Link>} />}
 
       {(["Froid", "Lavage", "TV & Son"] as const).map((name) => {
         const node = findTop(name);
