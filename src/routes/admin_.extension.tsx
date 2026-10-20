@@ -13,6 +13,8 @@ export const Route = createFileRoute("/admin_/extension")({
       { name: "robots", content: "noindex, nofollow" },
       { property: "og:title", content: "Extension Chrome | Ghandi Home Electro" },
       { property: "og:description", content: "Espace privé." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: ExtensionPage,

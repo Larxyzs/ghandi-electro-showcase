@@ -33,7 +33,15 @@ export const Route = createFileRoute("/produits/article/$productId")({
     const data = matches[0]?.loaderData as SiteData | undefined;
     const p = data?.products.find((x) => x.id === params.productId);
     if (!p) {
-      return { meta: [{ title: "Fiche produit | Ghandi Home Electro" }, { name: "robots", content: "noindex" }] };
+      return { meta: [
+        { title: "Produit indisponible | Ghandi Home Electro" },
+        { name: "description", content: "Ce produit n'est pas disponible. Retrouvez le catalogue d'électroménager Ghandi Home Electro à Casablanca." },
+        { property: "og:title", content: "Produit indisponible | Ghandi Home Electro" },
+        { property: "og:description", content: "Retrouvez le catalogue d'électroménager Ghandi Home Electro à Casablanca." },
+        { property: "og:type", content: "product" },
+        { name: "twitter:card", content: "summary" },
+        { name: "robots", content: "noindex" },
+      ] };
     }
     const ref = p.model || p.serial_number;
     const title = `${p.name}${p.brand ? ` ${p.brand}` : ""}${ref && !p.name.includes(ref) ? ` ${ref}` : ""} – Ghandi Home Electro Casablanca`;

@@ -41,12 +41,11 @@ export function ProductCard({ product }: { product: Product }) {
   };
 
   return (
-    <Link
-      to="/produits/article/$productId"
-      params={{ productId: product.id }}
+    <div
       className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-soft)]"
     >
-      <div className="relative aspect-square overflow-hidden bg-card">
+      <Link to="/produits/article/$productId" params={{ productId: product.id }} aria-label={tr(product.name)} className="absolute inset-0" />
+      <div className="pointer-events-none relative aspect-square overflow-hidden bg-card">
         {product.image_url ? (
           <>
             <img
@@ -84,13 +83,13 @@ export function ProductCard({ product }: { product: Product }) {
             stop(e);
             toggleFavorite(product.id);
           }}
-          className="absolute top-2 end-2 grid h-8 w-8 place-items-center rounded-full border border-border bg-background/90 text-foreground/60 hover:text-brand"
+          className="pointer-events-auto absolute top-2 end-2 grid h-8 w-8 place-items-center rounded-full border border-border bg-background/90 text-foreground/60 hover:text-brand"
         >
           <Heart className={cn("h-4 w-4", isFav && "fill-brand text-brand")} />
         </button>
       </div>
 
-      <div className="flex flex-1 flex-col gap-1 border-t border-border/60 p-3 sm:p-4">
+      <div className="pointer-events-none relative flex flex-1 flex-col gap-1 border-t border-border/60 p-3 sm:p-4">
         {product.brand && (
           <p className="text-[0.7rem] font-semibold tracking-wide text-foreground/50 uppercase">
             {product.brand}
@@ -107,7 +106,7 @@ export function ProductCard({ product }: { product: Product }) {
           ) : (
             <p className="text-sm font-semibold text-brand-deep">Prix sur demande</p>
           )}
-          <div className="mt-2 flex flex-col gap-1.5">
+            <div className="pointer-events-auto mt-2 flex flex-col gap-1.5">
             {product.price === null && (
               <a
                 href={whatsappLink(priceRequestMessage(product))}
@@ -133,6 +132,6 @@ export function ProductCard({ product }: { product: Product }) {
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

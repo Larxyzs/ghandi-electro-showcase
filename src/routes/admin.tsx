@@ -66,6 +66,8 @@ export const Route = createFileRoute("/admin")({
       { name: "robots", content: "noindex, nofollow" },
       { property: "og:title", content: "Administration | Ghandi Home Electro" },
       { property: "og:description", content: "Espace privé de gestion du catalogue." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AdminPage,

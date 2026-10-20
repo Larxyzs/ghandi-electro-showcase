@@ -12,13 +12,15 @@ export const Route = createFileRoute("/contact")({
       {
         name: "description",
         content:
-          "Contactez Ghandi Home Electro : +212 611 945 25, 41 Boulevard Ghandi, Casablanca-Settat. Ouvert du lundi au samedi.",
+          `Contactez Ghandi Home Electro : ${COMPANY.phone}, ${COMPANY.shortAddress}. Ouvert du lundi au samedi.`,
       },
       { property: "og:title", content: "Contact | Ghandi Home Electro" },
       {
         property: "og:description",
         content: "Appelez-nous ou passez au magasin au 41 Boulevard Ghandi, Casablanca.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: ContactPage,

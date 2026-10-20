@@ -19,6 +19,8 @@ export const Route = createFileRoute("/a-propos")({
         property: "og:description",
         content: "Un magasin d'électroménager familial de confiance à Casablanca.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AboutPage,

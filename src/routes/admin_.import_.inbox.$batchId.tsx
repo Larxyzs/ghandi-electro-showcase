@@ -10,6 +10,8 @@ export const Route = createFileRoute("/admin_/import_/inbox/$batchId")({
       { name: "robots", content: "noindex, nofollow" },
       { property: "og:title", content: "Lot de l'extension | Ghandi Home Electro" },
       { property: "og:description", content: "Espace privé d'import." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: InboxBatchPage,

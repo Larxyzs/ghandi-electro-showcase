@@ -156,6 +156,7 @@ function HomePage() {
   return (
     <SiteLayout>
       <div className="mx-auto w-full max-w-7xl px-4 pt-4 sm:px-5 sm:pt-6">
+        <h1 className="mb-4 text-2xl font-bold sm:text-3xl">Ghandi Home Electro — Électroménager et TV à Casablanca</h1>
         <HeroSlider banners={data.settings.home_banners ?? []} />
       </div>
 
