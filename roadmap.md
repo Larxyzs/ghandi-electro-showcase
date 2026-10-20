@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Verify and repair the four stored failing SEO findings.
+
 - [x] Speed up inbox imports, photo copying, previews and completion updates; verify duplicate safety.
 
 - [x] New shop layout (top bar, big search, mega-menu, cards, filters, product page, footer)
