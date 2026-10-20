@@ -15,5 +15,5 @@
 - Bulk imports use bounded parallel workers with shared-identity and folder-creation locks; photo workers stay within the per-invocation outbound budget — speeds independent products without racing duplicates or folder creation.
 - Shop contact details (phone, WhatsApp, hours, address) come only from `src/lib/company.ts` — prevents mismatched numbers across pages.
 - Products can live in any catalog level (`canHoldProducts` is always true); category pages list the whole subtree — the menu tree is two levels deep.
-- Chrome extension inbox: endpoint is the TanStack server route `src/routes/api/public/ghandi-import.ts` (not an Edge Function); it only stores batches in `extension_batches`/`extension_inbox_items`, and products are created only from the inbox page via `importBulkBatch` — keeps one import path and admin control.
+- Chrome extension endpoint is the TanStack server route `src/routes/api/public/ghandi-import.ts`; each push stores items in `extension_inbox_items` and immediately creates products via `importBulkBatch` (no admin review, owner's choice); items with no matching section stay pending for the inbox page — keeps one import path.
 - Extension keys are stored only as SHA-256 hashes in `extension_keys`; admin notifications poll (admin login is a cookie session, not database auth, so Realtime with RLS isn't usable).

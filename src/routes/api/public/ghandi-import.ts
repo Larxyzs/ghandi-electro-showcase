@@ -90,7 +90,7 @@ export const Route = createFileRoute("/api/public/ghandi-import")({
                 mode: "skip", folderId: sid, fallbackId: sid, createMissing: false, copyImages: false, dropForeignPrice: false,
               }, db as never);
               for (const r of results) {
-                if (r.outcome === "error") continue;
+                if (r.outcome === "problem") continue;
                 added++;
                 await db.from("extension_inbox_items").update({ status: "imported", product_id: r.productId ?? null }).eq("id", r.key);
               }
