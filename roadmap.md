@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Verify and repair the four stored failing SEO findings.
+- [x] Verify and repair the four stored failing SEO findings.
 
 - [x] Speed up inbox imports, photo copying, previews and completion updates; verify duplicate safety.
 
