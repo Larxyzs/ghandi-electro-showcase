@@ -60,7 +60,7 @@ export function NodeForm({
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder={`Nom du ${LEVEL_LABELS[level].toLowerCase()}`}
+          placeholder={`Nom du ${(LEVEL_LABELS[level] ?? "Sous-dossier").toLowerCase()}`}
           className="mt-1.5 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/25"
         />
       </label>

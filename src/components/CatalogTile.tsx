@@ -18,7 +18,7 @@ export function CatalogTile({
   splat: string;
   shape?: "square" | "circle";
 }) {
-  const Icon = LEVEL_ICON[node.level];
+  const Icon = LEVEL_ICON[node.level] ?? Box;
   const tr = useDynamicText();
   return (
     <Link

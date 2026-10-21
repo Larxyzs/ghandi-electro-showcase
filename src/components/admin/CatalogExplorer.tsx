@@ -387,13 +387,13 @@ export function CatalogExplorer({
 
       {folders.length === 0 && !isLeaf && (
         <p className="rounded-3xl border border-dashed border-border bg-card px-6 py-14 text-center text-sm text-foreground/60">
-          Aucun dossier ici. Créez un {LEVEL_LABELS[childLevel].toLowerCase()} pour commencer.
+          Aucun dossier ici. Créez un {(LEVEL_LABELS[childLevel] ?? "Sous-dossier").toLowerCase()} pour commencer.
         </p>
       )}
 
       <div className="space-y-3">
         {folders.map((node, index) => {
-          const Icon = LEVEL_ICON[node.level];
+          const Icon = LEVEL_ICON[node.level] ?? Box;
           const count = productsIn(data.nodes, data.products, node.id).length;
           const subCount = childrenOf(data.nodes, node.id).length;
 
