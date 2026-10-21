@@ -14,7 +14,7 @@ async function sha256(v: string) {
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** Chrome extension endpoint: products go straight into the shop (new ones created, known ones refreshed). */
+/** Chrome extension endpoint: products go straight into the shop (new ones created; one already there is replaced by the new version). */
 export const Route = createFileRoute("/api/public/ghandi-import")({
   server: {
     handlers: {
@@ -106,7 +106,7 @@ export const Route = createFileRoute("/api/public/ghandi-import")({
               const items = parseBulkFile(JSON.stringify(saved.map((r) => r.payload))).items
                 .map((it, k) => ({ ...it, key: saved[k]?.id ?? it.key }));
               const results = await importBulkBatch(items, {
-                mode: "refresh", folderId: sid, fallbackId: sid, createMissing: false, copyImages: false, dropForeignPrice: false,
+                mode: "replace", folderId: sid, fallbackId: sid, createMissing: false, copyImages: false, dropForeignPrice: false,
               }, db as never);
               for (const r of results) {
                 if (r.outcome === "problem") continue;

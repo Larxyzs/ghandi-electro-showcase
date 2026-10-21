@@ -3,6 +3,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { useSession } from "@tanstack/react-start/server";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { fetchSiteData, type SiteData } from "./catalog.server";
+import { purgeProducts } from "./product-purge.server";
 
 export const SUPER_ADMIN_USERNAME = "khaled.douiou";
 
@@ -496,9 +497,11 @@ export async function nodeDeletionImpact(id: string) {
 export async function deleteNode(id: string) {
   const db = await requireAdmin();
   const ids = await descendantIds(db, id);
-  const { data: products } = await db.from("products").select("image_url").in("node_id", ids);
+  // the folder's products are removed for good (rows, links, photos, inbox rows)
+  const { data: products } = await db.from("products").select("id").in("node_id", ids);
+  await purgeProducts(db, (products ?? []).map((p) => p.id));
   const { data: nodeRows } = await db.from("catalog_nodes").select("image_url").in("id", ids);
-  const paths = [...(products ?? []), ...(nodeRows ?? [])]
+  const paths = (nodeRows ?? [])
     .map((p) => p.image_url)
     .filter((p): p is string => Boolean(p) && !p!.startsWith("http"));
   if (paths.length) await db.storage.from("product-images").remove(paths);
@@ -679,12 +682,8 @@ export async function saveProduct(input: ProductInput) {
 
 export async function deleteProduct(id: string) {
   const db = await requireAdmin();
-  const { data: existing } = await db.from("products").select("image_url").eq("id", id).maybeSingle();
-  const { error } = await db.from("products").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-  if (existing?.image_url && !existing.image_url.startsWith("http")) {
-    await db.storage.from("product-images").remove([existing.image_url]);
-  }
+  // removed for good: product, its links, its uploaded photos, its extension inbox rows
+  await purgeProducts(db, [id]);
   return { ok: true as const };
 }
 
@@ -944,7 +943,7 @@ export async function undoAction(id: string) {
   if (action.undone_at) throw new Error("ALREADY_UNDONE");
 
   if (action.action === "product_create" && action.entity_id) {
-    await db.from("products").delete().eq("id", action.entity_id);
+    await purgeProducts(db, [action.entity_id]);
   } else if (action.action === "site_mode" && action.before_state) {
     const before = action.before_state as { site_mode?: string };
     if (before.site_mode) {

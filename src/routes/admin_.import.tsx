@@ -156,7 +156,7 @@ export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
   const [total, setTotal] = useState(0);
   const [results, setResults] = useState<Record<string, BulkRowResult>>({});
   const [opts, setOpts] = useState<Pick<BulkOptions, "mode" | "copyImages" | "dropForeignPrice">>({
-    mode: "skip",
+    mode: "replace",
     copyImages: true,
     dropForeignPrice: false,
   });
@@ -490,6 +490,7 @@ export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
                 <div>
                   <p className="mb-1 text-sm font-medium">Si le produit est déjà sur mon site</p>
                   <select value={opts.mode} onChange={(e) => setOpts({ ...opts, mode: e.target.value as BulkOptions["mode"] })} className="w-full rounded-lg border border-border px-3 py-2 text-sm">
+                    <option value="replace">Le remplacer par le nouveau (recommandé)</option>
                     <option value="skip">Le passer (ne rien changer)</option>
                     <option value="empty">Remplir seulement les champs vides</option>
                     <option value="all">Tout remplacer</option>
@@ -557,7 +558,7 @@ export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
                             ) : st === "look" ? (
                               <span className="text-yellow-800">À regarder : {lookReason(i).join(", ")}</span>
                             ) : st === "exists" ? (
-                              <span>Déjà sur le site → {{ skip: "passé", empty: "champs vides remplis", all: "tout remplacé", refresh: "mis à jour (prix gardé)" }[opts.mode]}</span>
+                              <span>Déjà sur le site → {{ skip: "passé", empty: "champs vides remplis", all: "tout remplacé", refresh: "remplacé", replace: "remplacé par le nouveau" }[opts.mode]}</span>
                             ) : (
                               <span className="text-brand">Nouveau</span>
                             )}

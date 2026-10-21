@@ -7,6 +7,7 @@ import type { Json } from "@/integrations/supabase/types";
 import { adminDb } from "./admin.server";
 import type { BulkItem, BulkOptions, BulkRowResult, PreviewRow } from "./bulk-import-types";
 import { runIsolated } from "./batch-runner";
+import { purgeProducts } from "./product-purge.server";
 
 type Db = Awaited<ReturnType<typeof adminDb>>;
 
@@ -15,6 +16,22 @@ const norm = (v: string) => v.normalize("NFC").trim().toLowerCase().replace(/\s+
 async function loadFolders(db: Db) {
   const { data } = await db.from("catalog_nodes").select("id, parent_id, name, level, slug");
   return data ?? [];
+}
+
+/** Every copy of this product already on the site (same brand page, or same brand + model). */
+async function findAllExisting(db: Db, item: BulkItem) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const found = new Map<string, any>();
+  if (item.sourceUrl) {
+    const { data } = await db.from("products").select("*").eq("source_url", item.sourceUrl);
+    for (const p of data ?? []) found.set(p.id, p);
+  }
+  if (item.brand && item.model) {
+    const m = item.model.replace(/[,()]/g, "");
+    const { data } = await db.from("products").select("*").ilike("brand", item.brand).or(`model.ilike.${m},serial_number.ilike.${m}`);
+    for (const p of data ?? []) found.set(p.id, p);
+  }
+  return [...found.values()].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
 }
 
 async function findExisting(db: Db, item: BulkItem) {
@@ -114,7 +131,14 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions, dbOv
     let createdId: string | null = null;
     try {
       if (!item.name) throw new Error("Nom vide");
-      const existing = await findExisting(db, item);
+      const replacing = opts.mode === "replace" || opts.mode === "refresh";
+      let existing = replacing ? null : await findExisting(db, item);
+      if (replacing) {
+        // keep ONE copy (its page address stays the same) and remove the others for good
+        const all = await findAllExisting(db, item);
+        existing = all[0] ?? null;
+        if (all.length > 1) await purgeProducts(db, all.slice(1).map((p) => p.id));
+      }
       if (existing && opts.mode === "skip") {
         return { key: item.key, outcome: "skipped", productId: existing.id };
       }
@@ -188,17 +212,14 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions, dbOv
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let patch: Record<string, any>;
         if (opts.mode === "all") patch = { ...full, node_id: nodeId };
-        else if (opts.mode === "refresh") {
-          // new data from the brand page replaces the old, except: empty new values never erase,
-          // and a price already set in the shop is kept
-          patch = { imported_at: full.imported_at };
-          for (const [k, v] of Object.entries(full)) {
-            if (k === "imported_at" || isEmpty(v)) continue;
-            if ((k === "price" || k === "price_text") && !isEmpty((existing as Record<string, unknown>)["price"])) continue;
-            patch[k] = v;
+        else if (replacing) {
+          // the new version replaces the old one completely, in the section it was sent to.
+          // Only exception: when the new one has no price, the shop's price stays.
+          patch = { ...full, node_id: nodeId };
+          if (full.price === null || full.price === undefined) {
+            delete patch["price"];
+            delete patch["price_text"];
           }
-          // the section it was sent to becomes its section (it leaves its old main section)
-          patch["node_id"] = nodeId;
         } else {
           patch = { imported_at: full.imported_at };
           for (const [k, v] of Object.entries(full)) {
@@ -208,9 +229,15 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions, dbOv
         }
         const { error } = await db.from("products").update(patch as never).eq("id", existing.id);
         if (error) throw new Error(error.message);
-        const oldNode = (existing as Record<string, unknown>)["node_id"];
-        if (opts.mode === "refresh" && typeof oldNode === "string" && oldNode !== nodeId) {
-          const unlink = await db.from("product_nodes").delete().eq("product_id", existing.id).eq("node_id", oldNode);
+        if (replacing) {
+          // photos the old version had uploaded and the new one does not use: removed for good
+          const ex = existing as Record<string, unknown>;
+          const keep = new Set<string>([String(patch["image_url"] ?? ""), ...gallery]);
+          const old = [ex["image_url"], ...(Array.isArray(ex["gallery"]) ? (ex["gallery"] as unknown[]) : [])]
+            .filter((v): v is string => typeof v === "string" && v.length > 0 && !/^https?:\/\//i.test(v) && !keep.has(v));
+          if (old.length) await db.storage.from("product-images").remove(old);
+          // only the new section: the old version's sections go away with it
+          const unlink = await db.from("product_nodes").delete().eq("product_id", existing.id).neq("node_id", nodeId);
           if (unlink.error) throw new Error(unlink.error.message);
         }
         const link = await db.from("product_nodes").upsert({ product_id: existing.id, node_id: nodeId }, { onConflict: "product_id,node_id", ignoreDuplicates: true });

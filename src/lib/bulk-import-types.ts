@@ -21,8 +21,10 @@ export type BulkItem = {
 };
 
 export type BulkOptions = {
-  /** refresh = update an existing product with the new data, but keep its shop price (used by the Chrome extension). */
-  mode: "skip" | "empty" | "all" | "refresh";
+  /** replace = the product already on the site is replaced by the new one (same page, new data,
+   *  new section; other copies of it are removed for good). The shop price stays only if the new
+   *  one has none. refresh = old name of replace. */
+  mode: "skip" | "empty" | "all" | "refresh" | "replace";
   /** Put every product in this one folder (overrides the file's category). */
   folderId: string | null;
   fallbackId: string | null;
