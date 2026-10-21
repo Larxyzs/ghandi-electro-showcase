@@ -22,6 +22,13 @@
       "when": 1791653691809,
       "tag": "0002_extension_inbox",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792610786393,
+      "tag": "0003_unlimited_folder_depth",
+      "breakpoints": true
     }
   ]
 }

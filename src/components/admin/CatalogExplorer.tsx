@@ -31,7 +31,8 @@ import { NodeForm } from "@/components/admin/NodeForm";
 import type { ImageDraft } from "@/components/admin/ImagePicker";
 import { cn } from "@/lib/utils";
 
-const LEVEL_ICON: Record<NodeLevel, typeof Folder> = { 1: Folder, 2: Layers, 3: Tag, 4: Box };
+const LEVEL_ICONS: Record<number, typeof Folder> = { 1: Folder, 2: Layers, 3: Tag, 4: Box };
+const LEVEL_ICON = new Proxy(LEVEL_ICONS, { get: (t, k) => t[Number(k)] ?? Box }) as Record<NodeLevel, typeof Folder>;
 
 export type CatalogActions = {
   createNode: (parentId: string | null, name: string, image: ImageDraft) => Promise<void>;
@@ -119,7 +120,7 @@ export function CatalogExplorer({
     current && level === 3
       ? (formatChoice[current.id] ?? (folders.length > 0 ? "keep" : "ask"))
       : null;
-  const canCreateFolder = level < 4 && formatDecision !== "none" && formatDecision !== "ask";
+  const canCreateFolder = formatDecision !== "none" && formatDecision !== "ask";
   /** Levels still to create: required down to Produit (3) + the optional Format (4). */
   const missingLevels = useMemo(
     () =>
