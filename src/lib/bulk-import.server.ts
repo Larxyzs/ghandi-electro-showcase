@@ -188,7 +188,16 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions, dbOv
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let patch: Record<string, any>;
         if (opts.mode === "all") patch = { ...full, node_id: nodeId };
-        else {
+        else if (opts.mode === "refresh") {
+          // new data from the brand page replaces the old, except: empty new values never erase,
+          // and a price already set in the shop is kept
+          patch = { imported_at: full.imported_at };
+          for (const [k, v] of Object.entries(full)) {
+            if (k === "imported_at" || isEmpty(v)) continue;
+            if ((k === "price" || k === "price_text") && !isEmpty((existing as Record<string, unknown>)["price"])) continue;
+            patch[k] = v;
+          }
+        } else {
           patch = { imported_at: full.imported_at };
           for (const [k, v] of Object.entries(full)) {
             if (k === "imported_at") continue;

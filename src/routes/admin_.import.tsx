@@ -557,7 +557,7 @@ export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
                             ) : st === "look" ? (
                               <span className="text-yellow-800">À regarder : {lookReason(i).join(", ")}</span>
                             ) : st === "exists" ? (
-                              <span>Déjà sur le site → {{ skip: "passé", empty: "champs vides remplis", all: "tout remplacé" }[opts.mode]}</span>
+                              <span>Déjà sur le site → {{ skip: "passé", empty: "champs vides remplis", all: "tout remplacé", refresh: "mis à jour (prix gardé)" }[opts.mode]}</span>
                             ) : (
                               <span className="text-brand">Nouveau</span>
                             )}

@@ -21,7 +21,8 @@ export type BulkItem = {
 };
 
 export type BulkOptions = {
-  mode: "skip" | "empty" | "all";
+  /** refresh = update an existing product with the new data, but keep its shop price (used by the Chrome extension). */
+  mode: "skip" | "empty" | "all" | "refresh";
   /** Put every product in this one folder (overrides the file's category). */
   folderId: string | null;
   fallbackId: string | null;
