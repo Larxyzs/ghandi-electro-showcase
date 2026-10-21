@@ -57,7 +57,26 @@ export const Route = createFileRoute("/api/public/ghandi-import")({
             if (products.length > 50) return fail("Too many products (max 50 per request).", 413);
             const str = (v: unknown) => (typeof v === "string" ? v : "");
             const uuid = /^[0-9a-f-]{36}$/i;
-            const sid = uuid.test(str(body.suggestedSectionId)) ? str(body.suggestedSectionId) : null;
+            let sid = uuid.test(str(body.suggestedSectionId)) ? str(body.suggestedSectionId) : null;
+            // a section deleted and created again has a new id: then find it by its name / path
+            {
+              const { data: nodes } = await db.from("catalog_nodes").select("id, parent_id, name");
+              const list = nodes ?? [];
+              if (!sid || !list.some((n) => n.id === sid)) {
+                const byId = new Map(list.map((n) => [n.id, n]));
+                const norm = (v: string) => v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+                const pathOf = (id: string) => {
+                  const names: string[] = [];
+                  let cur = byId.get(id);
+                  while (cur && names.length < 10) { names.unshift(cur.name); cur = cur.parent_id ? byId.get(cur.parent_id) : undefined; }
+                  return names.join(" > ");
+                };
+                const want = norm(str(body.suggestedSectionPath));
+                const last = norm(str(body.suggestedSectionPath).split(">").pop() ?? "");
+                const hit = want ? list.find((n) => norm(pathOf(n.id)) === want) ?? (last ? list.filter((n) => norm(n.name) === last) : []).find((_, i, a) => a.length === 1) : undefined;
+                sid = hit ? hit.id : null;
+              }
+            }
 
             const { data: existing } = await db.from("extension_batches").select("id, status").eq("id", batchId).maybeSingle();
             if (existing && (existing.status === "done" || existing.status === "cancelled"))

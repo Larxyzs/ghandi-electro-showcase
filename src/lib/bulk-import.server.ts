@@ -197,6 +197,8 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions, dbOv
             if ((k === "price" || k === "price_text") && !isEmpty((existing as Record<string, unknown>)["price"])) continue;
             patch[k] = v;
           }
+          // the section it was sent to becomes its section (it leaves its old main section)
+          patch["node_id"] = nodeId;
         } else {
           patch = { imported_at: full.imported_at };
           for (const [k, v] of Object.entries(full)) {
@@ -206,6 +208,11 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions, dbOv
         }
         const { error } = await db.from("products").update(patch as never).eq("id", existing.id);
         if (error) throw new Error(error.message);
+        const oldNode = (existing as Record<string, unknown>)["node_id"];
+        if (opts.mode === "refresh" && typeof oldNode === "string" && oldNode !== nodeId) {
+          const unlink = await db.from("product_nodes").delete().eq("product_id", existing.id).eq("node_id", oldNode);
+          if (unlink.error) throw new Error(unlink.error.message);
+        }
         const link = await db.from("product_nodes").upsert({ product_id: existing.id, node_id: nodeId }, { onConflict: "product_id,node_id", ignoreDuplicates: true });
         if (link.error) throw new Error(link.error.message);
         return { key: item.key, outcome: "updated", productId: existing.id, warnings };
