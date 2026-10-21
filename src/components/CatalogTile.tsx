@@ -4,7 +4,8 @@ import type { CatalogNode, NodeLevel } from "@/lib/catalog-types";
 import { useDynamicText } from "@/lib/dynamic-text";
 import { cn } from "@/lib/utils";
 
-const LEVEL_ICON: Record<NodeLevel, typeof Folder> = { 1: Folder, 2: Layers, 3: Tag, 4: Box };
+const LEVEL_ICONS: Record<number, typeof Folder> = { 1: Folder, 2: Layers, 3: Tag, 4: Box };
+const LEVEL_ICON = new Proxy(LEVEL_ICONS, { get: (t, k) => t[Number(k)] ?? Box }) as Record<NodeLevel, typeof Folder>;
 
 /** Image + label card used for every hierarchy level in the public drill-down. */
 export function CatalogTile({
@@ -17,7 +18,7 @@ export function CatalogTile({
   splat: string;
   shape?: "square" | "circle";
 }) {
-  const Icon = LEVEL_ICON[node.level];
+  const Icon = LEVEL_ICON[node.level] ?? Box;
   const tr = useDynamicText();
   return (
     <Link

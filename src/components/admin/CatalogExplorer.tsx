@@ -31,7 +31,8 @@ import { NodeForm } from "@/components/admin/NodeForm";
 import type { ImageDraft } from "@/components/admin/ImagePicker";
 import { cn } from "@/lib/utils";
 
-const LEVEL_ICON: Record<NodeLevel, typeof Folder> = { 1: Folder, 2: Layers, 3: Tag, 4: Box };
+const LEVEL_ICONS: Record<number, typeof Folder> = { 1: Folder, 2: Layers, 3: Tag, 4: Box };
+const LEVEL_ICON = new Proxy(LEVEL_ICONS, { get: (t, k) => t[Number(k)] ?? Box }) as Record<NodeLevel, typeof Folder>;
 
 export type CatalogActions = {
   createNode: (parentId: string | null, name: string, image: ImageDraft) => Promise<void>;
@@ -119,7 +120,7 @@ export function CatalogExplorer({
     current && level === 3
       ? (formatChoice[current.id] ?? (folders.length > 0 ? "keep" : "ask"))
       : null;
-  const canCreateFolder = level < 4 && formatDecision !== "none" && formatDecision !== "ask";
+  const canCreateFolder = formatDecision !== "none" && formatDecision !== "ask";
   /** Levels still to create: required down to Produit (3) + the optional Format (4). */
   const missingLevels = useMemo(
     () =>
@@ -386,13 +387,13 @@ export function CatalogExplorer({
 
       {folders.length === 0 && !isLeaf && (
         <p className="rounded-3xl border border-dashed border-border bg-card px-6 py-14 text-center text-sm text-foreground/60">
-          Aucun dossier ici. Créez un {LEVEL_LABELS[childLevel].toLowerCase()} pour commencer.
+          Aucun dossier ici. Créez un {(LEVEL_LABELS[childLevel] ?? "Sous-dossier").toLowerCase()} pour commencer.
         </p>
       )}
 
       <div className="space-y-3">
         {folders.map((node, index) => {
-          const Icon = LEVEL_ICON[node.level];
+          const Icon = LEVEL_ICON[node.level] ?? Box;
           const count = productsIn(data.nodes, data.products, node.id).length;
           const subCount = childrenOf(data.nodes, node.id).length;
 

@@ -248,7 +248,7 @@ export async function createNode(parentId: string | null, name: string, image?: 
       .eq("id", parentId)
       .maybeSingle();
     if (!parent) throw new Error("PARENT_NOT_FOUND");
-    if (parent.level >= 4) throw new Error("MAX_DEPTH");
+    if (parent.level >= 1000) throw new Error("MAX_DEPTH");
     level = parent.level + 1;
   }
 
@@ -732,7 +732,7 @@ export async function quickCreateChain(input: {
     typeof folder === "string" ? { name: folder.trim() } : { ...folder, name: folder.name.trim() },
   );
   if (entries.some((entry) => !entry.name)) throw new Error("EMPTY_NAME");
-  if (level + entries.length > 4) throw new Error("MAX_DEPTH");
+  if (level + entries.length > 1000) throw new Error("MAX_DEPTH");
   if (level + entries.length < 3) throw new Error("MISSING_LEVELS");
 
   let parentId = input.fromId;

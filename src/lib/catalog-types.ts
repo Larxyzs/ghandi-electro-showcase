@@ -1,7 +1,7 @@
-export type NodeLevel = 1 | 2 | 3 | 4;
+export type NodeLevel = number;
 
 /** Deepest folder level: level 4 (Format) is optional. */
-export const MAX_LEVEL: NodeLevel = 4;
+export const MAX_LEVEL: NodeLevel = 1000;
 
 /** Products (Modèles) live in a Produit (level 3) or, when it has some, a Format (level 4). */
 export function canHoldProducts(_level: NodeLevel) {
@@ -223,12 +223,16 @@ export type SiteData = {
   popularSearches: PopularSearch[];
 };
 
-export const LEVEL_LABELS: Record<NodeLevel, string> = {
+const BASE_LABELS: Record<number, string> = {
   1: "Catégorie",
   2: "Type de produit",
   3: "Produit",
   4: "Format",
 };
+/** Folder label per depth; anything deeper than 4 is a plain "Sous-dossier". */
+export const LEVEL_LABELS = new Proxy(BASE_LABELS, {
+  get: (t, k) => t[Number(k)] ?? "Sous-dossier",
+}) as Record<number, string>;
 
 export function childrenOf(nodes: CatalogNode[] | undefined, parentId: string | null) {
   return (nodes ?? [])

@@ -233,12 +233,12 @@ export function ProductForm({
                       prev.map((v, i) => (i === index ? { ...v, name: e.target.value } : v)),
                     )
                   }
-                  placeholder={`Nom du ${LEVEL_LABELS[level].toLowerCase()}`}
+                  placeholder={`Nom du ${(LEVEL_LABELS[level] ?? "Sous-dossier").toLowerCase()}`}
                 />
               </label>
               <div className="mt-3">
                 <ImagePicker
-                  label={`Image du ${LEVEL_LABELS[level].toLowerCase()}`}
+                  label={`Image du ${(LEVEL_LABELS[level] ?? "Sous-dossier").toLowerCase()}`}
                   onError={setError}
                   onChange={(image) =>
                     setFolders((prev) =>
