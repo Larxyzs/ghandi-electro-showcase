@@ -75,6 +75,15 @@ export const Route = createFileRoute("/api/public/ghandi-import")({
                 const last = norm(str(body.suggestedSectionPath).split(">").pop() ?? "");
                 const hit = want ? list.find((n) => norm(pathOf(n.id)) === want) ?? (last ? list.filter((n) => norm(n.name) === last) : []).find((_, i, a) => a.length === 1) : undefined;
                 sid = hit ? hit.id : null;
+                // old names / paths from before a category was renamed or moved
+                if (!sid && want) {
+                  const { data: redirects } = await db.from("catalog_redirects").select("old_path, node_id");
+                  const rows = redirects ?? [];
+                  const full = rows.find((r) => norm(r.old_path) === want);
+                  const tail = last ? rows.filter((r) => norm(r.old_path.split("/").pop() ?? "") === last) : [];
+                  const r = full ?? (new Set(tail.map((t) => t.node_id)).size === 1 ? tail[0] : undefined);
+                  if (r && list.some((n) => n.id === r.node_id)) sid = r.node_id;
+                }
               }
             }
 
