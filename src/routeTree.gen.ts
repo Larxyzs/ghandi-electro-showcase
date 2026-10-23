@@ -20,6 +20,7 @@ import { Route as MentionsLegalesRouteImport } from './routes/mentions-legales'
 import { Route as PanierRouteImport } from './routes/panier'
 import { Route as RechercheRouteImport } from './routes/recherche'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as SuiviCommandeRouteImport } from './routes/suivi-commande'
 import { Route as AdminExtensionRouteImport } from './routes/admin_.extension'
 import { Route as AdminImportRouteImport } from './routes/admin_.import'
 import { Route as MarquesIndexRouteImport } from './routes/marques.index'
@@ -85,6 +86,11 @@ const RechercheRoute = RechercheRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SuiviCommandeRoute = SuiviCommandeRouteImport.update({
+  id: '/suivi-commande',
+  path: '/suivi-commande',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminExtensionRoute = AdminExtensionRouteImport.update({
@@ -156,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/panier': typeof PanierRoute
   '/recherche': typeof RechercheRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/suivi-commande': typeof SuiviCommandeRoute
   '/admin/extension': typeof AdminExtensionRoute
   '/admin/import': typeof AdminImportRoute
   '/marques/$slug': typeof MarquesSlugRoute
@@ -180,6 +187,7 @@ export interface FileRoutesByTo {
   '/panier': typeof PanierRoute
   '/recherche': typeof RechercheRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/suivi-commande': typeof SuiviCommandeRoute
   '/admin/extension': typeof AdminExtensionRoute
   '/admin/import': typeof AdminImportRoute
   '/marques/$slug': typeof MarquesSlugRoute
@@ -205,6 +213,7 @@ export interface FileRoutesById {
   '/panier': typeof PanierRoute
   '/recherche': typeof RechercheRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/suivi-commande': typeof SuiviCommandeRoute
   '/admin_/extension': typeof AdminExtensionRoute
   '/admin_/import': typeof AdminImportRoute
   '/marques/$slug': typeof MarquesSlugRoute
@@ -231,6 +240,7 @@ export interface FileRouteTypes {
     | '/panier'
     | '/recherche'
     | '/sitemap.xml'
+    | '/suivi-commande'
     | '/admin/extension'
     | '/admin/import'
     | '/marques/$slug'
@@ -255,6 +265,7 @@ export interface FileRouteTypes {
     | '/panier'
     | '/recherche'
     | '/sitemap.xml'
+    | '/suivi-commande'
     | '/admin/extension'
     | '/admin/import'
     | '/marques/$slug'
@@ -279,6 +290,7 @@ export interface FileRouteTypes {
     | '/panier'
     | '/recherche'
     | '/sitemap.xml'
+    | '/suivi-commande'
     | '/admin_/extension'
     | '/admin_/import'
     | '/marques/$slug'
@@ -304,6 +316,7 @@ export interface RootRouteChildren {
   PanierRoute: typeof PanierRoute
   RechercheRoute: typeof RechercheRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  SuiviCommandeRoute: typeof SuiviCommandeRoute
   AdminExtensionRoute: typeof AdminExtensionRoute
   AdminImportRoute: typeof AdminImportRoute
   MarquesSlugRoute: typeof MarquesSlugRoute
@@ -394,6 +407,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/suivi-commande': {
+      id: '/suivi-commande'
+      path: '/suivi-commande'
+      fullPath: '/suivi-commande'
+      preLoaderRoute: typeof SuiviCommandeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin_/extension': {
@@ -488,6 +508,7 @@ const rootRouteChildren: RootRouteChildren = {
   PanierRoute: PanierRoute,
   RechercheRoute: RechercheRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  SuiviCommandeRoute: SuiviCommandeRoute,
   AdminExtensionRoute: AdminExtensionRoute,
   AdminImportRoute: AdminImportRoute,
   MarquesSlugRoute: MarquesSlugRoute,
