@@ -61,14 +61,15 @@ export function isValidMaPhone(raw: string): boolean {
  * enough stock. Pure so it can be unit tested.
  */
 export function validateOrderLine(
-  product: { id: string; name: string; price: number | null; stock: number | null } | undefined,
+  product: { id: string; name: string; price: number | null; stock: number | null; availability?: string } | undefined,
   qty: number,
 ): { qty: number; price: number } {
   if (!product) throw new Error("PRODUCT_UNAVAILABLE");
   const stock = Math.max(0, Math.floor(product.stock ?? 0));
-  const asked = Math.max(1, Math.min(99, Math.floor(qty)));
-  // stock 0 = not tracked / on order: allowed. A tracked stock caps the quantity.
-  if (stock > 0 && asked > stock) throw new Error(`INSUFFICIENT_STOCK:${product.name}:${stock}`);
+  if (product.availability !== 'in_stock' || stock === 0) throw new Error(`PRODUCT_UNAVAILABLE:${product.name}:Contactez-nous sur WhatsApp`);
+  if (!Number.isSafeInteger(qty) || qty < 1) throw new Error('INVALID_QUANTITY');
+  const asked = qty;
+  if (asked > stock) throw new Error(`INSUFFICIENT_STOCK:${product.name}:${stock}`);
   // No shop price yet: 0 here, the price is confirmed by phone.
   const price = product.price !== null && product.price > 0 ? product.price : 0;
   return { qty: asked, price };

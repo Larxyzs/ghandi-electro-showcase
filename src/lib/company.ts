@@ -35,7 +35,7 @@ export function productWhatsappMessage(product: {
   model?: string;
 }) {
   const ref = product.model || product.serial_number || "";
-  const price = product.price === null ? "Prix sur demande" : formatDH(product.price);
+  const price = !product.price ? "Prix sur demande" : formatDH(product.price);
   return `Bonjour, je suis intéressé(e) par : ${product.brand} ${product.name}${ref ? ` (réf. ${ref})` : ""}. Prix : ${price}. Merci.`;
 }
 

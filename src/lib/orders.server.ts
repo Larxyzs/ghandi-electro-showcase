@@ -38,13 +38,17 @@ export async function createOrder(input: CreateOrderInput): Promise<{ reference:
   const phone = normalizeMaPhone(input.phone ?? "");
   if (!phone) throw new Error("INVALID_PHONE");
 
-  const rawItems = (input.items ?? []).filter((i) => i && i.product_id && i.qty > 0);
+  const rawItems = (input.items ?? []).filter((i) => i && i.product_id && i.qty > 0).reduce<{ product_id: string; qty: number }[]>((acc, line) => {
+    const previous = acc.find(p => p.product_id === line.product_id);
+    if (previous) previous.qty += line.qty; else acc.push({ ...line });
+    return acc;
+  }, []);
   if (rawItems.length === 0) throw new Error("EMPTY_CART");
 
   const ids = [...new Set(rawItems.map((i) => i.product_id))];
   const { data: products, error } = await supabaseAdmin
     .from("products")
-    .select("id, name, brand, price, stock, image_url")
+    .select("id, name, brand, price, stock, availability, image_url")
     .in("id", ids);
   if (error) throw new Error(error.message);
 
