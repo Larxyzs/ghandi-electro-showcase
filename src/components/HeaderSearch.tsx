@@ -4,7 +4,6 @@ import { Folder, PackageSearch, Search, Tag, X } from "lucide-react";
 import { pathOf, searchProducts, type CatalogNode, type SiteData } from "@/lib/catalog-types";
 import { useDynamicText } from "@/lib/dynamic-text";
 import { formatDH } from "@/lib/company";
-import { BRAND_NAMES } from "@/lib/brands";
 
 const fold = (v: string) => v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
@@ -39,9 +38,10 @@ export function HeaderSearch({ className }: { className?: string }) {
     [data.nodes, q],
   );
   const brands = useMemo(
-    () => (q.length >= 2 ? BRAND_NAMES.filter((b) => fold(b).includes(fold(q))).slice(0, 3) : []),
-    [q],
+    () => (q.length >= 2 ? (data.brands ?? []).filter((b) => fold(b.name).includes(fold(q))).slice(0, 3) : []),
+    [q, data.brands],
   );
+  const popular = data.popularSearches ?? [];
   const close = () => {
     setOpen(false);
     setQuery("");
@@ -54,12 +54,11 @@ export function HeaderSearch({ className }: { className?: string }) {
           e.preventDefault();
           if (!q) return;
           close();
-          navigate({ to: "/produits", search: { q } });
+          navigate({ to: "/recherche", search: { q } });
         }}
-        className="relative flex items-center rounded-full border-2 border-brand/70 bg-card ps-4 focus-within:border-brand"
+        className="relative flex h-12 items-center overflow-hidden rounded-md border border-input bg-card ps-3 focus-within:border-brand"
       >
-        <Search className="h-4.5 w-4.5 shrink-0 text-brand" />
-        <input
+                <input
           type="search"
           value={query}
           onFocus={() => setOpen(true)}
@@ -76,25 +75,35 @@ export function HeaderSearch({ className }: { className?: string }) {
             <X className="h-4 w-4" />
           </button>
         )}
-        <button type="submit" className="m-1 rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-primary-foreground">
-          OK
+        <button type="submit" aria-label="Rechercher" className="grid h-full w-12 shrink-0 place-items-center bg-brand text-brand-foreground">
+          <Search className="h-5 w-5" />
         </button>
       </form>
 
+      {open && !q && popular.length > 0 && (
+        <div className="absolute inset-x-0 top-full z-50 mt-1 rounded-md border border-border bg-card p-3 shadow-[var(--shadow-menu)]">
+          <p className="mb-2 text-xs font-bold text-text-3 uppercase">Recherches populaires</p>
+          <div className="flex flex-wrap gap-2">
+            {popular.map((p) => (
+              <Link key={p.id} to="/recherche" search={{ q: p.term }} onClick={close} className="rounded-full border border-border px-3 py-1 text-xs hover:border-brand">{p.term}</Link>
+            ))}
+          </div>
+        </div>
+      )}
       {open && q && (
         <div className="absolute inset-x-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
           {(folders.length > 0 || brands.length > 0) && (
             <div className="flex flex-wrap gap-2 border-b border-border p-3">
               {folders.map((n) => (
                 <Link key={n.id} to="/produits/$" params={{ _splat: splatOf(data.nodes, n.id) }} onClick={close}
-                  className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand-deep">
+                  className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-foreground">
                   <Folder className="h-3 w-3" /> {tr(n.name)}
                 </Link>
               ))}
               {brands.map((b) => (
-                <Link key={b} to="/produits" search={{ q: b }} onClick={close}
+                <Link key={b.id} to="/marques/$slug" params={{ slug: b.slug }} onClick={close}
                   className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs font-semibold">
-                  <Tag className="h-3 w-3" /> {b}
+                  <Tag className="h-3 w-3" /> {b.name}
                 </Link>
               ))}
             </div>
@@ -116,8 +125,8 @@ export function HeaderSearch({ className }: { className?: string }) {
                   <span className="shrink-0 text-xs font-bold">{p.price !== null ? formatDH(p.price) : "Prix sur demande"}</span>
                 </Link>
               ))}
-              <Link to="/produits" search={{ q }} onClick={close}
-                className="block border-t border-border px-4 py-3 text-sm font-semibold text-brand hover:bg-brand-soft/60">
+              <Link to="/recherche" search={{ q }} onClick={close}
+                className="block border-t border-border px-4 py-3 text-sm font-semibold text-foreground underline hover:bg-brand-soft/60">
                 Voir tous les résultats
               </Link>
             </>
