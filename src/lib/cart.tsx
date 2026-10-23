@@ -6,6 +6,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { toast } from 'sonner';
+import { availabilityOf } from './price-stock';
 
 export type CartItem = {
   product_id: string;
@@ -16,6 +18,7 @@ export type CartItem = {
   price_on_request?: boolean;
   image_url: string | null;
   stock: number;
+  availability?: string;
   qty: number;
 };
 
@@ -60,9 +63,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items, hydrated]);
 
   const add: CartContextValue["add"] = (item, qty = 1) => {
+    if (availabilityOf(item) !== 'in_stock') { toast.error('Produit indisponible. Contactez-nous sur WhatsApp.'); return; }
+    const existingQty = items.find(i => i.product_id === item.product_id)?.qty ?? 0;
+    if (existingQty + qty > item.stock) { toast.error(`Il n’en reste que ${item.stock}`); return; }
     setItems((prev) => {
       const existing = prev.find((i) => i.product_id === item.product_id);
-      const maxQty = 99;
+      const maxQty = item.stock;
       if (existing) {
         return prev.map((i) =>
           i.product_id === item.product_id
@@ -79,11 +85,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const setQty: CartContextValue["setQty"] = (productId, qty) => {
+    const item = items.find(i => i.product_id === productId);
+    if (!item) return;
+    if (qty > item.stock) { toast.error(`Il n’en reste que ${item.stock}`); return; }
     setItems((prev) =>
       prev
         .map((i) =>
           i.product_id === productId
-            ? { ...i, qty: Math.max(1, Math.min(99, qty)) }
+            ? { ...i, qty: Math.max(1, Math.min(i.stock, qty)) }
             : i,
         )
         .filter((i) => i.qty > 0),

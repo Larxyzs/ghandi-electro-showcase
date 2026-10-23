@@ -182,6 +182,8 @@ export type Product = {
   model?: string;
   created_at?: string;
   stock: number;
+  availability?: 'in_stock' | 'out_of_stock' | 'on_request';
+  updated_at?: string;
   price: number | null;
   image_path: string | null;
   image_url: string | null;

@@ -71,7 +71,7 @@ export async function fetchSiteData(): Promise<SiteData> {
     supabase
       .from("products")
       .select(
-        "id, node_id, name, brand, serial_number, stock, price, image_url, characteristics, specifications, gallery, marketing_sections, source_url, source_name, sort_order, featured, spec_groups, model, created_at",
+        "id, node_id, name, brand, serial_number, stock, availability, updated_at, price, image_url, characteristics, specifications, gallery, marketing_sections, source_url, source_name, sort_order, featured, spec_groups, model, created_at",
       )
       .order("sort_order")
       .order("created_at"),
@@ -126,6 +126,7 @@ export async function fetchSiteData(): Promise<SiteData> {
     })),
     products: rawProducts.map((p) => ({
       ...p,
+      availability: p.availability as 'in_stock' | 'out_of_stock' | 'on_request',
       node_ids: Array.from(new Set([p.node_id, ...(linksByProduct.get(p.id) ?? [])])),
       price: p.price === null ? null : Number(p.price),
       image_path: p.image_url ?? null,

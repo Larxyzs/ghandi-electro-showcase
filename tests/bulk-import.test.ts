@@ -16,6 +16,7 @@ function query(table: string) {
   const builder = {
     select: () => builder,
     eq: (key: string, value: unknown) => { filters.push([key, value]); return builder; },
+    neq: () => builder,
     ilike: (key: string, value: string) => { filters.push([key, value]); return builder; },
     or: (value: string) => { filters.push(["model", value.split(",")[0]?.replace("model.ilike.", "")]); return builder; },
     limit: () => builder,
@@ -64,6 +65,16 @@ beforeEach(() => {
   vi.unstubAllGlobals();
 });
 describe("parallel bulk imports", () => {
+  it('never imports a supplied price and creates zero-stock out-of-stock products', async () => {
+    await importBulkBatch([item('price',{priceValue:4999,priceText:'4999 €',currency:'EUR'})],opts);
+    expect(state.products[0]).toMatchObject({price:0,stock:0,availability:'out_of_stock'});
+    expect(state.products[0]?.['price_text']).toBeUndefined();
+  });
+  it('replace preserves shop price quantity availability and a manually edited name', async () => {
+    state.products.push({id:'existing',name:'Nom corrigé',name_edited_by_hand:true,brand:'Samsung',model:'a',source_url:'https://official.example/a',price:5499,stock:2,availability:'in_stock',created_at:'2026-01-01'});
+    await importBulkBatch([item('a',{name:'Nom fabricant',priceValue:99999,currency:'MAD',specs:[{label:'Volume',value:'300 L'}]})],{...opts,mode:'replace'});
+    expect(state.products[0]).toMatchObject({id:'existing',name:'Nom corrigé',price:5499,stock:2,availability:'in_stock',specifications:[{label:'Volume',value:'300 L'}]});
+  });
   it("runs independent products concurrently and keeps results in input order", async () => {
     const out = await importBulkBatch(Array.from({ length: 12 }, (_, i) => item(String(i))), opts);
     expect(out.map((r) => r.key)).toEqual(Array.from({ length: 12 }, (_, i) => String(i)));

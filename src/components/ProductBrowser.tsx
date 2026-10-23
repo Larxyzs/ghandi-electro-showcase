@@ -4,6 +4,7 @@ import { ChevronDown, LayoutGrid, List, PackageSearch, SlidersHorizontal, X } fr
 import { ProductCard } from "@/components/ProductCard";
 import { normLabel, specSections, type CatalogNode, type Product } from "@/lib/catalog-types";
 import { cn } from "@/lib/utils";
+import { availabilityOf, availabilityRank, AVAILABILITY_LABELS, type Availability } from '@/lib/price-stock';
 
 /** Search params shared by every listing (category, search, brand pages). */
 export type BrowseSearch = Record<string, string | undefined>;
@@ -146,6 +147,7 @@ export function ProductBrowser({
   const page = Math.max(1, Number(search["p"]) || 1);
   const selBrands = split(search["marque"]);
   const selCats = split(search["cat"]);
+  const selAvailability = split(search['disponibilite']);
   const [pMin, pMax] = (search["prix"] ?? "").split("-").map((v) => (v ? Number(v) : null));
   const [panel, setPanel] = useState(false);
   const [extra, setExtra] = useState(0);
@@ -165,6 +167,7 @@ export function ProductBrowser({
 
   const filtered = useMemo(() => {
     let list = products.filter((p) => {
+      if (selAvailability.length && !selAvailability.includes(availabilityOf(p))) return false;
       if (selBrands.length && !selBrands.some((b) => slug(b) === slug(p.brand))) return false;
       if (selCats.length && categories && !categories.some((c) => selCats.includes(c.node.slug) && (p.node_ids ?? [p.node_id]).some((id) => c.ids.has(id)))) return false;
       if ((pMin ?? null) !== null || (pMax ?? null) !== null) {
@@ -174,7 +177,7 @@ export function ProductBrowser({
       }
       return selSpecs.every(({ f, sel }) => matchesSpec(p, f, sel));
     });
-    if (sort === "pertinence" && rank) list = [...list].sort((a, b) => rank(a) - rank(b));
+    if (sort === "pertinence") list = [...list].sort((a, b) => availabilityRank(a) - availabilityRank(b) || (rank ? rank(a) - rank(b) : 0));
     if (sort === "prix-asc") list = [...list].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
     if (sort === "prix-desc") list = [...list].sort((a, b) => (b.price ?? -1) - (a.price ?? -1));
     if (sort === "nouveautes") list = [...list].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
@@ -190,12 +193,13 @@ export function ProductBrowser({
   const toggleIn = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]).join("|");
 
   const chips: { label: string; clear: BrowseSearch }[] = [
+    ...selAvailability.map(a => ({ label: AVAILABILITY_LABELS[a as Availability] ?? a, clear: { disponibilite: toggleIn(selAvailability,a) } })),
     ...selCats.map((c) => ({ label: categories?.find((x) => x.node.slug === c)?.node.name ?? c, clear: { cat: toggleIn(selCats, c) } })),
     ...selBrands.map((b) => ({ label: brandCounts.find(([n]) => slug(n) === slug(b))?.[0] ?? b, clear: { marque: toggleIn(selBrands, b) } })),
     ...(search["prix"] ? [{ label: `Prix : ${search["prix"].replace("-", " – ")} DH`, clear: { prix: undefined } }] : []),
     ...selSpecs.flatMap(({ f, sel }) => sel.map((v) => ({ label: `${f.label} : ${v}`, clear: { [`f_${slug(f.key)}`]: toggleIn(sel, v) } }))),
   ];
-  const clearAll: BrowseSearch = { cat: undefined, marque: undefined, prix: undefined, ...Object.fromEntries(specFilters.map((f) => [`f_${slug(f.key)}`, undefined])) };
+  const clearAll: BrowseSearch = { disponibilite: undefined, cat: undefined, marque: undefined, prix: undefined, ...Object.fromEntries(specFilters.map((f) => [`f_${slug(f.key)}`, undefined])) };
 
   if (products.length === 0) {
     return (
@@ -209,6 +213,7 @@ export function ProductBrowser({
   const check = "flex cursor-pointer items-center gap-2 py-0.5 text-sm";
   const filters = (
     <div>
+      <Fold title="Disponibilité">{(['in_stock','on_request','out_of_stock'] as const).map(a => <label key={a} className={check}><input type="checkbox" className="accent-brand" checked={selAvailability.includes(a)} onChange={() => set({ disponibilite:toggleIn(selAvailability,a) })} />{AVAILABILITY_LABELS[a]} <span className="text-text-3">({products.filter(p => availabilityOf(p)===a).length})</span></label>)}</Fold>
       {categories && categories.length > 1 && (
         <Fold title="Catégorie">
           {categories.map((c) => (

@@ -30,6 +30,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SuiviCommandeRouteImport } from './routes/suivi-commande'
 import { Route as AdminExtensionRouteImport } from './routes/admin_.extension'
 import { Route as AdminImportRouteImport } from './routes/admin_.import'
+import { Route as AdminPrixStockRouteImport } from './routes/admin_.prix-stock'
 import { Route as BesoinAideIndexRouteImport } from './routes/besoin-aide.index'
 import { Route as BesoinAideFaqRouteImport } from './routes/besoin-aide.faq'
 import { Route as BesoinAideNousContacterRouteImport } from './routes/besoin-aide.nous-contacter'
@@ -152,6 +153,11 @@ const AdminImportRoute = AdminImportRouteImport.update({
   path: '/admin/import',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPrixStockRoute = AdminPrixStockRouteImport.update({
+  id: '/admin_/prix-stock',
+  path: '/admin/prix-stock',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BesoinAideIndexRoute = BesoinAideIndexRouteImport.update({
   id: '/besoin-aide/',
   path: '/besoin-aide/',
@@ -246,6 +252,7 @@ export interface FileRoutesByFullPath {
   '/suivi-commande': typeof SuiviCommandeRoute
   '/admin/extension': typeof AdminExtensionRoute
   '/admin/import': typeof AdminImportRoute
+  '/admin/prix-stock': typeof AdminPrixStockRoute
   '/besoin-aide/faq': typeof BesoinAideFaqRoute
   '/besoin-aide/nous-contacter': typeof BesoinAideNousContacterRoute
   '/conseils/$slug': typeof ConseilsSlugRoute
@@ -283,6 +290,7 @@ export interface FileRoutesByTo {
   '/suivi-commande': typeof SuiviCommandeRoute
   '/admin/extension': typeof AdminExtensionRoute
   '/admin/import': typeof AdminImportRoute
+  '/admin/prix-stock': typeof AdminPrixStockRoute
   '/besoin-aide/faq': typeof BesoinAideFaqRoute
   '/besoin-aide/nous-contacter': typeof BesoinAideNousContacterRoute
   '/conseils/$slug': typeof ConseilsSlugRoute
@@ -321,6 +329,7 @@ export interface FileRoutesById {
   '/suivi-commande': typeof SuiviCommandeRoute
   '/admin_/extension': typeof AdminExtensionRoute
   '/admin_/import': typeof AdminImportRoute
+  '/admin_/prix-stock': typeof AdminPrixStockRoute
   '/besoin-aide/faq': typeof BesoinAideFaqRoute
   '/besoin-aide/nous-contacter': typeof BesoinAideNousContacterRoute
   '/conseils/$slug': typeof ConseilsSlugRoute
@@ -360,6 +369,7 @@ export interface FileRouteTypes {
     | '/suivi-commande'
     | '/admin/extension'
     | '/admin/import'
+    | '/admin/prix-stock'
     | '/besoin-aide/faq'
     | '/besoin-aide/nous-contacter'
     | '/conseils/$slug'
@@ -397,6 +407,7 @@ export interface FileRouteTypes {
     | '/suivi-commande'
     | '/admin/extension'
     | '/admin/import'
+    | '/admin/prix-stock'
     | '/besoin-aide/faq'
     | '/besoin-aide/nous-contacter'
     | '/conseils/$slug'
@@ -434,6 +445,7 @@ export interface FileRouteTypes {
     | '/suivi-commande'
     | '/admin_/extension'
     | '/admin_/import'
+    | '/admin_/prix-stock'
     | '/besoin-aide/faq'
     | '/besoin-aide/nous-contacter'
     | '/conseils/$slug'
@@ -472,6 +484,7 @@ export interface RootRouteChildren {
   SuiviCommandeRoute: typeof SuiviCommandeRoute
   AdminExtensionRoute: typeof AdminExtensionRoute
   AdminImportRoute: typeof AdminImportRoute
+  AdminPrixStockRoute: typeof AdminPrixStockRoute
   BesoinAideFaqRoute: typeof BesoinAideFaqRoute
   BesoinAideNousContacterRoute: typeof BesoinAideNousContacterRoute
   ConseilsSlugRoute: typeof ConseilsSlugRoute
@@ -637,6 +650,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminImportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin_/prix-stock': {
+      id: '/admin_/prix-stock'
+      path: '/admin/prix-stock'
+      fullPath: '/admin/prix-stock'
+      preLoaderRoute: typeof AdminPrixStockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/besoin-aide/': {
       id: '/besoin-aide/'
       path: '/besoin-aide'
@@ -760,6 +780,7 @@ const rootRouteChildren: RootRouteChildren = {
   SuiviCommandeRoute: SuiviCommandeRoute,
   AdminExtensionRoute: AdminExtensionRoute,
   AdminImportRoute: AdminImportRoute,
+  AdminPrixStockRoute: AdminPrixStockRoute,
   BesoinAideFaqRoute: BesoinAideFaqRoute,
   BesoinAideNousContacterRoute: BesoinAideNousContacterRoute,
   ConseilsSlugRoute: ConseilsSlugRoute,

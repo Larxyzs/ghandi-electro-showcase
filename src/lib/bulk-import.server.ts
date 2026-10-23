@@ -187,16 +187,11 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions, dbOv
       }, { concurrency: 2 });
       images.forEach((r) => { if (r.ok) gallery.push(r.value); });
 
-      const foreign = item.currency && item.currency !== "MAD";
-      const price = foreign && opts.dropForeignPrice ? null : item.priceValue;
-
       const full = {
         name: item.name,
         brand: item.brand,
         model: item.model,
         serial_number: item.model,
-        price,
-        price_text: item.priceText,
         image_url: gallery[0] ?? null,
         gallery: gallery as Json,
         specifications: item.specs as Json,
@@ -214,12 +209,8 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions, dbOv
         if (opts.mode === "all") patch = { ...full, node_id: nodeId };
         else if (replacing) {
           // the new version replaces the old one completely, in the section it was sent to.
-          // Only exception: when the new one has no price, the shop's price stays.
+          // Shop-managed values are never imported.
           patch = { ...full, node_id: nodeId };
-          if (full.price === null || full.price === undefined) {
-            delete patch["price"];
-            delete patch["price_text"];
-          }
         } else {
           patch = { imported_at: full.imported_at };
           for (const [k, v] of Object.entries(full)) {
@@ -227,6 +218,7 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions, dbOv
             if (isEmpty((existing as Record<string, unknown>)[k]) && !isEmpty(v)) patch[k] = v;
           }
         }
+        if (existing.name_edited_by_hand) delete patch['name'];
         const { error } = await db.from("products").update(patch as never).eq("id", existing.id);
         if (error) throw new Error(error.message);
         if (replacing) {
@@ -247,7 +239,7 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions, dbOv
 
       const { data, error } = await db
         .from("products")
-        .insert({ ...full, node_id: nodeId, stock: 0, characteristics: "" })
+        .insert({ ...full, node_id: nodeId, price: 0, availability: 'out_of_stock', stock: 0, characteristics: "" })
         .select("id")
         .single();
       if (error) throw new Error(error.message);
@@ -258,8 +250,7 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions, dbOv
     } catch (error) {
       // never leave half a product behind
       if (createdId) {
-        await db.from("product_nodes").delete().eq("product_id", createdId);
-        await db.from("products").delete().eq("id", createdId);
+        await purgeProducts(db, [createdId]);
       }
       if (uploaded.length) await db.storage.from("product-images").remove(uploaded);
       return { key: item.key, outcome: "problem", error: error instanceof Error ? error.message : "Erreur" };

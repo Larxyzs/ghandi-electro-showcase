@@ -89,7 +89,7 @@ describe("large batches with failing URLs", () => {
 });
 
 describe("order safety", () => {
-  const product = { id: "p1", name: "Frigo RB34", price: 8990, stock: 3 };
+  const product = { id: "p1", name: "Frigo RB34", price: 8990, stock: 3, availability:'in_stock' };
 
   it("accepts a quantity within stock", () => {
     expect(validateOrderLine(product, 3)).toEqual({ qty: 3, price: 8990 });
@@ -99,8 +99,8 @@ describe("order safety", () => {
     expect(() => validateOrderLine(product, 5)).toThrow(/INSUFFICIENT_STOCK/);
   });
 
-  it("accepts a product with stock 0 (on order)", () => {
-    expect(validateOrderLine({ ...product, stock: 0 }, 2)).toEqual({ qty: 2, price: 8990 });
+  it("refuses a product with stock 0", () => {
+    expect(() => validateOrderLine({ ...product, stock: 0 }, 2)).toThrow(/PRODUCT_UNAVAILABLE/);
   });
 
   it("accepts an unpriced product with price 0 (confirmed by phone)", () => {

@@ -33,6 +33,7 @@ import { formatDH, priceRequestMessage, productWhatsappMessage, useCompany, what
 import { useCart } from "@/lib/cart";
 import { pushRecent, useRecent } from "@/lib/favorites";
 import { cn } from "@/lib/utils";
+import { availabilityOf, AVAILABILITY_LABELS } from '@/lib/price-stock';
 
 export const Route = createFileRoute("/produits/article/$productId")({
   head: ({ params, matches }) => {
@@ -51,7 +52,7 @@ export const Route = createFileRoute("/produits/article/$productId")({
     }
     const ref = p.model || p.serial_number;
     const title = `${p.name}${p.brand ? ` ${p.brand}` : ""}${ref && !p.name.includes(ref) ? ` ${ref}` : ""} – Ghandi Home Electro Casablanca`;
-    const description = `${p.brand} ${p.name}${ref ? ` (réf. ${ref})` : ""} chez Ghandi Home Electro, Casablanca. ${p.price !== null ? `Prix : ${p.price} DH.` : "Prix sur demande."} Livraison gratuite à Casablanca, Mohammedia et Dar Bouazza, paiement à la livraison.`;
+    const description = `${p.brand} ${p.name}${ref ? ` (réf. ${ref})` : ""} chez Ghandi Home Electro, Casablanca. ${p.price ? `Prix : ${p.price} DH.` : "Prix sur demande."} Livraison gratuite à Casablanca, Mohammedia et Dar Bouazza, paiement à la livraison.`;
     const image = p.image_url && p.image_url.startsWith("https://") ? p.image_url : null;
     const ld = {
       "@context": "https://schema.org",
@@ -62,8 +63,8 @@ export const Route = createFileRoute("/produits/article/$productId")({
       mpn: ref || undefined,
       image: image ? [image] : undefined,
       description,
-      ...(p.price !== null
-        ? { offers: { "@type": "Offer", priceCurrency: "MAD", price: p.price, availability: "https://schema.org/InStock" } }
+      ...(p.price && p.price > 0
+        ? { offers: { "@type": "Offer", priceCurrency: "MAD", price: p.price, availability: availabilityOf(p)==='in_stock' ? "https://schema.org/InStock" : availabilityOf(p)==='on_request' ? 'https://schema.org/PreOrder' : 'https://schema.org/OutOfStock' } }
         : {}),
     };
     return {
@@ -193,6 +194,7 @@ function ProductDetail() {
   const trail = pathOf(data.nodes, product.node_id);
   const bullets = keySpecs(product, 6);
   const reference = product.model || product.serial_number;
+  const availability = availabilityOf(product);
   const images = dedupeGallery([product.image_url, ...(product.gallery ?? [])]).slice(0, 15);
   const family = ancestorAtLevel(data.nodes, product.node_id, 2) ?? trail.at(-1);
   const similar = (family ? productsIn(data.nodes, data.products, family.id) : []).filter((p) => p.id !== product.id).slice(0, 12);
@@ -206,8 +208,7 @@ function ProductDetail() {
   const hasDescription = Boolean(product.characteristics?.trim()) || product.marketing_sections.length > 0;
   const isFav = favorites.includes(product.id);
   const addToCart = () => {
-    addProductToCart(add, product, qty);
-    toast.success("Ajouté au panier", { description: `${qty} × ${tr(product.name)}` });
+    if (addProductToCart(add, product, qty)) toast.success("Ajouté au panier", { description: `${qty} × ${tr(product.name)}` });
   };
   const share = async () => {
     try {
@@ -264,7 +265,7 @@ function ProductDetail() {
             )}
 
             <div className="mt-5 border-t border-border pt-4">
-              {product.price !== null ? (
+              {product.price && product.price > 0 ? (
                 <p className="text-3xl font-bold">{formatDH(product.price)}</p>
               ) : (
                 <div className="flex flex-wrap items-center gap-3">
@@ -277,20 +278,23 @@ function ProductDetail() {
               )}
             </div>
 
+            <p className={cn('mt-4 text-base font-bold', availability === 'in_stock' ? 'text-stock-ok' : availability === 'on_request' ? 'text-whatsapp' : 'text-text-2')}>{AVAILABILITY_LABELS[availability]}</p>
             <div ref={buyRef} className="mt-4 flex items-center gap-3">
+              {availability === 'in_stock' && <>
               <div className="flex items-center rounded-md border border-input">
                 <button type="button" aria-label="Moins" onClick={() => setQty((q) => Math.max(1, q - 1))} className="grid h-11 w-10 place-items-center"><Minus className="h-4 w-4" /></button>
                 <span className="w-8 text-center text-sm font-bold">{qty}</span>
-                <button type="button" aria-label="Plus" onClick={() => setQty((q) => Math.min(99, q + 1))} className="grid h-11 w-10 place-items-center"><Plus className="h-4 w-4" /></button>
+                <button type="button" aria-label="Plus" onClick={() => { if(qty>=product.stock) toast.error(`Il n’en reste que ${product.stock}`); else setQty(qty+1); }} className="grid h-11 w-10 place-items-center"><Plus className="h-4 w-4" /></button>
               </div>
               <button type="button" onClick={addToCart} className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-md bg-brand px-6 text-base font-bold text-brand-foreground hover:bg-brand-deep">
                 <ShoppingCart className="h-5 w-5" /> Ajouter au panier
               </button>
+              </>}
             </div>
             <div className="mt-3 grid grid-cols-2 gap-3">
-              <a href={whatsappLinkTo(company.whatsappNumber, `${productWhatsappMessage(product)} ${pageUrl}`)} target="_blank" rel="noopener noreferrer"
+              <a href={whatsappLinkTo(company.whatsappNumber, availability === 'out_of_stock' ? `Bonjour, prévenez-moi quand ${product.brand} ${product.name} (réf. ${reference}) sera de nouveau disponible.` : `${productWhatsappMessage(product)} https://ghandihomeelectro.com/produits/article/${product.id}`)} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-whatsapp px-3 py-3 text-sm font-bold text-background">
-                <WaIcon className="h-4 w-4" /> Commander sur WhatsApp
+                <WaIcon className="h-4 w-4" /> {availability === 'out_of_stock' ? 'Me prévenir du retour' : 'Commander sur WhatsApp'}
               </a>
               <a href={company.phoneHref} className="inline-flex items-center justify-center gap-2 rounded-md border border-dark px-3 py-3 text-sm font-bold">
                 <Phone className="h-4 w-4" /> Appeler
@@ -390,9 +394,9 @@ function ProductDetail() {
 
       {showBar && (
         <div id="sticky-buy-bar" className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-border bg-card px-4 py-2.5 md:hidden">
-          <p className="min-w-0 flex-1 truncate text-base font-bold">{product.price !== null ? formatDH(product.price) : "Prix sur demande"}</p>
+          <p className="min-w-0 flex-1 truncate text-base font-bold">{product.price ? formatDH(product.price) : "Prix sur demande"}</p>
           <a href={whatsappLinkTo(company.whatsappNumber, productWhatsappMessage(product))} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="grid h-11 w-11 place-items-center rounded-md bg-whatsapp text-background"><WaIcon className="h-5 w-5" /></a>
-          <button type="button" onClick={addToCart} className="h-11 rounded-md bg-brand px-4 text-sm font-bold text-brand-foreground">Ajouter au panier</button>
+          {availability === 'in_stock' && <button type="button" onClick={addToCart} className="h-11 rounded-md bg-brand px-4 text-sm font-bold text-brand-foreground">Ajouter au panier</button>}
         </div>
       )}
 

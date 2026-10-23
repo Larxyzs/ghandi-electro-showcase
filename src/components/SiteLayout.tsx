@@ -17,6 +17,7 @@ import {
   Pencil,
   Phone,
   ShieldCheck,
+  Tag,
   ShoppingCart,
   Store,
   Truck,
@@ -24,6 +25,7 @@ import {
   Youtube,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from '@/components/ui/button';
 import logo from "@/assets/ghandi-logo.png.asset.json";
 import { HeaderSearch, splatOf } from "@/components/HeaderSearch";
 import { WhatsAppFloating } from "@/components/WhatsAppFloating";
@@ -279,6 +281,7 @@ function MobileMenu({ onClose }: { onClose: () => void }) {
             <ChevronLeft className="h-4 w-4" /> Retour
           </button>
         )}
+        {admin && <div className="px-4 py-3"><Button asChild className="min-h-14 w-full bg-price-tool text-lg font-bold text-price-tool-foreground hover:bg-price-tool/90"><Link to="/admin/prix-stock" onClick={onClose}><Tag /> Prix & stock</Link></Button></div>}
         <ul className="divide-y divide-border">
           {current && (
             <li>
@@ -577,6 +580,7 @@ export function SiteLayout({ children }: { children: ReactNode }) {
                 <ShieldCheck className="h-4 w-4" />
               </Link>
             )}
+            {admin && <Button asChild className="hidden h-12 bg-price-tool px-3 text-base font-bold text-price-tool-foreground hover:bg-price-tool/90 sm:inline-flex"><Link to="/admin/prix-stock"><Tag /> Prix & stock</Link></Button>}
           </div>
         </div>
         <div className="px-4 pb-3 md:hidden">

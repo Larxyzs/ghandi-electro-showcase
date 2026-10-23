@@ -19,6 +19,9 @@
  */
 
 @theme inline {
+  --color-price-tool: var(--price-tool);
+  --color-price-tool-foreground: var(--price-tool-foreground);
+  --color-stock-ok: var(--stock-ok);
   --font-sans: "Roboto", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Roboto", ui-sans-serif, system-ui, sans-serif;
   --font-admin: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -76,6 +79,9 @@
 }
 
 :root {
+  --price-tool: #f7cf47;
+  --price-tool-foreground: #222222;
+  --stock-ok: #16743d;
   --radius: 0.5rem;
   --page: #ffffff;
   --dark: #222222;
