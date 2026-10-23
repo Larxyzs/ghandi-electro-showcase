@@ -1,56 +1,70 @@
 import { Link } from "@tanstack/react-router";
-import { Box, Folder, Layers, Tag } from "lucide-react";
-import type { CatalogNode, NodeLevel } from "@/lib/catalog-types";
+import {
+  AirVent, Box, Coffee, CookingPot, Fan, Flame, Heater, Microwave, Refrigerator, Shirt, Snowflake, Sofa,
+  Speaker, Tv, Utensils, WashingMachine, Wind, Droplets, Sparkles, type LucideIcon,
+} from "lucide-react";
+import type { CatalogNode } from "@/lib/catalog-types";
 import { useDynamicText } from "@/lib/dynamic-text";
 import { cn } from "@/lib/utils";
 
-const LEVEL_ICONS: Record<number, typeof Folder> = { 1: Folder, 2: Layers, 3: Tag, 4: Box };
-const LEVEL_ICON = new Proxy(LEVEL_ICONS, { get: (t, k) => t[Number(k)] ?? Box }) as Record<NodeLevel, typeof Folder>;
+const ICONS: [RegExp, LucideIcon][] = [
+  [/refrig|frigo|mini bar|table top/, Refrigerator],
+  [/congel/, Snowflake],
+  [/machine a laver|lave-linge|seche-linge|linge/, WashingMachine],
+  [/vaisselle|evier/, Droplets],
+  [/televis|tv|telev|ecran/, Tv],
+  [/son|audio/, Speaker],
+  [/climat/, AirVent],
+  [/ventil/, Fan],
+  [/hotte|air/, Wind],
+  [/micro-onde/, Microwave],
+  [/cuisiniere|plaque|four|cuisson|encastrable/, Flame],
+  [/chauffe|chauffage|radiateur/, Heater],
+  [/cafe|petit dej|bouilloire|grille/, Coffee],
+  [/culinaire|robot|blender/, CookingPot],
+  [/fer|vapeur/, Shirt],
+  [/aspir|sol|entretien/, Sparkles],
+  [/confort/, Sofa],
+  [/petit electro/, Utensils],
+  [/gros electro/, Refrigerator],
+];
 
-/** Image + label card used for every hierarchy level in the public drill-down. */
+/** Clean line icon picked from a category name. */
+export function nodeIcon(name: string): LucideIcon {
+  const n = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return ICONS.find(([re]) => re.test(n))?.[1] ?? Box;
+}
+
+/** White tile (picture or icon + name) used for category levels. */
 export function CatalogTile({
   node,
   splat,
-  shape = "square",
+  count,
+  muted,
 }: {
   node: CatalogNode;
-  /** Full splat path for this node, e.g. "gros-electromenager/froid". */
   splat: string;
+  count?: number;
+  muted?: boolean;
   shape?: "square" | "circle";
 }) {
-  const Icon = LEVEL_ICON[node.level] ?? Box;
+  const Icon = nodeIcon(node.name);
   const tr = useDynamicText();
   return (
     <Link
       to="/produits/$"
       params={{ _splat: splat }}
-      className={cn(
-        "group flex h-full flex-col items-center gap-3 border border-border bg-card p-4 text-center shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1.5 hover:border-brand/40",
-        shape === "circle" ? "rounded-3xl" : "rounded-2xl",
-      )}
+      className={cn("group flex h-full flex-col items-center gap-2 rounded-lg border border-border bg-card p-3 text-center transition hover:border-input hover:shadow-[var(--shadow-hover)]", muted && "opacity-50")}
     >
-      <div
-        className={cn(
-          "relative w-full overflow-hidden bg-brand-soft/60",
-          shape === "circle" ? "aspect-square rounded-full" : "aspect-square rounded-xl",
-        )}
-      >
+      <div className="grid aspect-square w-full place-items-center overflow-hidden rounded-md">
         {node.image_url ? (
-          <img
-            src={node.image_url}
-            alt={tr(node.name)}
-            loading="lazy"
-            className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-105"
-          />
+          <img src={node.image_url} alt={tr(node.name)} loading="lazy" className="h-full w-full object-contain" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-brand/40">
-            <Icon className="h-9 w-9" />
-          </div>
+          <Icon className="h-10 w-10 text-brand" strokeWidth={1.4} />
         )}
       </div>
-      <div className="mt-auto">
-        <p className="text-sm font-semibold group-hover:text-brand sm:text-base">{tr(node.name)}</p>
-      </div>
+      <p className="text-sm font-medium leading-tight">{tr(node.menu_label?.trim() || node.name)}</p>
+      {count !== undefined && <p className="text-xs text-text-3">{count} produit{count === 1 ? "" : "s"}</p>}
     </Link>
   );
 }
