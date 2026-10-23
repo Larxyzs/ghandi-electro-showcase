@@ -21,3 +21,9 @@ export const BRANDS: Brand[] = [
 ];
 
 export const BRAND_NAMES = BRANDS.map((b) => b.name);
+
+/** Bundled logo for a known brand name (used when the admin hasn't uploaded one). */
+export function brandLogoFallback(name: string): string | null {
+  const key = name.trim().toLowerCase();
+  return BRANDS.find((b) => b.name.toLowerCase() === key)?.logo ?? null;
+}

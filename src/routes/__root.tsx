@@ -16,7 +16,6 @@ import { getSiteData } from "../lib/catalog.functions";
 import { DEFAULT_SETTINGS } from "../lib/catalog-types";
 import { SiteTheme } from "../components/SiteTheme";
 import { SiteModeGate } from "../components/SiteModeGate";
-import { ScrollProgress } from "../components/ScrollProgress";
 import { I18nProvider } from "../lib/i18n";
 import { CartProvider } from "../lib/cart";
 import { LiveEditProvider } from "../lib/live-edit";
@@ -98,7 +97,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     try {
       return await getSiteData();
     } catch {
-      return { settings: DEFAULT_SETTINGS, nodes: [], products: [], popularSearches: [] };
+      return { settings: DEFAULT_SETTINGS, nodes: [], products: [], popularSearches: [], brands: [] };
     }
   },
   head: () => ({
@@ -130,7 +129,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap",
       },
     ],
   }),
@@ -142,7 +141,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="fr">
       <head>
         <HeadContent />
       </head>
@@ -176,7 +175,6 @@ function RootComponent() {
         <CartProvider>
           <LiveEditProvider>
             <SiteTheme settings={data?.settings ?? DEFAULT_SETTINGS} />
-            <ScrollProgress />
             <SiteModeGate mode={data?.settings?.site_mode ?? "online"}>
               {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
               <Outlet />
