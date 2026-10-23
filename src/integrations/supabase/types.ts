@@ -65,6 +65,39 @@ export type Database = {
         }
         Relationships: []
       }
+      brands: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          logo_url: string
+          name: string
+          slug: string
+          sort_order: number
+          visible: boolean
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          logo_url?: string
+          name: string
+          slug: string
+          sort_order?: number
+          visible?: boolean
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          logo_url?: string
+          name?: string
+          slug?: string
+          sort_order?: number
+          visible?: boolean
+        }
+        Relationships: []
+      }
       catalog_audit_findings: {
         Row: {
           action: string
@@ -177,9 +210,15 @@ export type Database = {
           created_at: string
           id: string
           image_url: string | null
+          intro_text: string
           level: number
+          menu_label: string
           name: string
           parent_id: string | null
+          seo_description: string
+          seo_text: string
+          seo_title: string
+          show_in_menu: boolean
           slug: string
           sort_order: number
           updated_at: string
@@ -188,9 +227,15 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          intro_text?: string
           level: number
+          menu_label?: string
           name: string
           parent_id?: string | null
+          seo_description?: string
+          seo_text?: string
+          seo_title?: string
+          show_in_menu?: boolean
           slug: string
           sort_order?: number
           updated_at?: string
@@ -199,9 +244,15 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          intro_text?: string
           level?: number
+          menu_label?: string
           name?: string
           parent_id?: string | null
+          seo_description?: string
+          seo_text?: string
+          seo_title?: string
+          show_in_menu?: boolean
           slug?: string
           sort_order?: number
           updated_at?: string
@@ -332,6 +383,32 @@ export type Database = {
           verified?: number
         }
         Relationships: []
+      }
+      catalog_redirects: {
+        Row: {
+          created_at: string
+          node_id: string
+          old_path: string
+        }
+        Insert: {
+          created_at?: string
+          node_id: string
+          old_path: string
+        }
+        Update: {
+          created_at?: string
+          node_id?: string
+          old_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_redirects_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       catalog_references: {
         Row: {
@@ -537,6 +614,39 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_messages: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          message: string
+          name: string
+          phone: string
+          read: boolean
+          subject: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string
+          id?: string
+          message: string
+          name: string
+          phone: string
+          read?: boolean
+          subject?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string
+          name?: string
+          phone?: string
+          read?: boolean
+          subject?: string
+        }
+        Relationships: []
+      }
       content_translations: {
         Row: {
           created_at: string
@@ -674,6 +784,83 @@ export type Database = {
         }
         Relationships: []
       }
+      faq_items: {
+        Row: {
+          answer: string
+          category: string
+          created_at: string
+          id: string
+          published: boolean
+          question: string
+          sort_order: number
+        }
+        Insert: {
+          answer?: string
+          category?: string
+          created_at?: string
+          id?: string
+          published?: boolean
+          question: string
+          sort_order?: number
+        }
+        Update: {
+          answer?: string
+          category?: string
+          created_at?: string
+          id?: string
+          published?: boolean
+          question?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      guides: {
+        Row: {
+          body: string
+          cover_url: string
+          created_at: string
+          id: string
+          node_id: string | null
+          published: boolean
+          published_at: string
+          slug: string
+          summary: string
+          title: string
+        }
+        Insert: {
+          body?: string
+          cover_url?: string
+          created_at?: string
+          id?: string
+          node_id?: string | null
+          published?: boolean
+          published_at?: string
+          slug: string
+          summary?: string
+          title: string
+        }
+        Update: {
+          body?: string
+          cover_url?: string
+          created_at?: string
+          id?: string
+          node_id?: string | null
+          published?: boolean
+          published_at?: string
+          slug?: string
+          summary?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guides_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_batches: {
         Row: {
           created_at: string
@@ -791,11 +978,34 @@ export type Database = {
         }
         Relationships: []
       }
+      newsletter_subscribers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          source?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           address: string
           city: string
           created_at: string
+          delivery_mode: string
+          email: string
           full_name: string
           id: string
           items: Json
@@ -812,6 +1022,8 @@ export type Database = {
           address: string
           city?: string
           created_at?: string
+          delivery_mode?: string
+          email?: string
           full_name: string
           id?: string
           items?: Json
@@ -828,6 +1040,8 @@ export type Database = {
           address?: string
           city?: string
           created_at?: string
+          delivery_mode?: string
+          email?: string
           full_name?: string
           id?: string
           items?: Json
@@ -1051,6 +1265,24 @@ export type Database = {
           },
         ]
       }
+      rate_limits: {
+        Row: {
+          bucket: string
+          created_at: string
+          id: number
+        }
+        Insert: {
+          bucket: string
+          created_at?: string
+          id?: number
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          id?: number
+        }
+        Relationships: []
+      }
       site_secrets: {
         Row: {
           ai_api_key: string | null
@@ -1079,8 +1311,10 @@ export type Database = {
         Row: {
           ai_model: string
           ai_provider: string
+          content: Json
           home_banners: Json
           id: string
+          page_color: string
           primary_color: string
           search_model: string
           search_provider: string
@@ -1092,8 +1326,10 @@ export type Database = {
         Insert: {
           ai_model?: string
           ai_provider?: string
+          content?: Json
           home_banners?: Json
           id?: string
+          page_color?: string
           primary_color?: string
           search_model?: string
           search_provider?: string
@@ -1105,8 +1341,10 @@ export type Database = {
         Update: {
           ai_model?: string
           ai_provider?: string
+          content?: Json
           home_banners?: Json
           id?: string
+          page_color?: string
           primary_color?: string
           search_model?: string
           search_provider?: string

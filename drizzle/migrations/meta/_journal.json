@@ -29,6 +29,13 @@
       "when": 1792610786393,
       "tag": "0003_unlimited_folder_depth",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792766647938,
+      "tag": "0004_electroplanet_structure",
+      "breakpoints": true
     }
   ]
 }
