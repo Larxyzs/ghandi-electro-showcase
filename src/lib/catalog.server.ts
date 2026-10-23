@@ -162,9 +162,10 @@ function contentImages(raw: unknown): string[] {
 
 function resolveContent(raw: unknown, resolve: (v: string | null) => string | null): SiteContent {
   const c = ((raw ?? {}) as SiteContent) || {};
-  return {
+  const out: SiteContent = {
     ...c,
     secondary_banners: (c.secondary_banners ?? []).map((b) => ({ ...b, image_path: b.image, image: resolve(b.image) ?? "" })),
-    store: c.store ? { ...c.store, photos: (c.store.photos ?? []).map((p) => resolve(p) ?? "").filter(Boolean) } : c.store,
   };
+  if (c.store) out.store = { ...c.store, photos: (c.store.photos ?? []).map((p) => resolve(p) ?? "").filter(Boolean) };
+  return out;
 }
