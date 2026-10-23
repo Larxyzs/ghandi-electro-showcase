@@ -1077,6 +1077,62 @@ export type Database = {
         }
         Relationships: []
       }
+      product_changes: {
+        Row: {
+          admin_email: string
+          after_state: Json
+          ancienne_valeur: Json | null
+          before_state: Json
+          champ: string
+          created_at: string
+          id: string
+          image_url: string | null
+          nouvelle_valeur: Json | null
+          operation_id: string
+          product_id: string | null
+          product_name: string
+          reference: string
+        }
+        Insert: {
+          admin_email: string
+          after_state: Json
+          ancienne_valeur?: Json | null
+          before_state: Json
+          champ: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          nouvelle_valeur?: Json | null
+          operation_id: string
+          product_id?: string | null
+          product_name?: string
+          reference?: string
+        }
+        Update: {
+          admin_email?: string
+          after_state?: Json
+          ancienne_valeur?: Json | null
+          before_state?: Json
+          champ?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          nouvelle_valeur?: Json | null
+          operation_id?: string
+          product_id?: string | null
+          product_name?: string
+          reference?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_changes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_imports: {
         Row: {
           batch_id: string | null
@@ -1173,8 +1229,30 @@ export type Database = {
           },
         ]
       }
+      product_price_backups: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          rows: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          rows: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          rows?: Json
+        }
+        Relationships: []
+      }
       products: {
         Row: {
+          availability: string
           brand: string
           characteristics: string
           created_at: string
@@ -1187,10 +1265,13 @@ export type Database = {
           marketing_sections: Json
           model: string
           name: string
+          name_edited_by_hand: boolean
           needs_review: boolean
           node_id: string
           price: number | null
           price_text: string
+          price_updated_at: string | null
+          price_updated_by: string | null
           review_state: string
           serial_number: string
           sort_order: number
@@ -1202,6 +1283,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          availability?: string
           brand?: string
           characteristics?: string
           created_at?: string
@@ -1214,10 +1296,13 @@ export type Database = {
           marketing_sections?: Json
           model?: string
           name: string
+          name_edited_by_hand?: boolean
           needs_review?: boolean
           node_id: string
           price?: number | null
           price_text?: string
+          price_updated_at?: string | null
+          price_updated_by?: string | null
           review_state?: string
           serial_number?: string
           sort_order?: number
@@ -1229,6 +1314,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          availability?: string
           brand?: string
           characteristics?: string
           created_at?: string
@@ -1241,10 +1327,13 @@ export type Database = {
           marketing_sections?: Json
           model?: string
           name?: string
+          name_edited_by_hand?: boolean
           needs_review?: boolean
           node_id?: string
           price?: number | null
           price_text?: string
+          price_updated_at?: string | null
+          price_updated_by?: string | null
           review_state?: string
           serial_number?: string
           sort_order?: number
@@ -1385,6 +1474,16 @@ export type Database = {
     }
     Functions: {
       catalog_node_path: { Args: { _id: string }; Returns: string }
+      save_product_price_stock: {
+        Args: {
+          _email: string
+          _expected: string
+          _id: string
+          _operation: string
+          _patch: Json
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
