@@ -77,16 +77,16 @@
 
 :root {
   --radius: 0.5rem;
-  --page: #f2f4f5;
+  --page: #ffffff;
   --dark: #222222;
   --dark-foreground: #c9cdd1;
   --text-2: #5f6368;
   --text-3: #8a9096;
-  --brand: #eeb111;
-  --brand-foreground: #222222;
-  --brand-deep: #d99e08;
-  --brand-soft: #fff6dc;
-  --ink: #222222;
+  --brand: #1266e8;
+  --brand-foreground: #ffffff;
+  --brand-deep: #0b57c4;
+  --brand-soft: #e9f1fd;
+  --ink: #0f172a;
   --whatsapp: oklch(0.62 0.17 150);
   --background: #ffffff;
   --foreground: var(--ink);
@@ -95,13 +95,13 @@
   --popover: oklch(1 0 0);
   --popover-foreground: var(--ink);
   --primary: var(--brand);
-  --primary-foreground: #222222;
+  --primary-foreground: #ffffff;
   --secondary: var(--brand-soft);
-  --secondary-foreground: #222222;
+  --secondary-foreground: #0f172a;
   --muted: oklch(0.968 0.007 247.896);
   --muted-foreground: oklch(0.554 0.046 257.417);
   --accent: var(--brand-soft);
-  --accent-foreground: #222222;
+  --accent-foreground: #0f172a;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
   --border: #e3e6e8;
