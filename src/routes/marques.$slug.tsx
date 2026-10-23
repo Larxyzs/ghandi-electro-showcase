@@ -14,7 +14,7 @@ export const Route = createFileRoute("/marques/$slug")({
     const brand = root?.brands?.find((b) => b.slug === params.slug);
     const name = brand?.name ?? params.slug.toUpperCase();
     const title = `${name} au Maroc – Électroménager et TV | Ghandi Home Electro`;
-    const description = brand?.description?.trim() || `Produits ${name} chez Ghandi Home Electro à Casablanca. Livraison partout au Maroc, paiement à la livraison.`;
+    const description = brand?.description?.trim() || `Produits ${name} chez Ghandi Home Electro à Casablanca. Livraison gratuite à Casablanca, Mohammedia et Dar Bouazza, paiement à la livraison.`;
     return {
       meta: [
         { title },

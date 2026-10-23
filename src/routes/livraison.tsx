@@ -4,7 +4,7 @@ import { useCompany } from "@/lib/company";
 import type { SiteData } from "@/lib/catalog-types";
 
 export const Route = createFileRoute("/livraison")({
-  head: () => pageMeta("Livraison et retrait | Ghandi Home Electro", "Livraison à Casablanca et partout au Maroc, retrait au magasin et paiement à la livraison."),
+  head: () => pageMeta("Livraison et retrait | Ghandi Home Electro", "Livraison gratuite à Casablanca, Mohammedia et Dar Bouazza, retrait au magasin et paiement à la livraison."),
   component: DeliveryPage,
 });
 
@@ -18,7 +18,7 @@ function DeliveryPage() {
         <h1 className="text-2xl font-bold">Livraison et retrait</h1>
         {custom ? <RichText text={custom} /> : (
           <>
-            <p>Nous livrons à Casablanca et partout au Maroc. Le délai et les frais sont confirmés par téléphone au moment de la commande.</p>
+            <p>Nous livrons gratuitement à Casablanca, Mohammedia et Dar Bouazza. Pour les autres villes, le délai et les frais sont confirmés par téléphone au moment de la commande.</p>
             <p>Paiement à la livraison : vous payez à la réception de votre appareil.</p>
             <p>Vous pouvez aussi retirer votre commande au magasin : {c.address}. <Link to="/magasin" className="font-bold underline">Voir le magasin</Link></p>
           </>

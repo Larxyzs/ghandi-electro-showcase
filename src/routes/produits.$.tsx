@@ -52,10 +52,10 @@ export const Route = createFileRoute("/produits/$")({
     const page = Number((matches.at(-1)?.search as Record<string, string> | undefined)?.["p"]) || 1;
     const suffix = page > 1 ? ` – Page ${page}` : "";
     const title = node
-      ? `${node.seo_title?.trim() || `${node.name} à Casablanca – Livraison partout au Maroc | Ghandi Home Electro`}${suffix}`
+      ? `${node.seo_title?.trim() || `${node.name} à Casablanca – Livraison gratuite | Ghandi Home Electro`}${suffix}`
       : "Catalogue | Ghandi Home Electro";
     const description = node?.seo_description?.trim() ||
-      (node ? `${node.name} : découvrez notre sélection chez Ghandi Home Electro à Casablanca. Livraison partout au Maroc, paiement à la livraison.` : "Parcourez le catalogue Ghandi Home Electro par catégorie.");
+      (node ? `${node.name} : découvrez notre sélection chez Ghandi Home Electro à Casablanca. Livraison gratuite à Casablanca, Mohammedia et Dar Bouazza, paiement à la livraison.` : "Parcourez le catalogue Ghandi Home Electro par catégorie.");
     const crumbs = trail.map((n, i) => ({
       "@type": "ListItem",
       position: i + 2,

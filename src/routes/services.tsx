@@ -7,7 +7,7 @@ import type { SiteData } from "@/lib/catalog-types";
 const ICONS = { livraison: Truck, paiement: Banknote, retrait: Store, conseil: Headphones, installation: Wrench } as Record<string, typeof Truck>;
 
 export const Route = createFileRoute("/services")({
-  head: () => pageMeta("Nos services | Ghandi Home Electro", "Livraison partout au Maroc, paiement à la livraison, retrait au magasin et conseil par téléphone et WhatsApp."),
+  head: () => pageMeta("Nos services | Ghandi Home Electro", "Livraison gratuite à Casablanca, Mohammedia et Dar Bouazza, paiement à la livraison, retrait au magasin et conseil par téléphone et WhatsApp."),
   component: ServicesPage,
 });
 

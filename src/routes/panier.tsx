@@ -223,7 +223,7 @@ function PanierPage() {
               <div className="panel p-5">
                 <h2 className="font-bold">Mode de réception</h2>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {([["livraison", HomeIcon, "Livraison à domicile", "Partout au Maroc, délai et frais confirmés par téléphone"], ["retrait", Store, "Retrait au magasin", company.shortAddress]] as const).map(([m, Icon, t, s]) => (
+                  {([["livraison", HomeIcon, "Livraison à domicile", "Gratuite à Casablanca, Mohammedia et Dar Bouazza"], ["retrait", Store, "Retrait au magasin", company.shortAddress]] as const).map(([m, Icon, t, s]) => (
                     <button key={m} type="button" onClick={() => setMode(m)} className={cn("flex items-start gap-3 rounded-lg border-2 p-4 text-start", mode === m ? "border-brand bg-brand-soft" : "border-border")}>
                       <Icon className="h-6 w-6 shrink-0 text-brand" />
                       <span><span className="block font-bold">{t}</span><span className="text-xs text-text-2">{s}</span></span>
