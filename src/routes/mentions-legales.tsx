@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { SiteLayout } from "@/components/SiteLayout";
-import { COMPANY } from "@/lib/company";
+import { ContentPage } from "@/components/ContentPage";
+import { useCompany } from "@/lib/company";
 
 export const Route = createFileRoute("/mentions-legales")({
   head: () => ({
@@ -17,15 +17,16 @@ export const Route = createFileRoute("/mentions-legales")({
 });
 
 function LegalPage() {
+  const COMPANY = useCompany();
   return (
-    <SiteLayout>
-      <section className="mx-auto max-w-3xl space-y-4 px-5 py-12">
+    <ContentPage title="Mentions légales">
+      <section className="panel mt-3 space-y-3 p-5 text-sm sm:p-8">
         <h1 className="text-2xl font-bold">Mentions légales</h1>
         <p><strong>{COMPANY.name}</strong> — {COMPANY.address}</p>
         <p>Responsable : {COMPANY.founder}</p>
         <p>Téléphone : {COMPANY.phone}</p>
         <p>Les photos et caractéristiques des produits proviennent des sites officiels des fabricants.</p>
       </section>
-    </SiteLayout>
+    </ContentPage>
   );
 }
