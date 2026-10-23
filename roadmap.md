@@ -1,11 +1,11 @@
 # Roadmap
 
 ## Prix & stock
-- [ ] Private backup of existing prices, then reset existing products to zero price and out of stock
+- [x] Private backup of existing prices, then reset existing products to zero price and out of stock (206 products)
 - [ ] Authorized Google-admin-only single-product updates, audit history, undo and protected importer values
 - [ ] Large accessible price-stock page, autosave/offline drafts, search, filters, help and admin entry links
 - [ ] Storefront availability, quantity limits and server order enforcement
-- [ ] Tests and authenticated end-to-end checks
+- [ ] Rule tests and final error checks; signed-in page testing omitted at the owner's request
 
 ## Electroplanet-style rebuild (from LOVABLE-PROMPT-ELECTROPLANET.md)
 - [x] Part 1: colors/fonts, top bar, header, mega menu, phone menu, footer, newsletter
