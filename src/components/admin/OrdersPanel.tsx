@@ -180,8 +180,10 @@ export function OrdersPanel({ list, setStatus, remove }: OrdersPanelProps) {
               <div>
                 <p className="text-xs tracking-wide text-foreground/50 uppercase">Adresse</p>
                 <p className="text-sm">
+                  <span className="me-1 rounded bg-brand-soft px-1.5 py-0.5 text-[0.65rem] font-bold">{order.delivery_mode === "retrait" ? "Retrait au magasin" : "Livraison"}</span>
                   {order.address}
                   {order.city ? `, ${order.city}` : ""}
+                  {order.email ? ` · ${order.email}` : ""}
                 </p>
                 {order.note && <p className="mt-1 text-xs text-foreground/60">Note : {order.note}</p>}
               </div>
