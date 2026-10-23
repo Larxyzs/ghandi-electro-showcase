@@ -1,5 +1,5 @@
 import { WHATSAPP_GENERAL_MESSAGE, useCompany, whatsappLinkTo } from "@/lib/company";
-import { useBuyBarLift } from "@/components/SiteLayout";
+import { useBuyBarLift } from "@/lib/use-buybar";
 import { cn } from "@/lib/utils";
 
 export function WhatsAppFloating() {

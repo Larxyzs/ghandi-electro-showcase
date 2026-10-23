@@ -46,6 +46,7 @@ import {
 } from "@/lib/catalog-types";
 import { useDynamicText } from "@/lib/dynamic-text";
 import { cn } from "@/lib/utils";
+import { useBuyBarLift } from "@/lib/use-buybar";
 
 function WaIcon({ className }: { className?: string }) {
   return (
@@ -475,17 +476,6 @@ function TikTokIcon({ className }: { className?: string }) {
 }
 
 /* ---------------- Floating ---------------- */
-export function useBuyBarLift() {
-  const [lift, setLift] = useState(false);
-  useEffect(() => {
-    const sync = () => setLift(document.body.dataset.buybar === "1");
-    sync();
-    const obs = new MutationObserver(sync);
-    obs.observe(document.body, { attributes: true, attributeFilter: ["data-buybar"] });
-    return () => obs.disconnect();
-  }, []);
-  return lift;
-}
 
 function BackToTop() {
   const [show, setShow] = useState(false);
