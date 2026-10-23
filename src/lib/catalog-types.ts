@@ -19,6 +19,12 @@ export type CatalogNode = {
   image_path: string | null;
   /** Ready-to-render URL (signed when stored in the bucket). */
   image_url: string | null;
+  show_in_menu?: boolean;
+  menu_label?: string;
+  seo_title?: string;
+  seo_description?: string;
+  intro_text?: string;
+  seo_text?: string;
 };
 
 export type ProductSpec = { label: string; value: string };
@@ -210,7 +216,31 @@ export type SiteSettings = {
   text_color: string;
   site_mode: SiteMode;
   home_banners?: HomeBanner[];
+  page_color?: string;
+  content?: SiteContent;
 };
+
+export type DayHours = { closed: boolean; ranges: [string, string][] };
+/** Editable site content (admin "Contenu du site"); every field optional. */
+export type SiteContent = {
+  shortcuts?: string[];
+  secondary_banners?: { image: string; link: string; title?: string; image_path?: string }[];
+  store?: {
+    address?: string;
+    phone?: string;
+    whatsapp?: string;
+    maps_link?: string;
+    /** index 0 = Monday … 6 = Sunday */
+    week?: DayHours[];
+    photos?: string[];
+  };
+  social?: { facebook?: string; instagram?: string; tiktok?: string; youtube?: string };
+  services?: { key: string; title: string; text: string; enabled: boolean }[];
+  pages?: Record<string, { title?: string; body?: string; enabled?: boolean }>;
+  home_seo_text?: string;
+};
+
+export type BrandRow = { id: string; name: string; slug: string; logo: string; description: string; sort_order: number };
 
 export type HomeBanner = { image: string; title: string; button: string; link: string; image_path?: string };
 
@@ -221,7 +251,34 @@ export type SiteData = {
   nodes: CatalogNode[];
   products: Product[];
   popularSearches: PopularSearch[];
+  brands?: BrandRow[];
 };
+
+/** True when the node or anything below it holds at least one product. */
+export function nodeHasProducts(nodes: CatalogNode[], products: Product[], nodeId: string) {
+  return productsIn(nodes, products, nodeId).length > 0;
+}
+
+/** Children shown to visitors: non-empty and "Afficher dans le menu". Admin sees all. */
+export function visibleChildren(
+  nodes: CatalogNode[],
+  products: Product[],
+  parentId: string | null,
+  admin = false,
+) {
+  return childrenOf(nodes, parentId).filter(
+    (n) => admin || (n.show_in_menu !== false && nodeHasProducts(nodes, products, n.id)),
+  );
+}
+
+export function slugify(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
 
 const BASE_LABELS: Record<number, string> = {
   1: "Catégorie",
@@ -328,8 +385,10 @@ export function ancestorAtLevel(nodes: CatalogNode[], nodeId: string, level: Nod
 }
 
 export const DEFAULT_SETTINGS: SiteSettings = {
-  primary_color: "#ffffff",
-  secondary_color: "#1266e8",
-  text_color: "#0f172a",
+  primary_color: "#FFFFFF",
+  secondary_color: "#EEB111",
+  text_color: "#222222",
   site_mode: "online",
+  page_color: "#F2F4F5",
+  content: {},
 };

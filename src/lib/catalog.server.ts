@@ -8,7 +8,9 @@ import {
   type SiteData,
   type SiteMode,
   type HomeBanner,
+  type SiteContent,
 } from "./catalog-types";
+import { brandLogoFallback } from "./brands";
 
 export { DEFAULT_SETTINGS };
 export type {
@@ -55,15 +57,15 @@ export async function signImagePaths(paths: string[]): Promise<Record<string, st
 export async function fetchSiteData(): Promise<SiteData> {
   const supabase = publicClient();
 
-  const [settingsRes, nodesRes, productsRes, searchesRes] = await Promise.all([
+  const [settingsRes, nodesRes, productsRes, searchesRes, brandsRes] = await Promise.all([
     supabase
       .from("site_settings")
-      .select("primary_color, secondary_color, text_color, site_mode, home_banners")
+      .select("primary_color, secondary_color, text_color, site_mode, home_banners, page_color, content")
       .eq("id", "default")
       .maybeSingle(),
     supabase
       .from("catalog_nodes")
-      .select("id, parent_id, name, slug, level, sort_order, image_url")
+      .select("id, parent_id, name, slug, level, sort_order, image_url, show_in_menu, menu_label, seo_title, seo_description, intro_text, seo_text")
       .order("sort_order")
       .order("name"),
     supabase
@@ -74,6 +76,7 @@ export async function fetchSiteData(): Promise<SiteData> {
       .order("sort_order")
       .order("created_at"),
     supabase.from("popular_searches").select("id, term, sort_order").order("sort_order"),
+    supabase.from("brands").select("id, name, slug, logo_url, description, sort_order").order("sort_order"),
   ]);
 
   const linksRes = await supabase.from("product_nodes").select("product_id, node_id");
@@ -95,6 +98,8 @@ export async function fetchSiteData(): Promise<SiteData> {
       ...rawProducts.map((p) => p.image_url).filter(isPath),
       ...rawProducts.flatMap((p) => galleryOf(p)).filter(isPath),
       ...rawNodes.map((n) => n.image_url).filter(isPath),
+      ...(brandsRes.data ?? []).map((b) => b.logo_url),
+      ...contentImages(settingsRes.data?.content),
       ...(Array.isArray(settingsRes.data?.home_banners) ? (settingsRes.data.home_banners as HomeBanner[]).map((b) => b.image) : []).filter(isPath),
     ]),
   );
@@ -106,6 +111,7 @@ export async function fetchSiteData(): Promise<SiteData> {
     settings: settingsRes.data
       ? {
           ...settingsRes.data,
+          content: resolveContent(settingsRes.data.content, resolve),
           site_mode: (settingsRes.data.site_mode ?? "online") as SiteMode,
           home_banners: Array.isArray(settingsRes.data.home_banners)
             ? (settingsRes.data.home_banners as HomeBanner[]).map((b) => ({ ...b, image_path: b.image, image: resolve(b.image) ?? "" }))
@@ -135,5 +141,30 @@ export async function fetchSiteData(): Promise<SiteData> {
         : [],
     })),
     popularSearches: searchesRes.data ?? [],
+    brands: (brandsRes.data ?? []).map((b) => ({
+      id: b.id,
+      name: b.name,
+      slug: b.slug,
+      description: b.description,
+      sort_order: b.sort_order,
+      logo: resolve(b.logo_url || null) ?? brandLogoFallback(b.name) ?? "",
+    })),
+  };
+}
+
+function contentImages(raw: unknown): string[] {
+  const c = (raw ?? {}) as SiteContent;
+  return [
+    ...(c.secondary_banners ?? []).map((b) => b.image),
+    ...(c.store?.photos ?? []),
+  ].filter((v): v is string => Boolean(v) && !v.startsWith("http"));
+}
+
+function resolveContent(raw: unknown, resolve: (v: string | null) => string | null): SiteContent {
+  const c = ((raw ?? {}) as SiteContent) || {};
+  return {
+    ...c,
+    secondary_banners: (c.secondary_banners ?? []).map((b) => ({ ...b, image_path: b.image, image: resolve(b.image) ?? "" })),
+    store: c.store ? { ...c.store, photos: (c.store.photos ?? []).map((p) => resolve(p) ?? "").filter(Boolean) } : c.store,
   };
 }
