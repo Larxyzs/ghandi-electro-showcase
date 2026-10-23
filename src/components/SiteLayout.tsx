@@ -586,6 +586,14 @@ export function SiteLayout({ children }: { children: ReactNode }) {
         <div className="px-4 pb-3 md:hidden">
           <HeaderSearch className="relative" />
         </div>
+        {/* Phones: the same one-tap button for admins (the header has no room for it). */}
+        {admin && (
+          <div className="px-4 pb-3 sm:hidden">
+            <Button asChild className="min-h-12 w-full bg-price-tool text-lg font-bold text-price-tool-foreground hover:bg-price-tool/90">
+              <Link to="/admin/prix-stock"><Tag /> Prix & stock</Link>
+            </Button>
+          </div>
+        )}
         <UniversBar />
       </header>
 

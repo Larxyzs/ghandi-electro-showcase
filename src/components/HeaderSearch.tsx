@@ -122,7 +122,7 @@ export function HeaderSearch({ className }: { className?: string }) {
                     <span className="block truncate text-sm font-semibold">{tr(p.name)}</span>
                     <span className="block truncate text-xs text-foreground/55">{p.brand} {p.model || p.serial_number}</span>
                   </span>
-                  <span className="shrink-0 text-xs font-bold">{p.price !== null ? formatDH(p.price) : "Prix sur demande"}</span>
+                  <span className="shrink-0 text-xs font-bold">{p.price ? formatDH(p.price) : "Prix sur demande"}</span>
                 </Link>
               ))}
               <Link to="/recherche" search={{ q }} onClick={close}

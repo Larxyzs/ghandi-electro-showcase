@@ -497,11 +497,8 @@ export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
                   </select>
                 </div>
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={opts.copyImages} onChange={(e) => setOpts({ ...opts, copyImages: e.target.checked })} /> Copier les photos dans mon stockage</label>
-                {items.some((i) => i.currency && i.currency !== "MAD") && (
-                  <label className="flex items-center gap-2 rounded-lg bg-yellow-50 p-2 text-sm"><input type="checkbox" checked={opts.dropForeignPrice} onChange={(e) => setOpts({ ...opts, dropForeignPrice: e.target.checked })} /> Prix dans une autre devise : laisser vide</label>
-                )}
               </div>
-              <p className="mt-2 text-xs text-foreground/55">Produits sans prix : le prix reste vide (« Prix sur demande »). Vous pourrez taper les prix ensuite dans l'onglet « Prix » de l'admin.</p>
+              <p className="mt-2 text-xs text-foreground/55">Les prix du fichier ne sont jamais enregistrés : un nouveau produit arrive à 0 DH et en rupture de stock. Les prix et le stock se tapent dans « Prix & stock ». Un produit déjà sur le site garde son prix, son stock et son nom corrigé.</p>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher…" className="min-w-40 flex-1 rounded-full border border-border px-4 py-2 text-sm" />
@@ -527,7 +524,7 @@ export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
                     <tr>
                       <th className="p-2"><input type="checkbox" checked={visible.length > 0 && visible.every((v) => selected.has(v.key))} onChange={(e) => { const n = new Set(selected); visible.forEach((v) => (e.target.checked ? n.add(v.key) : n.delete(v.key))); setSelected(n); }} /></th>
                       <th className="p-2" /><th className="p-2 text-start">Nom</th><th className="p-2 text-start">Marque / modèle</th><th className="p-2 text-start">Section</th>
-                      <th className="p-2 text-start">Prix</th><th className="p-2">Photos</th><th className="p-2">Specs</th><th className="p-2 text-start">Statut</th>
+                      <th className="p-2">Photos</th><th className="p-2">Specs</th><th className="p-2 text-start">Statut</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -535,7 +532,6 @@ export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
                       const st = statusOf(i);
                       const res = results[i.key];
                       const sec = sectionOf(i);
-                      const foreign = i.currency && i.currency !== "MAD";
                       return (
                         <tr key={i.key} className={cn("border-t border-border", st === "look" && "bg-yellow-50/70")}>
                           <td className="p-2"><input type="checkbox" checked={selected.has(i.key)} onChange={(e) => { const n = new Set(selected); if (e.target.checked) n.add(i.key); else n.delete(i.key); setSelected(n); }} /></td>
@@ -546,7 +542,6 @@ export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
                             <p className="mb-1 truncate text-xs">{sec ? folders.find((f) => f.id === sec)?.label : <span className="text-destructive">aucune</span>}</p>
                             <SectionSearch compact folders={folders} placeholder="Changer…" onPick={(id) => setOverrides((o) => ({ ...o, [i.key]: id }))} />
                           </td>
-                          <td className={cn("p-2", foreign && "bg-yellow-100")}>{i.priceValue === null ? <span className="text-foreground/45">—</span> : `${i.priceValue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} ${i.currency}`}</td>
                           <td className="p-2 text-center">{i.images.length}</td>
                           <td className="p-2 text-center">{i.specGroups.reduce((a, g) => a + g.rows.length, 0) || i.specs.length}</td>
                           <td className="p-2 text-xs">

@@ -153,7 +153,7 @@ export function ProductBrowser({
   const [extra, setExtra] = useState(0);
   useEffect(() => setExtra(0), [page, search]);
 
-  const prices = products.map((p) => p.price).filter((v): v is number => v !== null);
+  const prices = products.map((p) => p.price).filter((v): v is number => v !== null && v > 0);
   const maxPrice = prices.length ? Math.ceil(Math.max(...prices)) : 0;
   const brandCounts = useMemo(() => {
     const m = new Map<string, number>();
@@ -171,15 +171,15 @@ export function ProductBrowser({
       if (selBrands.length && !selBrands.some((b) => slug(b) === slug(p.brand))) return false;
       if (selCats.length && categories && !categories.some((c) => selCats.includes(c.node.slug) && (p.node_ids ?? [p.node_id]).some((id) => c.ids.has(id)))) return false;
       if ((pMin ?? null) !== null || (pMax ?? null) !== null) {
-        if (p.price === null) return false;
+        if (!p.price) return false;
         if (pMin != null && p.price < pMin) return false;
         if (pMax != null && p.price > pMax) return false;
       }
       return selSpecs.every(({ f, sel }) => matchesSpec(p, f, sel));
     });
     if (sort === "pertinence") list = [...list].sort((a, b) => availabilityRank(a) - availabilityRank(b) || (rank ? rank(a) - rank(b) : 0));
-    if (sort === "prix-asc") list = [...list].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
-    if (sort === "prix-desc") list = [...list].sort((a, b) => (b.price ?? -1) - (a.price ?? -1));
+    if (sort === "prix-asc") list = [...list].sort((a, b) => (a.price || Infinity) - (b.price || Infinity));
+    if (sort === "prix-desc") list = [...list].sort((a, b) => (b.price || -1) - (a.price || -1));
     if (sort === "nouveautes") list = [...list].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
     if (sort === "nom") list = [...list].sort((a, b) => a.name.localeCompare(b.name, "fr"));
     return list;

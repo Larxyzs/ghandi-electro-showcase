@@ -748,10 +748,10 @@ export async function extractProductFromSources(input: {
     specifications: parsed.specifications ?? [],
     // Original manufacturer slideshow images, all of them, deduplicated only.
     images: dedupeGalleryUrls(input.images),
-    // Stock is always 0 on import (the admin owns availability); the price is
-    // the manufacturer's own public price, read from the official page.
-    price: input.price ?? null,
-    currency: input.currency ?? "",
+    // The shop owner types every price in « Prix & stock »: research never
+    // proposes a manufacturer price (stock and price start at 0, out of stock).
+    price: null,
+    currency: "",
     marketing_sections: [],
     sources: [],
     confidence: parsed.confidence ?? "medium",
@@ -1127,10 +1127,8 @@ export async function researchProduct(
   });
   emit({
     type: "checklist",
-    label: product.price === null
-      ? "Prix constructeur non affiché sur la page"
-      : `Prix constructeur ${product.price} ${product.currency || "MAD"}`,
-    done: product.price !== null,
+    label: "Prix : à taper dans « Prix & stock »",
+    done: true,
   });
   emit({ type: "checklist", label: "Nom du produit", done: Boolean(product.name) });
   emit({ type: "checklist", label: "Caractéristiques", done: Boolean(product.characteristics) });

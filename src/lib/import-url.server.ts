@@ -242,8 +242,9 @@ export async function importFromUrl(
       ...(options.signal ? { signal: options.signal } : {}),
     });
 
-    const { extractOfficialPrice } = await import("./cindy.server");
-    const { price, currency } = extractOfficialPrice(html);
+    // Prices are never imported: the shop types them in « Prix & stock ».
+    const price = null;
+    const currency = "";
 
     const missing = [...extraction.missing];
     // Fail-safe: no proven carousel ⇒ review, never a guessed gallery. The

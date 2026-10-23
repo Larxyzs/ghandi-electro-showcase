@@ -22,8 +22,8 @@ export type BulkItem = {
 
 export type BulkOptions = {
   /** replace = the product already on the site is replaced by the new one (same page, new data,
-   *  new section; other copies of it are removed for good). The shop price stays only if the new
-   *  one has none. refresh = old name of replace. */
+   *  new section; other copies of it are removed for good). Prices, stock, availability and
+   *  hand-edited names are never imported (typed in « Prix & stock »). refresh = old name of replace. */
   mode: "skip" | "empty" | "all" | "refresh" | "replace";
   /** Put every product in this one folder (overrides the file's category). */
   folderId: string | null;
