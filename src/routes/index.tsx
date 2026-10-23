@@ -181,7 +181,6 @@ function HomePage() {
   const company = useCompany();
   const tops = useMemo(() => visibleChildren(data.nodes, data.products, null, Boolean(admin)), [data.nodes, data.products, admin]);
   const featured = useMemo(() => data.products.filter((p) => p.featured), [data.products]);
-  const latest = useMemo(() => [...data.products].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? "")).slice(0, 12), [data.products]);
   const shortcuts = (data.settings.content?.shortcuts ?? [])
     .map((id) => data.nodes.find((n) => n.id === id))
     .filter((n): n is CatalogNode => Boolean(n) && (Boolean(admin) || nodeHasProducts(data.nodes, data.products, n!.id)));
@@ -231,8 +230,6 @@ function HomePage() {
           </p>
         </section>
       ) : null}
-
-      {latest.length >= 4 && <Carousel title="Nouveautés" products={latest} />}
 
       <RayonsTabs data={data} />
 
