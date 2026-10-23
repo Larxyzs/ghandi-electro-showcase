@@ -277,7 +277,7 @@ function GuidesEditor({ data }: { data: SiteData }) {
       <button type="button" className="inline-flex items-center gap-1 text-sm font-semibold underline" onClick={() => setEdit({ title: "", slug: "", cover_url: "", node_id: "", summary: "", body: "", published: false, published_at: new Date().toISOString() })}><Plus className="h-4 w-4" /> Nouveau guide</button>
       {edit && (
         <div className="space-y-2 rounded-xl border border-brand/40 p-3">
-          <input className={input} placeholder="Titre" value={String(edit["title"] ?? "")} onChange={(e) => setEdit({ ...edit, title: e.target.value, slug: edit["id"] ? edit["slug"] : slugify(e.target.value) })} />
+          <input className={input} placeholder="Titre" value={String(edit["title"] ?? "")} onChange={(e) => setEdit({ ...edit, title: e.target.value, slug: edit["id"] ? (edit["slug"] ?? "") : slugify(e.target.value) })} />
           <input className={input} placeholder="Adresse (slug)" value={String(edit["slug"] ?? "")} onChange={(e) => setEdit({ ...edit, slug: slugify(e.target.value) })} />
           <ImageField label="Image de couverture" value={String(edit["cover_url"] ?? "")} onChange={(v) => setEdit({ ...edit, cover_url: v })} />
           <select className={input} value={String(edit["node_id"] ?? "")} onChange={(e) => setEdit({ ...edit, node_id: e.target.value })}>
@@ -292,7 +292,7 @@ function GuidesEditor({ data }: { data: SiteData }) {
           </div>
           <div className="flex gap-2">
             <button type="button" className={btn} onClick={async () => {
-              if (!String(edit["title"]).trim() || !String(edit["slug"]).trim()) return toast.error("Titre et adresse obligatoires");
+              if (!String(edit["title"]).trim() || !String(edit["slug"]).trim()) { toast.error("Titre et adresse obligatoires"); return; }
               try { await adminSaveRow({ data: { table: "guides", row: edit } }); setEdit(null); void load(); toast.success("Enregistré"); } catch (e) { toast.error(e instanceof Error ? e.message : "Erreur"); }
             }}>Enregistrer</button>
             <button type="button" className="text-sm underline" onClick={() => setEdit(null)}>Annuler</button>

@@ -58,7 +58,7 @@ export function BrandsPanel({ onSaved }: { onSaved: () => void }) {
       <button type="button" className="inline-flex items-center gap-1 text-sm font-semibold underline" onClick={() => setEdit({ name: "", slug: "", logo_url: "", description: "", visible: true, sort_order: rows.length + 1 })}><Plus className="h-4 w-4" /> Ajouter une marque</button>
       {edit && (
         <div className="space-y-2 rounded-xl border border-brand/40 p-3">
-          <input className={input} placeholder="Nom" value={String(edit["name"] ?? "")} onChange={(e) => setEdit({ ...edit, name: e.target.value, slug: edit["id"] ? edit["slug"] : slugify(e.target.value) })} />
+          <input className={input} placeholder="Nom" value={String(edit["name"] ?? "")} onChange={(e) => setEdit({ ...edit, name: e.target.value, slug: edit["id"] ? (edit["slug"] ?? "") : slugify(e.target.value) })} />
           <input className={input} placeholder="Adresse (slug)" value={String(edit["slug"] ?? "")} onChange={(e) => setEdit({ ...edit, slug: slugify(e.target.value) })} />
           <div className="flex items-center gap-2">
             <input className={input} placeholder="Logo (lien https:// ou envoi)" value={String(edit["logo_url"] ?? "")} onChange={(e) => setEdit({ ...edit, logo_url: e.target.value })} />
@@ -75,7 +75,7 @@ export function BrandsPanel({ onSaved }: { onSaved: () => void }) {
           <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={Boolean(edit["visible"])} onChange={(e) => setEdit({ ...edit, visible: e.target.checked })} /> Visible sur le site</label>
           <div className="flex gap-2">
             <button type="button" disabled={busy} className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-primary-foreground" onClick={async () => {
-              if (!String(edit["name"]).trim() || !String(edit["slug"]).trim()) return toast.error("Nom obligatoire");
+              if (!String(edit["name"]).trim() || !String(edit["slug"]).trim()) { toast.error("Nom obligatoire"); return; }
               if (await save(edit)) { setEdit(null); toast.success("Enregistré"); }
             }}>Enregistrer</button>
             <button type="button" className="text-sm underline" onClick={() => setEdit(null)}>Annuler</button>
