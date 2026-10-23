@@ -625,6 +625,8 @@ export async function saveProduct(input: ProductInput) {
     brand: input.brand.trim(),
     serial_number: input.serial_number.trim(),
     stock: Math.max(0, Math.floor(input.stock)),
+    availability: input.stock > 0 ? 'in_stock' : 'out_of_stock',
+    name_edited_by_hand: true,
     price: input.price,
     characteristics: input.characteristics,
     featured: Boolean(input.featured),
@@ -642,10 +644,11 @@ export async function saveProduct(input: ProductInput) {
   if (input.id) {
     const { data: existing } = await db
       .from("products")
-      .select("image_url")
+      .select("image_url,stock,availability")
       .eq("id", input.id)
       .maybeSingle();
     const payload = imagePath === undefined ? base : { ...base, image_url: imagePath };
+    if(existing && existing.stock === base.stock) payload.availability=existing.availability;
     const { error } = await db.from("products").update(payload).eq("id", input.id);
     if (error) throw new Error(error.message);
     if (imagePath !== undefined && existing?.image_url && !existing.image_url.startsWith("http")) {

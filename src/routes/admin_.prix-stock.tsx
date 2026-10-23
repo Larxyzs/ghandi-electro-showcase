@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
+import { createFileRoute, Link, useRouter, useBlocker } from '@tanstack/react-router';
 import { useServerFn } from '@tanstack/react-start';
 import { Tag, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { PriceStockCard } from '@/components/admin/PriceStockCard';
 import { downloadPriceBackup, getPriceStock, getPriceStockHistory, priceStockAccess, priceStockGoogleLogin, revertPriceStock, updatePriceStock } from '@/lib/price-stock.functions';
 import { lovable } from '@/integrations/lovable';
 import { supabase } from '@/integrations/supabase/client';
-import { integerDH, type PriceStockChange, type PriceStockProduct, type PriceStockState } from '@/lib/price-stock';
+import { integerDH, AVAILABILITY_LABELS, type Availability, type PriceStockChange, type PriceStockProduct, type PriceStockState } from '@/lib/price-stock';
 import { cn } from '@/lib/utils';
 
 export const Route = createFileRoute('/admin_/prix-stock')({
@@ -50,7 +50,8 @@ function PriceStockPage() {
   const [listening, setListening] = useState(false);
   const inputs = useRef(new Map<string, HTMLInputElement>());
   const sentinel = useRef<HTMLDivElement>(null);
-  const skip = useRef(false);
+  const commits = useRef(new Map<string, () => Promise<boolean>>());
+  const doneToday = useRef(new Set<string>());
   const generation = useRef(0);
   const loadBusy = useRef(false);
   useEffect(() => {
@@ -74,6 +75,7 @@ function PriceStockPage() {
     setVoice(Boolean(w.SpeechRecognition || w.webkitSpeechRecognition));
   }, []);
   const hasDrafts = () => Object.keys(localStorage).some(k => k.startsWith(`ghe-price-draft:${email}:`));
+  useBlocker({ shouldBlockFn: () => allowed === true && hasDrafts() && !window.confirm('Des modifications ne sont pas enregistrées. Elles restent gardées ici. Quitter ?'), enableBeforeUnload:false });
   useEffect(() => {
     const leave = (e: BeforeUnloadEvent) => { if (hasDrafts()) { e.preventDefault(); e.returnValue = ''; } };
     window.addEventListener('beforeunload', leave);
@@ -107,7 +109,8 @@ function PriceStockPage() {
     if (before) {
       const p = products.find(x => x.id === id);
       setUndo({ id, before, after: state, reference: p?.model || p?.serial_number || state.name });
-      if (!before.price && state.price) setData(d => d ? { ...d, remaining: Math.max(0,d.remaining-1), today: d.today + 1 } : d);
+      const newlyDone=!doneToday.current.has(id); doneToday.current.add(id);
+      setData(d => d ? {...d,remaining:Math.max(0,d.remaining+(before.price?0:-1)+(state.price?0:1)),today:d.today+(newlyDone?1:0)} : d);
     }
     void router.invalidate();
   };
@@ -150,9 +153,9 @@ function PriceStockPage() {
       <Button variant="outline" className={btn} onClick={() => safeChange(() => void fetchRows())}>Actualiser</Button>
     </div>
     {error && <p role="alert" className="mt-4 font-bold text-destructive">{error} <Button variant="outline" className={btn} onClick={() => void fetchRows()}>Réessayer</Button></p>}
-    <div className="mt-6 space-y-5">{shown.map(p => <PriceStockCard key={p.id} product={p} email={email} category={data?.nodes.find(n => n.id===p.node_id)?.name ?? ''} save={input => save({data:input})} onSaved={onSaved} next={() => next(p.id)} register={el => { if (el) inputs.current.set(p.id,el); else inputs.current.delete(p.id); }} />)}</div>
+    <div className="mt-6 space-y-5">{shown.map(p => <PriceStockCard key={p.id} product={p} email={email} category={data?.nodes.find(n => n.id===p.node_id)?.name ?? ''} save={input => save({data:input})} onSaved={onSaved} next={() => next(p.id)} register={el => { if (el) inputs.current.set(p.id,el); else inputs.current.delete(p.id); }} registerCommit={fn=>{if(fn) commits.current.set(p.id,fn); else commits.current.delete(p.id);}} />)}</div>
     {!busy && !products.length && <p className="py-12 text-xl">Aucun produit dans cette sélection.</p>}
-    {mode==='one' && products[index] && <div className="mt-5 grid grid-cols-2 gap-3"><Button variant="outline" disabled={index===0} className={btn} onClick={() => safeChange(() => setIndex(Math.max(0,index-1)))}>‹ Précédent</Button><Button className={cn(btn,'bg-price-tool text-price-tool-foreground hover:bg-price-tool/90')} disabled={index+1>=products.length && products.length>=(data?.total ?? 0)} onClick={() => { inputs.current.get(products[index]?.id ?? '')?.dispatchEvent(new KeyboardEvent('keydown',{ key:'Enter',bubbles:true })); }}>Suivant ›</Button></div>}
+    {mode==='one' && products[index] && <div className="mt-5 grid grid-cols-2 gap-3"><Button variant="outline" disabled={index===0} className={btn} onClick={() => safeChange(() => setIndex(Math.max(0,index-1)))}>‹ Précédent</Button><Button className={cn(btn,'bg-price-tool text-price-tool-foreground hover:bg-price-tool/90')} disabled={index+1>=products.length && products.length>=(data?.total ?? 0)} onClick={() => { void commits.current.get(products[index]?.id ?? '')?.(); }}>Suivant ›</Button></div>}
     <div ref={sentinel} className="mt-5">{busy && <p>Chargement…</p>}{!busy && data && products.length<data.total && <Button variant="outline" className={btn} onClick={() => void fetchRows(true)}>Afficher 30 produits de plus</Button>}</div>
     {undo && <aside className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-price-tool bg-card p-4" aria-live="polite"><div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3"><p className="text-lg font-bold">{undo.before.price !== undo.after.price ? `Prix de ${undo.reference} changé : ${integerDH(undo.before.price)} → ${integerDH(undo.after.price)}` : `${undo.reference} : modification enregistrée`}</p><Button variant="outline" className={btn} onClick={async () => { try { const patch: Record<string,unknown>={}; for (const k of ['name','price','stock','availability'] as const) if (undo.before[k]!==undo.after[k]) patch[k]=undo.before[k]; const r=await save({ data:{ id:undo.id, expected:undo.after.updated_at, operation:crypto.randomUUID(), patch, confirmed:true } }); if (!r.confirmation) { onSaved(undo.id,r.state); setUndo(null); } } catch (e) { setError(e instanceof Error ? e.message : 'Annulation impossible.'); } }}>Annuler</Button></div></aside>}
     {help!==null && <div className="fixed inset-0 z-[80] flex items-center justify-center bg-ink/60 p-4" role="dialog" aria-modal="true" aria-label="Aide Prix et stock"><div className="w-full max-w-xl rounded-lg bg-card p-8"><p className="text-lg font-bold text-text-2">{help+1} sur 3</p><p className="mt-4 text-2xl font-bold">{['Cherchez le produit ici, ou touchez une catégorie.','Tapez le prix et appuyez sur Entrée. C’est enregistré tout seul.','Touchez En stock, Rupture ou Sur demande. Pour En stock, mettez le nombre avec − et +.'][help]}</p><Button autoFocus className={cn(btn,'mt-7 w-full bg-price-tool text-price-tool-foreground hover:bg-price-tool/90')} onClick={() => { if (help===2) { localStorage.setItem(`ghe-price-help:${email}`,'1'); setHelp(null); } else setHelp(help+1); }}>Compris</Button></div></div>}
