@@ -5,7 +5,7 @@ import { CatalogTile } from "@/components/CatalogTile";
 import { visibleChildren, type SiteData } from "@/lib/catalog-types";
 
 export function FrenchNotFound() {
-  const data = useLoaderData({ from: "__root__", shouldThrow: false }) as SiteData | undefined;
+  const data = useLoaderData({ from: "__root__" }) as SiteData | undefined;
   const tops = data ? visibleChildren(data.nodes, data.products, null) : [];
   return (
     <SiteLayout>
