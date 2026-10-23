@@ -36,6 +36,13 @@
       "when": 1792766647938,
       "tag": "0004_electroplanet_structure",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792766832510,
+      "tag": "0005_catalog_auto_redirects",
+      "breakpoints": true
     }
   ]
 }
