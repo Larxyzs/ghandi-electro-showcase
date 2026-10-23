@@ -95,13 +95,13 @@
   --popover: oklch(1 0 0);
   --popover-foreground: var(--ink);
   --primary: var(--brand);
-  --primary-foreground: #222222;
+  --primary-foreground: #ffffff;
   --secondary: var(--brand-soft);
-  --secondary-foreground: #222222;
+  --secondary-foreground: #0f172a;
   --muted: oklch(0.968 0.007 247.896);
   --muted-foreground: oklch(0.554 0.046 257.417);
   --accent: var(--brand-soft);
-  --accent-foreground: #222222;
+  --accent-foreground: #0f172a;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
   --border: #e3e6e8;
