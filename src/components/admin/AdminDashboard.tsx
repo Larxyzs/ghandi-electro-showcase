@@ -35,6 +35,9 @@ import { SITE_MODE_LABELS, type SiteMode } from "@/lib/catalog-types";
 import type { AdminRole, StaffAccount } from "@/lib/admin-types";
 import type { Order, OrderStatus } from "@/lib/orders-types";
 import { cn } from "@/lib/utils";
+import { SiteContentPanel } from "@/components/admin/SiteContentPanel";
+import { BrandsPanel } from "@/components/admin/BrandsPanel";
+import { FileText, Tags } from "lucide-react";
 
 type ImageItem = { id: string; kind: "product" | "node"; label: string; imageUrl: string | null };
 
@@ -107,6 +110,8 @@ export function AdminDashboard({
     | "images"
     | "emails"
     | "staff"
+    | "content"
+    | "brands"
   >("inventory");
   const { t } = useI18n();
   const [settings, setSettings] = useState<SiteSettings>(data.settings);
@@ -177,6 +182,8 @@ export function AdminDashboard({
               { id: "design", label: t("admin.tab.design"), icon: Palette },
               { id: "searches", label: t("admin.tab.searches"), icon: Search },
               { id: "images", label: t("admin.tab.images"), icon: ImageIcon },
+              { id: "content", label: "Contenu du site", icon: FileText },
+              { id: "brands", label: "Marques", icon: Tags },
               ...(role === "super"
                 ? ([
                     { id: "emails", label: t("admin.tab.emails"), icon: Mail },
@@ -221,6 +228,10 @@ export function AdminDashboard({
             add={emailActions.add}
             remove={emailActions.remove}
           />
+        ) : tab === "content" ? (
+          <SiteContentPanel data={data} onSaved={() => onRefresh?.()} />
+        ) : tab === "brands" ? (
+          <BrandsPanel onSaved={() => onRefresh?.()} />
         ) : tab === "prices" ? (
           <PricesPanel products={data.products} onSaved={() => onRefresh?.()} />
         ) : tab === "orders" ? (
@@ -292,19 +303,20 @@ export function AdminDashboard({
                   { key: "primary_color", label: t("admin.colors.primary") },
                   { key: "secondary_color", label: t("admin.colors.secondary") },
                   { key: "text_color", label: t("admin.colors.text") },
+                  { key: "page_color", label: "Couleur du fond de page" },
                 ] as const
               ).map((item) => (
                 <div key={item.key} className="flex items-center gap-4">
                   <input
                     type="color"
-                    value={settings[item.key]}
+                    value={settings[item.key] ?? "#F2F4F5"}
                     onChange={(e) => setSettings((s) => ({ ...s, [item.key]: e.target.value }))}
                     className="h-11 w-16 cursor-pointer rounded-lg border border-border bg-background"
                   />
                   <div className="flex-1">
                     <p className="text-sm font-medium">{item.label}</p>
                     <input
-                      value={settings[item.key]}
+                      value={settings[item.key] ?? ""}
                       onChange={(e) => setSettings((s) => ({ ...s, [item.key]: e.target.value }))}
                       className="mt-1 w-32 rounded-lg border border-border bg-background px-3 py-1.5 font-mono text-xs uppercase"
                     />
@@ -325,9 +337,10 @@ export function AdminDashboard({
                 onClick={() =>
                   setSettings((prev) => ({
                     ...prev,
-                    primary_color: "#ffffff",
-                    secondary_color: "#1266e8",
-                    text_color: "#0f172a",
+                    primary_color: "#FFFFFF",
+                    secondary_color: "#EEB111",
+                    text_color: "#222222",
+                    page_color: "#F2F4F5",
                   }))
                 }
                 className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold"
