@@ -1,31 +1,30 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { SiteLayout } from "@/components/SiteLayout";
-import { COMPANY } from "@/lib/company";
+import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
+import { ContentPage, RichText, pageMeta } from "@/components/ContentPage";
+import { useCompany } from "@/lib/company";
+import type { SiteData } from "@/lib/catalog-types";
 
 export const Route = createFileRoute("/livraison")({
-  head: () => ({
-    meta: [
-      { title: "Livraison et paiement | Ghandi Home Electro" },
-      { name: "description", content: "Livraison à Casablanca et partout au Maroc, paiement à la livraison chez Ghandi Home Electro." },
-      { property: "og:title", content: "Livraison et paiement | Ghandi Home Electro" },
-      { property: "og:description", content: "Livraison partout au Maroc et paiement à la livraison." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-    ],
-  }),
+  head: () => pageMeta("Livraison et retrait | Ghandi Home Electro", "Livraison à Casablanca et partout au Maroc, retrait au magasin et paiement à la livraison."),
   component: DeliveryPage,
 });
 
 function DeliveryPage() {
+  const c = useCompany();
+  const data = useLoaderData({ from: "__root__" }) as SiteData;
+  const custom = data.settings.content?.pages?.["livraison"]?.body?.trim();
   return (
-    <SiteLayout>
-      <section className="mx-auto max-w-3xl space-y-5 px-5 py-12">
-        <h1 className="text-2xl font-bold">Livraison et paiement</h1>
-        <p>Nous livrons à Casablanca et partout au Maroc. Les délais et frais sont confirmés par téléphone au moment de la commande.</p>
-        <p>Paiement à la livraison : vous payez à la réception de votre appareil.</p>
-        <p>Vous pouvez aussi retirer votre commande au magasin : {COMPANY.address}.</p>
-        <p>Une question ? Appelez-nous au <a className="font-semibold text-brand" href={COMPANY.phoneHref}>{COMPANY.phone}</a>.</p>
-      </section>
-    </SiteLayout>
+    <ContentPage title="Livraison et retrait" crumbs={[{ label: "Besoin d'aide ?", to: "/besoin-aide" }]}>
+      <div className="panel mt-3 space-y-4 p-5 text-sm sm:p-7">
+        <h1 className="text-2xl font-bold">Livraison et retrait</h1>
+        {custom ? <RichText text={custom} /> : (
+          <>
+            <p>Nous livrons à Casablanca et partout au Maroc. Le délai et les frais sont confirmés par téléphone au moment de la commande.</p>
+            <p>Paiement à la livraison : vous payez à la réception de votre appareil.</p>
+            <p>Vous pouvez aussi retirer votre commande au magasin : {c.address}. <Link to="/magasin" className="font-bold underline">Voir le magasin</Link></p>
+          </>
+        )}
+        <p>Une question ? Appelez-nous au <a className="font-bold underline" href={c.phoneHref}>{c.phone}</a>.</p>
+      </div>
+    </ContentPage>
   );
 }
