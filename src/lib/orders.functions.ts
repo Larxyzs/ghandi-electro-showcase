@@ -9,6 +9,8 @@ export const placeOrder = createServerFn({ method: "POST" })
       address: string;
       city: string;
       note?: string;
+      delivery_mode?: string;
+      email?: string;
       items: { product_id: string; qty: number }[];
     }) => ({
       full_name: String(data.full_name ?? "").slice(0, 120),
@@ -16,6 +18,8 @@ export const placeOrder = createServerFn({ method: "POST" })
       address: String(data.address ?? "").slice(0, 240),
       city: String(data.city ?? "").slice(0, 80),
       note: String(data.note ?? "").slice(0, 500),
+      delivery_mode: data.delivery_mode === "retrait" ? "retrait" : "livraison",
+      email: String(data.email ?? "").slice(0, 200),
       items: Array.isArray(data.items)
         ? data.items
             .map((i) => ({ product_id: String(i.product_id), qty: Number(i.qty) || 0 }))
@@ -26,6 +30,16 @@ export const placeOrder = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { createOrder } = await import("./orders.server");
     return createOrder(data);
+  });
+
+export const trackOrderFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { reference: string; phone: string }) => ({
+    reference: String(d.reference ?? "").slice(0, 40),
+    phone: String(d.phone ?? "").slice(0, 32),
+  }))
+  .handler(async ({ data }) => {
+    const { trackOrder } = await import("./orders.server");
+    return trackOrder(data.reference, data.phone);
   });
 
 export const adminListOrders = createServerFn({ method: "GET" }).handler(async () => {

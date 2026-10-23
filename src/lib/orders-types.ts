@@ -26,6 +26,8 @@ export type Order = {
   address: string;
   city: string;
   note: string;
+  delivery_mode?: string;
+  email?: string;
   items: OrderItem[];
   total: number;
   status: OrderStatus;
@@ -35,7 +37,7 @@ export type Order = {
 
 /**
  * Normalizes a Moroccan phone number to the local 0XXXXXXXXX form.
- * Accepts 06/07 + 8 digits, or +2126/+2127 / 002126/002127 variants,
+ * Accepts 05/06/07 + 8 digits, or +2126/+2127 / 002126/002127 variants,
  * with optional spaces, dots or dashes.
  */
 export function normalizeMaPhone(raw: string): string | null {
@@ -45,7 +47,7 @@ export function normalizeMaPhone(raw: string): string | null {
   else if (digits.startsWith("00212")) digits = "0" + digits.slice(5);
   else if (digits.startsWith("212") && digits.length === 12) digits = "0" + digits.slice(3);
 
-  if (!/^0[67]\d{8}$/.test(digits)) return null;
+  if (!/^0[567]\d{8}$/.test(digits)) return null;
   return digits;
 }
 
