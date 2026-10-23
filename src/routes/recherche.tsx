@@ -69,7 +69,7 @@ function SearchPage() {
   const search = Route.useSearch();
   const q = (search["q"] ?? "").trim();
   const data = useLoaderData({ from: "__root__" }) as SiteData;
-  const { admin } = useLiveEdit();
+  const admin = Boolean(useLiveEdit().admin);
   const company = useCompany();
 
   const ranks = useMemo(() => {

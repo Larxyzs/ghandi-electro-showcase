@@ -59,7 +59,7 @@ export { WaIcon };
 
 function useMenu() {
   const data = useLoaderData({ from: "__root__" }) as SiteData;
-  const { admin } = useLiveEdit();
+  const admin = Boolean(useLiveEdit().admin);
   const kids = (id: string | null) => visibleChildren(data.nodes, data.products, id, admin);
   const empty = (n: CatalogNode) => !nodeHasProducts(data.nodes, data.products, n.id);
   const label = (n: CatalogNode) => n.menu_label?.trim() || n.name;
@@ -444,8 +444,8 @@ function Footer() {
             <Link to="/conseils" className={link}>Conseils</Link>
             <Link to="/services" className={link}>Nos services</Link>
             <Link to="/mentions-legales" className={link}>Mentions légales</Link>
-            {pages.cgv?.body?.trim() && <Link to="/conditions-generales-de-vente" className={link}>Conditions générales de vente</Link>}
-            {pages.confidentialite?.body?.trim() && <Link to="/politique-de-confidentialite" className={link}>Politique de confidentialité</Link>}
+            {pages["cgv"]?.body?.trim() && <Link to="/conditions-generales-de-vente" className={link}>Conditions générales de vente</Link>}
+            {pages["confidentialite"]?.body?.trim() && <Link to="/politique-de-confidentialite" className={link}>Politique de confidentialité</Link>}
           </FooterCol>
         </div>
         {socials.length > 0 && (

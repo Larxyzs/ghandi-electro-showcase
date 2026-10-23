@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 export function useBuyBarLift() {
   const [lift, setLift] = useState(false);
   useEffect(() => {
-    const sync = () => setLift(document.body.dataset.buybar === "1");
+    const sync = () => setLift(document.body.dataset["buybar"] === "1");
     sync();
     const obs = new MutationObserver(sync);
     obs.observe(document.body, { attributes: true, attributeFilter: ["data-buybar"] });

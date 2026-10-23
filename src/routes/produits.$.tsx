@@ -89,7 +89,8 @@ export const Route = createFileRoute("/produits/$")({
 function BrowsePage() {
   const { _splat } = Route.useParams();
   const data = useLoaderData({ from: "__root__" }) as SiteData;
-  const { editing, admin } = useLiveEdit();
+  const { editing, admin: adminId } = useLiveEdit();
+  const admin = Boolean(adminId);
   const company = useCompany();
   const tr = useDynamicText();
   const { trail, missing } = resolveTrail(data.nodes, _splat ?? "");

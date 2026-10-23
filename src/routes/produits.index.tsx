@@ -6,7 +6,7 @@ import { useLiveEdit } from "@/lib/live-edit";
 import { productsIn, visibleChildren, type SiteData } from "@/lib/catalog-types";
 
 export const Route = createFileRoute("/produits/")({
-  validateSearch: (s: Record<string, unknown>) => ({ q: typeof s["q"] === "string" ? s["q"] : undefined }),
+  validateSearch: (s: Record<string, unknown>): { q?: string } => (typeof s["q"] === "string" && s["q"] ? { q: s["q"] } : {}),
   beforeLoad: ({ search }) => {
     if (search.q) throw redirect({ to: "/recherche", search: { q: search.q }, statusCode: 301 });
   },
@@ -25,7 +25,7 @@ export const Route = createFileRoute("/produits/")({
 
 function AllPage() {
   const data = useLoaderData({ from: "__root__" }) as SiteData;
-  const { admin } = useLiveEdit();
+  const admin = Boolean(useLiveEdit().admin);
   const tops = visibleChildren(data.nodes, data.products, null, admin);
   return (
     <SiteLayout>
