@@ -36,7 +36,7 @@ export function ProductGallery({ images, alt }: { images: string[]; alt: string 
 
   if (total === 0) {
     return (
-      <div className="flex aspect-square items-center justify-center rounded-2xl border border-border bg-card text-brand/40">
+      <div className="flex aspect-square items-center justify-center rounded-lg bg-card text-text-3">
         <PackageSearch className="h-14 w-14" />
       </div>
     );
@@ -45,10 +45,10 @@ export function ProductGallery({ images, alt }: { images: string[]; alt: string 
   const current = images[Math.min(index, total - 1)]!;
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3 md:flex-row-reverse">
       <div
         ref={frameRef}
-        className="group relative aspect-square overflow-hidden rounded-2xl border border-border bg-[oklch(1_0_0)]"
+        className="group relative aspect-square min-w-0 flex-1 overflow-hidden rounded-lg bg-card"
         onMouseMove={(event) => {
           const rect = frameRef.current?.getBoundingClientRect();
           if (!rect) return;
@@ -112,7 +112,7 @@ export function ProductGallery({ images, alt }: { images: string[]; alt: string 
       </div>
 
       {total > 1 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2 overflow-x-auto md:max-h-[520px] md:w-20 md:shrink-0 md:flex-col md:overflow-x-visible md:overflow-y-auto">
           {images.map((image, i) => (
             <button
               key={image}
@@ -121,7 +121,7 @@ export function ProductGallery({ images, alt }: { images: string[]; alt: string 
               aria-label={`Voir l'image ${i + 1}`}
               aria-current={i === index}
               className={cn(
-                "h-16 w-16 overflow-hidden rounded-xl border bg-[oklch(1_0_0)] p-1 transition sm:h-20 sm:w-20",
+                "h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-card p-1 transition md:h-20 md:w-20",
                 i === index ? "border-brand ring-1 ring-brand/40" : "border-border hover:border-brand/50",
               )}
             >

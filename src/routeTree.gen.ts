@@ -12,14 +12,31 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AProposRouteImport } from './routes/a-propos'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as CommentCommanderRouteImport } from './routes/comment-commander'
+import { Route as ComparateurRouteImport } from './routes/comparateur'
+import { Route as ConditionsGeneralesDeVenteRouteImport } from './routes/conditions-generales-de-vente'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as FavorisRouteImport } from './routes/favoris'
 import { Route as LivraisonRouteImport } from './routes/livraison'
+import { Route as MagasinRouteImport } from './routes/magasin'
 import { Route as MentionsLegalesRouteImport } from './routes/mentions-legales'
+import { Route as MreRouteImport } from './routes/mre'
 import { Route as PanierRouteImport } from './routes/panier'
+import { Route as PolitiqueDeConfidentialiteRouteImport } from './routes/politique-de-confidentialite'
+import { Route as QuiSommesNousRouteImport } from './routes/qui-sommes-nous'
+import { Route as RechercheRouteImport } from './routes/recherche'
+import { Route as ServicesRouteImport } from './routes/services'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as SuiviCommandeRouteImport } from './routes/suivi-commande'
 import { Route as AdminExtensionRouteImport } from './routes/admin_.extension'
 import { Route as AdminImportRouteImport } from './routes/admin_.import'
+import { Route as BesoinAideIndexRouteImport } from './routes/besoin-aide.index'
+import { Route as BesoinAideFaqRouteImport } from './routes/besoin-aide.faq'
+import { Route as BesoinAideNousContacterRouteImport } from './routes/besoin-aide.nous-contacter'
+import { Route as ConseilsIndexRouteImport } from './routes/conseils.index'
+import { Route as ConseilsSlugRouteImport } from './routes/conseils.$slug'
+import { Route as MarquesIndexRouteImport } from './routes/marques.index'
+import { Route as MarquesSlugRouteImport } from './routes/marques.$slug'
 import { Route as ProduitsIndexRouteImport } from './routes/produits.index'
 import { Route as ProduitsSplatRouteImport } from './routes/produits.$'
 import { Route as ApiAdminCheckImageRouteImport } from './routes/api/admin/check-image'
@@ -43,6 +60,22 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CommentCommanderRoute = CommentCommanderRouteImport.update({
+  id: '/comment-commander',
+  path: '/comment-commander',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComparateurRoute = ComparateurRouteImport.update({
+  id: '/comparateur',
+  path: '/comparateur',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConditionsGeneralesDeVenteRoute =
+  ConditionsGeneralesDeVenteRouteImport.update({
+    id: '/conditions-generales-de-vente',
+    path: '/conditions-generales-de-vente',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
@@ -58,9 +91,19 @@ const LivraisonRoute = LivraisonRouteImport.update({
   path: '/livraison',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MagasinRoute = MagasinRouteImport.update({
+  id: '/magasin',
+  path: '/magasin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MentionsLegalesRoute = MentionsLegalesRouteImport.update({
   id: '/mentions-legales',
   path: '/mentions-legales',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MreRoute = MreRouteImport.update({
+  id: '/mre',
+  path: '/mre',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PanierRoute = PanierRouteImport.update({
@@ -68,9 +111,35 @@ const PanierRoute = PanierRouteImport.update({
   path: '/panier',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PolitiqueDeConfidentialiteRoute =
+  PolitiqueDeConfidentialiteRouteImport.update({
+    id: '/politique-de-confidentialite',
+    path: '/politique-de-confidentialite',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const QuiSommesNousRoute = QuiSommesNousRouteImport.update({
+  id: '/qui-sommes-nous',
+  path: '/qui-sommes-nous',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RechercheRoute = RechercheRouteImport.update({
+  id: '/recherche',
+  path: '/recherche',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ServicesRoute = ServicesRouteImport.update({
+  id: '/services',
+  path: '/services',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SuiviCommandeRoute = SuiviCommandeRouteImport.update({
+  id: '/suivi-commande',
+  path: '/suivi-commande',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminExtensionRoute = AdminExtensionRouteImport.update({
@@ -81,6 +150,41 @@ const AdminExtensionRoute = AdminExtensionRouteImport.update({
 const AdminImportRoute = AdminImportRouteImport.update({
   id: '/admin_/import',
   path: '/admin/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BesoinAideIndexRoute = BesoinAideIndexRouteImport.update({
+  id: '/besoin-aide/',
+  path: '/besoin-aide/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BesoinAideFaqRoute = BesoinAideFaqRouteImport.update({
+  id: '/besoin-aide/faq',
+  path: '/besoin-aide/faq',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BesoinAideNousContacterRoute = BesoinAideNousContacterRouteImport.update({
+  id: '/besoin-aide/nous-contacter',
+  path: '/besoin-aide/nous-contacter',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConseilsIndexRoute = ConseilsIndexRouteImport.update({
+  id: '/conseils/',
+  path: '/conseils/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConseilsSlugRoute = ConseilsSlugRouteImport.update({
+  id: '/conseils/$slug',
+  path: '/conseils/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarquesIndexRoute = MarquesIndexRouteImport.update({
+  id: '/marques/',
+  path: '/marques/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarquesSlugRoute = MarquesSlugRouteImport.update({
+  id: '/marques/$slug',
+  path: '/marques/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProduitsIndexRoute = ProduitsIndexRouteImport.update({
@@ -124,15 +228,32 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
+  '/comment-commander': typeof CommentCommanderRoute
+  '/comparateur': typeof ComparateurRoute
+  '/conditions-generales-de-vente': typeof ConditionsGeneralesDeVenteRoute
   '/contact': typeof ContactRoute
   '/favoris': typeof FavorisRoute
   '/livraison': typeof LivraisonRoute
+  '/magasin': typeof MagasinRoute
   '/mentions-legales': typeof MentionsLegalesRoute
+  '/mre': typeof MreRoute
   '/panier': typeof PanierRoute
+  '/politique-de-confidentialite': typeof PolitiqueDeConfidentialiteRoute
+  '/qui-sommes-nous': typeof QuiSommesNousRoute
+  '/recherche': typeof RechercheRoute
+  '/services': typeof ServicesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/suivi-commande': typeof SuiviCommandeRoute
   '/admin/extension': typeof AdminExtensionRoute
   '/admin/import': typeof AdminImportRoute
+  '/besoin-aide/faq': typeof BesoinAideFaqRoute
+  '/besoin-aide/nous-contacter': typeof BesoinAideNousContacterRoute
+  '/conseils/$slug': typeof ConseilsSlugRoute
+  '/marques/$slug': typeof MarquesSlugRoute
   '/produits/$': typeof ProduitsSplatRoute
+  '/besoin-aide/': typeof BesoinAideIndexRoute
+  '/conseils/': typeof ConseilsIndexRoute
+  '/marques/': typeof MarquesIndexRoute
   '/produits/': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
   '/api/public/ghandi-import': typeof ApiPublicGhandiImportRoute
@@ -144,15 +265,32 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
+  '/comment-commander': typeof CommentCommanderRoute
+  '/comparateur': typeof ComparateurRoute
+  '/conditions-generales-de-vente': typeof ConditionsGeneralesDeVenteRoute
   '/contact': typeof ContactRoute
   '/favoris': typeof FavorisRoute
   '/livraison': typeof LivraisonRoute
+  '/magasin': typeof MagasinRoute
   '/mentions-legales': typeof MentionsLegalesRoute
+  '/mre': typeof MreRoute
   '/panier': typeof PanierRoute
+  '/politique-de-confidentialite': typeof PolitiqueDeConfidentialiteRoute
+  '/qui-sommes-nous': typeof QuiSommesNousRoute
+  '/recherche': typeof RechercheRoute
+  '/services': typeof ServicesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/suivi-commande': typeof SuiviCommandeRoute
   '/admin/extension': typeof AdminExtensionRoute
   '/admin/import': typeof AdminImportRoute
+  '/besoin-aide/faq': typeof BesoinAideFaqRoute
+  '/besoin-aide/nous-contacter': typeof BesoinAideNousContacterRoute
+  '/conseils/$slug': typeof ConseilsSlugRoute
+  '/marques/$slug': typeof MarquesSlugRoute
   '/produits/$': typeof ProduitsSplatRoute
+  '/besoin-aide': typeof BesoinAideIndexRoute
+  '/conseils': typeof ConseilsIndexRoute
+  '/marques': typeof MarquesIndexRoute
   '/produits': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
   '/api/public/ghandi-import': typeof ApiPublicGhandiImportRoute
@@ -165,15 +303,32 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
+  '/comment-commander': typeof CommentCommanderRoute
+  '/comparateur': typeof ComparateurRoute
+  '/conditions-generales-de-vente': typeof ConditionsGeneralesDeVenteRoute
   '/contact': typeof ContactRoute
   '/favoris': typeof FavorisRoute
   '/livraison': typeof LivraisonRoute
+  '/magasin': typeof MagasinRoute
   '/mentions-legales': typeof MentionsLegalesRoute
+  '/mre': typeof MreRoute
   '/panier': typeof PanierRoute
+  '/politique-de-confidentialite': typeof PolitiqueDeConfidentialiteRoute
+  '/qui-sommes-nous': typeof QuiSommesNousRoute
+  '/recherche': typeof RechercheRoute
+  '/services': typeof ServicesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/suivi-commande': typeof SuiviCommandeRoute
   '/admin_/extension': typeof AdminExtensionRoute
   '/admin_/import': typeof AdminImportRoute
+  '/besoin-aide/faq': typeof BesoinAideFaqRoute
+  '/besoin-aide/nous-contacter': typeof BesoinAideNousContacterRoute
+  '/conseils/$slug': typeof ConseilsSlugRoute
+  '/marques/$slug': typeof MarquesSlugRoute
   '/produits/$': typeof ProduitsSplatRoute
+  '/besoin-aide/': typeof BesoinAideIndexRoute
+  '/conseils/': typeof ConseilsIndexRoute
+  '/marques/': typeof MarquesIndexRoute
   '/produits/': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
   '/api/public/ghandi-import': typeof ApiPublicGhandiImportRoute
@@ -187,15 +342,32 @@ export interface FileRouteTypes {
     | '/'
     | '/a-propos'
     | '/admin'
+    | '/comment-commander'
+    | '/comparateur'
+    | '/conditions-generales-de-vente'
     | '/contact'
     | '/favoris'
     | '/livraison'
+    | '/magasin'
     | '/mentions-legales'
+    | '/mre'
     | '/panier'
+    | '/politique-de-confidentialite'
+    | '/qui-sommes-nous'
+    | '/recherche'
+    | '/services'
     | '/sitemap.xml'
+    | '/suivi-commande'
     | '/admin/extension'
     | '/admin/import'
+    | '/besoin-aide/faq'
+    | '/besoin-aide/nous-contacter'
+    | '/conseils/$slug'
+    | '/marques/$slug'
     | '/produits/$'
+    | '/besoin-aide/'
+    | '/conseils/'
+    | '/marques/'
     | '/produits/'
     | '/api/admin/check-image'
     | '/api/public/ghandi-import'
@@ -207,15 +379,32 @@ export interface FileRouteTypes {
     | '/'
     | '/a-propos'
     | '/admin'
+    | '/comment-commander'
+    | '/comparateur'
+    | '/conditions-generales-de-vente'
     | '/contact'
     | '/favoris'
     | '/livraison'
+    | '/magasin'
     | '/mentions-legales'
+    | '/mre'
     | '/panier'
+    | '/politique-de-confidentialite'
+    | '/qui-sommes-nous'
+    | '/recherche'
+    | '/services'
     | '/sitemap.xml'
+    | '/suivi-commande'
     | '/admin/extension'
     | '/admin/import'
+    | '/besoin-aide/faq'
+    | '/besoin-aide/nous-contacter'
+    | '/conseils/$slug'
+    | '/marques/$slug'
     | '/produits/$'
+    | '/besoin-aide'
+    | '/conseils'
+    | '/marques'
     | '/produits'
     | '/api/admin/check-image'
     | '/api/public/ghandi-import'
@@ -227,15 +416,32 @@ export interface FileRouteTypes {
     | '/'
     | '/a-propos'
     | '/admin'
+    | '/comment-commander'
+    | '/comparateur'
+    | '/conditions-generales-de-vente'
     | '/contact'
     | '/favoris'
     | '/livraison'
+    | '/magasin'
     | '/mentions-legales'
+    | '/mre'
     | '/panier'
+    | '/politique-de-confidentialite'
+    | '/qui-sommes-nous'
+    | '/recherche'
+    | '/services'
     | '/sitemap.xml'
+    | '/suivi-commande'
     | '/admin_/extension'
     | '/admin_/import'
+    | '/besoin-aide/faq'
+    | '/besoin-aide/nous-contacter'
+    | '/conseils/$slug'
+    | '/marques/$slug'
     | '/produits/$'
+    | '/besoin-aide/'
+    | '/conseils/'
+    | '/marques/'
     | '/produits/'
     | '/api/admin/check-image'
     | '/api/public/ghandi-import'
@@ -248,15 +454,32 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AProposRoute: typeof AProposRoute
   AdminRoute: typeof AdminRoute
+  CommentCommanderRoute: typeof CommentCommanderRoute
+  ComparateurRoute: typeof ComparateurRoute
+  ConditionsGeneralesDeVenteRoute: typeof ConditionsGeneralesDeVenteRoute
   ContactRoute: typeof ContactRoute
   FavorisRoute: typeof FavorisRoute
   LivraisonRoute: typeof LivraisonRoute
+  MagasinRoute: typeof MagasinRoute
   MentionsLegalesRoute: typeof MentionsLegalesRoute
+  MreRoute: typeof MreRoute
   PanierRoute: typeof PanierRoute
+  PolitiqueDeConfidentialiteRoute: typeof PolitiqueDeConfidentialiteRoute
+  QuiSommesNousRoute: typeof QuiSommesNousRoute
+  RechercheRoute: typeof RechercheRoute
+  ServicesRoute: typeof ServicesRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  SuiviCommandeRoute: typeof SuiviCommandeRoute
   AdminExtensionRoute: typeof AdminExtensionRoute
   AdminImportRoute: typeof AdminImportRoute
+  BesoinAideFaqRoute: typeof BesoinAideFaqRoute
+  BesoinAideNousContacterRoute: typeof BesoinAideNousContacterRoute
+  ConseilsSlugRoute: typeof ConseilsSlugRoute
+  MarquesSlugRoute: typeof MarquesSlugRoute
   ProduitsSplatRoute: typeof ProduitsSplatRoute
+  BesoinAideIndexRoute: typeof BesoinAideIndexRoute
+  ConseilsIndexRoute: typeof ConseilsIndexRoute
+  MarquesIndexRoute: typeof MarquesIndexRoute
   ProduitsIndexRoute: typeof ProduitsIndexRoute
   ApiAdminCheckImageRoute: typeof ApiAdminCheckImageRoute
   ApiPublicGhandiImportRoute: typeof ApiPublicGhandiImportRoute
@@ -288,6 +511,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/comment-commander': {
+      id: '/comment-commander'
+      path: '/comment-commander'
+      fullPath: '/comment-commander'
+      preLoaderRoute: typeof CommentCommanderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/comparateur': {
+      id: '/comparateur'
+      path: '/comparateur'
+      fullPath: '/comparateur'
+      preLoaderRoute: typeof ComparateurRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/conditions-generales-de-vente': {
+      id: '/conditions-generales-de-vente'
+      path: '/conditions-generales-de-vente'
+      fullPath: '/conditions-generales-de-vente'
+      preLoaderRoute: typeof ConditionsGeneralesDeVenteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/contact': {
       id: '/contact'
       path: '/contact'
@@ -309,11 +553,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LivraisonRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/magasin': {
+      id: '/magasin'
+      path: '/magasin'
+      fullPath: '/magasin'
+      preLoaderRoute: typeof MagasinRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mentions-legales': {
       id: '/mentions-legales'
       path: '/mentions-legales'
       fullPath: '/mentions-legales'
       preLoaderRoute: typeof MentionsLegalesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mre': {
+      id: '/mre'
+      path: '/mre'
+      fullPath: '/mre'
+      preLoaderRoute: typeof MreRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/panier': {
@@ -323,11 +581,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PanierRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/politique-de-confidentialite': {
+      id: '/politique-de-confidentialite'
+      path: '/politique-de-confidentialite'
+      fullPath: '/politique-de-confidentialite'
+      preLoaderRoute: typeof PolitiqueDeConfidentialiteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/qui-sommes-nous': {
+      id: '/qui-sommes-nous'
+      path: '/qui-sommes-nous'
+      fullPath: '/qui-sommes-nous'
+      preLoaderRoute: typeof QuiSommesNousRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recherche': {
+      id: '/recherche'
+      path: '/recherche'
+      fullPath: '/recherche'
+      preLoaderRoute: typeof RechercheRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/services': {
+      id: '/services'
+      path: '/services'
+      fullPath: '/services'
+      preLoaderRoute: typeof ServicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/suivi-commande': {
+      id: '/suivi-commande'
+      path: '/suivi-commande'
+      fullPath: '/suivi-commande'
+      preLoaderRoute: typeof SuiviCommandeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin_/extension': {
@@ -342,6 +635,55 @@ declare module '@tanstack/react-router' {
       path: '/admin/import'
       fullPath: '/admin/import'
       preLoaderRoute: typeof AdminImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/besoin-aide/': {
+      id: '/besoin-aide/'
+      path: '/besoin-aide'
+      fullPath: '/besoin-aide/'
+      preLoaderRoute: typeof BesoinAideIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/besoin-aide/faq': {
+      id: '/besoin-aide/faq'
+      path: '/besoin-aide/faq'
+      fullPath: '/besoin-aide/faq'
+      preLoaderRoute: typeof BesoinAideFaqRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/besoin-aide/nous-contacter': {
+      id: '/besoin-aide/nous-contacter'
+      path: '/besoin-aide/nous-contacter'
+      fullPath: '/besoin-aide/nous-contacter'
+      preLoaderRoute: typeof BesoinAideNousContacterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/conseils/': {
+      id: '/conseils/'
+      path: '/conseils'
+      fullPath: '/conseils/'
+      preLoaderRoute: typeof ConseilsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/conseils/$slug': {
+      id: '/conseils/$slug'
+      path: '/conseils/$slug'
+      fullPath: '/conseils/$slug'
+      preLoaderRoute: typeof ConseilsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marques/': {
+      id: '/marques/'
+      path: '/marques'
+      fullPath: '/marques/'
+      preLoaderRoute: typeof MarquesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marques/$slug': {
+      id: '/marques/$slug'
+      path: '/marques/$slug'
+      fullPath: '/marques/$slug'
+      preLoaderRoute: typeof MarquesSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/produits/': {
@@ -400,15 +742,32 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AProposRoute: AProposRoute,
   AdminRoute: AdminRoute,
+  CommentCommanderRoute: CommentCommanderRoute,
+  ComparateurRoute: ComparateurRoute,
+  ConditionsGeneralesDeVenteRoute: ConditionsGeneralesDeVenteRoute,
   ContactRoute: ContactRoute,
   FavorisRoute: FavorisRoute,
   LivraisonRoute: LivraisonRoute,
+  MagasinRoute: MagasinRoute,
   MentionsLegalesRoute: MentionsLegalesRoute,
+  MreRoute: MreRoute,
   PanierRoute: PanierRoute,
+  PolitiqueDeConfidentialiteRoute: PolitiqueDeConfidentialiteRoute,
+  QuiSommesNousRoute: QuiSommesNousRoute,
+  RechercheRoute: RechercheRoute,
+  ServicesRoute: ServicesRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  SuiviCommandeRoute: SuiviCommandeRoute,
   AdminExtensionRoute: AdminExtensionRoute,
   AdminImportRoute: AdminImportRoute,
+  BesoinAideFaqRoute: BesoinAideFaqRoute,
+  BesoinAideNousContacterRoute: BesoinAideNousContacterRoute,
+  ConseilsSlugRoute: ConseilsSlugRoute,
+  MarquesSlugRoute: MarquesSlugRoute,
   ProduitsSplatRoute: ProduitsSplatRoute,
+  BesoinAideIndexRoute: BesoinAideIndexRoute,
+  ConseilsIndexRoute: ConseilsIndexRoute,
+  MarquesIndexRoute: MarquesIndexRoute,
   ProduitsIndexRoute: ProduitsIndexRoute,
   ApiAdminCheckImageRoute: ApiAdminCheckImageRoute,
   ApiPublicGhandiImportRoute: ApiPublicGhandiImportRoute,

@@ -440,7 +440,7 @@ export function CatalogExplorer({
                 onClick={() => setCurrentId(node.id)}
                 className="min-w-0 flex-1 text-start"
               >
-                <p className="truncate font-semibold">{node.name}</p>
+                <p className={`truncate font-semibold ${count === 0 ? "opacity-50" : ""}`}>{node.name}{count === 0 && <span className="ms-1 text-xs font-normal">(vide)</span>}</p>
                 <p className="text-xs text-foreground/55">
                   {LEVEL_LABELS[node.level]} · {subCount} sous-dossier(s) · {count} produit(s)
                   {!node.image_url && " · sans image"}

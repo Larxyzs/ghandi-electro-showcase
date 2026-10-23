@@ -16,6 +16,8 @@ export type CreateOrderInput = {
   address: string;
   city: string;
   note?: string;
+  delivery_mode?: string;
+  email?: string;
   items: { product_id: string; qty: number }[];
 };
 
@@ -28,7 +30,10 @@ export async function createOrder(input: CreateOrderInput): Promise<{ reference:
   const note = (input.note ?? "").trim();
 
   if (full_name.length < 2) throw new Error("INVALID_NAME");
-  if (address.length < 3) throw new Error("INVALID_ADDRESS");
+  const delivery_mode = input.delivery_mode === "retrait" ? "retrait" : "livraison";
+  const email = (input.email ?? "").trim().slice(0, 200);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("INVALID_EMAIL");
+  if (delivery_mode === "livraison" && address.length < 3) throw new Error("INVALID_ADDRESS");
 
   const phone = normalizeMaPhone(input.phone ?? "");
   if (!phone) throw new Error("INVALID_PHONE");
@@ -71,8 +76,10 @@ export async function createOrder(input: CreateOrderInput): Promise<{ reference:
     reference,
     full_name,
     phone,
-    address,
-    city: city || "Casablanca",
+    address: delivery_mode === "retrait" ? "Retrait au magasin" : address,
+    city: delivery_mode === "retrait" ? "Casablanca" : city || "Casablanca",
+    delivery_mode,
+    email,
     note,
     items: items as never,
     total,
@@ -82,6 +89,38 @@ export async function createOrder(input: CreateOrderInput): Promise<{ reference:
   if (insertError) throw new Error(insertError.message);
 
   return { reference };
+}
+
+const TRACK_ERROR = "Nous ne trouvons pas cette commande. Vérifiez le numéro et le téléphone.";
+
+export type TrackedOrder = {
+  reference: string;
+  created_at: string;
+  status: OrderStatus;
+  delivery_mode: string;
+  items: { name: string; qty: number }[];
+};
+
+/** Public order lookup: reference + phone (digits only, last 9 compared). */
+export async function trackOrder(reference: string, phone: string): Promise<{ ok: true; order: TrackedOrder } | { ok: false; error: string }> {
+  const { allowAction } = await import("./rate-limit.server");
+  if (!(await allowAction("track", 10, 60))) return { ok: false, error: "Trop d'essais. Réessayez dans une heure." };
+  const ref = reference.trim().toUpperCase();
+  const digits = phone.replace(/\D/g, "").slice(-9);
+  if (!ref || digits.length < 9) return { ok: false, error: TRACK_ERROR };
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin.from("orders").select("reference, created_at, status, delivery_mode, items, phone").eq("reference", ref).maybeSingle();
+  if (!data || data.phone.replace(/\D/g, "").slice(-9) !== digits) return { ok: false, error: TRACK_ERROR };
+  return {
+    ok: true,
+    order: {
+      reference: data.reference,
+      created_at: data.created_at,
+      status: data.status as OrderStatus,
+      delivery_mode: data.delivery_mode,
+      items: ((data.items ?? []) as unknown as OrderItem[]).map((i) => ({ name: `${i.brand ? `${i.brand} ` : ""}${i.name}`, qty: i.qty })),
+    },
+  };
 }
 
 export async function listOrders(): Promise<Order[]> {

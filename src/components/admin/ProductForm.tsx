@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { LEVEL_LABELS, nodeIdsOf, type NodeLevel, type Product } from "@/lib/catalog-types";
 import { BRAND_NAMES } from "@/lib/brands";
+import { useLoaderData } from "@tanstack/react-router";
+import type { SiteData } from "@/lib/catalog-types";
 import { ImagePicker } from "@/components/admin/ImagePicker";
 
 export type ProductDraft = {
@@ -71,6 +73,7 @@ export function ProductForm({
   onCancel: () => void;
   onSave: (draft: ProductDraft & { node_id: string; folders: FolderDraft[] }) => Promise<void>;
 }) {
+  const brandNames = ((useLoaderData({ from: "__root__" }) as SiteData | undefined)?.brands ?? []).map((b) => b.name);
   const [folders, setFolders] = useState<FolderDraft[]>(() =>
     (folderLevels ?? []).map(() => ({ name: "" })),
   );
@@ -277,7 +280,7 @@ export function ProductForm({
             placeholder="ex. Samsung"
           />
           <datalist id="ghe-brands">
-            {BRAND_NAMES.map((b) => (
+            {Array.from(new Set([...BRAND_NAMES, ...brandNames])).map((b) => (
               <option key={b} value={b} />
             ))}
           </datalist>

@@ -212,10 +212,11 @@ export const adminDeleteProduct = createServerFn({ method: "POST" })
   });
 
 export const adminSaveSettings = createServerFn({ method: "POST" })
-  .inputValidator((data: { primary_color: string; secondary_color: string; text_color: string }) => ({
+  .inputValidator((data: { primary_color: string; secondary_color: string; text_color: string; page_color?: string }) => ({
     primary_color: String(data.primary_color),
     secondary_color: String(data.secondary_color),
     text_color: String(data.text_color),
+    page_color: String(data.page_color ?? "#F2F4F5"),
   }))
   .handler(async ({ data }) => {
     const { saveSettings } = await import("./admin.server");

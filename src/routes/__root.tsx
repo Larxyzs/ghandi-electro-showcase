@@ -16,33 +16,15 @@ import { getSiteData } from "../lib/catalog.functions";
 import { DEFAULT_SETTINGS } from "../lib/catalog-types";
 import { SiteTheme } from "../components/SiteTheme";
 import { SiteModeGate } from "../components/SiteModeGate";
-import { ScrollProgress } from "../components/ScrollProgress";
 import { I18nProvider } from "../lib/i18n";
 import { CartProvider } from "../lib/cart";
 import { LiveEditProvider } from "../lib/live-edit";
 import { Toaster } from "@/components/ui/sonner";
+import { FrenchNotFound } from "@/components/NotFoundPage";
 
 
 function NotFoundComponent() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
-        <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Go home
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
+  return <FrenchNotFound />;
 }
 
 function ErrorComponent({ error, reset }: ErrorComponentProps) {
@@ -98,7 +80,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     try {
       return await getSiteData();
     } catch {
-      return { settings: DEFAULT_SETTINGS, nodes: [], products: [], popularSearches: [] };
+      return { settings: DEFAULT_SETTINGS, nodes: [], products: [], popularSearches: [], brands: [] };
     }
   },
   head: () => ({
@@ -130,7 +112,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap",
       },
     ],
   }),
@@ -142,7 +124,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="fr">
       <head>
         <HeadContent />
       </head>
@@ -176,7 +158,6 @@ function RootComponent() {
         <CartProvider>
           <LiveEditProvider>
             <SiteTheme settings={data?.settings ?? DEFAULT_SETTINGS} />
-            <ScrollProgress />
             <SiteModeGate mode={data?.settings?.site_mode ?? "online"}>
               {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
               <Outlet />
