@@ -13,7 +13,7 @@ export function wholePrice(value: string) { return Number(value.replace(/\s/g, '
 export function integerDH(value: number | null) { return `${Math.round(value ?? 0).toLocaleString('fr-FR')} DH`; }
 export type PriceStockState = { name: string; price: number | null; stock: number; availability: Availability; updated_at: string };
 export type PriceStockProduct = PriceStockState & { id: string; brand: string; model: string | null; serial_number: string; node_id: string; image_url: string | null };
-export type PriceStockPatch = Partial<Pick<PriceStockState, 'name' | 'price' | 'stock' | 'availability'>>;
-export type PriceStockSave = { id: string; patch: PriceStockPatch; expected: string; operation: string; confirmed?: boolean };
-export type PriceStockChange = { id: string; product_id: string | null; champ: string; ancienne_valeur: unknown; nouvelle_valeur: unknown; admin_email: string; created_at: string; reference: string; product_name: string; image_url: string | null; before_state: PriceStockState; after_state: PriceStockState };
+export type PriceStockPatch = { name?: string | undefined; price?: number | null | undefined; stock?: number | undefined; availability?: Availability | undefined };
+export type PriceStockSave = { id: string; patch: PriceStockPatch; expected: string; operation: string; confirmed?: boolean | undefined };
+export type PriceStockChange = { id: string; product_id: string | null; champ: string; ancienne_valeur: string | number | null; nouvelle_valeur: string | number | null; admin_email: string; created_at: string; reference: string; product_name: string; image_url: string | null; before_state: PriceStockState; after_state: PriceStockState };
 export const availabilityRank = (p: { availability?: string; stock: number | null }) => ({ in_stock: 0, on_request: 1, out_of_stock: 2 })[availabilityOf(p)];

@@ -4,8 +4,7 @@ import { useServerFn } from '@tanstack/react-start';
 import { Tag, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PriceStockCard } from '@/components/admin/PriceStockCard';
-import { downloadPriceBackup, getPriceStock, getPriceStockHistory, priceStockAccess, revertPriceStock, updatePriceStock } from '@/lib/price-stock.functions';
-import { adminGoogleLogin } from '@/lib/admin.functions';
+import { downloadPriceBackup, getPriceStock, getPriceStockHistory, priceStockAccess, priceStockGoogleLogin, revertPriceStock, updatePriceStock } from '@/lib/price-stock.functions';
 import { lovable } from '@/integrations/lovable';
 import { supabase } from '@/integrations/supabase/client';
 import { integerDH, type PriceStockChange, type PriceStockProduct, type PriceStockState } from '@/lib/price-stock';
@@ -25,7 +24,7 @@ type Data = Awaited<ReturnType<typeof getPriceStock>>;
 type Speech = { lang: string; start: () => void; onresult: ((event: { results: { transcript: string }[][] }) => void) | null; onend: (() => void) | null; onerror: (() => void) | null };
 function PriceStockPage() {
   const access = useServerFn(priceStockAccess);
-  const google = useServerFn(adminGoogleLogin);
+  const google = useServerFn(priceStockGoogleLogin);
   const load = useServerFn(getPriceStock);
   const save = useServerFn(updatePriceStock);
   const history = useServerFn(getPriceStockHistory);

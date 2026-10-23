@@ -28,7 +28,7 @@ export function addProductToCart(
       price_on_request: !product.price,
       image_url: product.image_url,
       stock: product.stock,
-      availability: product.availability,
+      availability: availabilityOf(product),
     },
     qty,
   );

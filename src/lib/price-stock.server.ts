@@ -12,7 +12,7 @@ export async function priceStockAdmin() {
   if (error || !data || !['super', 'staff'].includes(data.role)) throw new Error('UNAUTHORIZED');
   return { db, email: data.email, role: data.role };
 }
-export async function listPriceStock(input: { q?: string; filter?: string; node?: string; brand?: string; offset?: number }) {
+export async function listPriceStock(input: { q?: string | undefined; filter?: string | undefined; node?: string | undefined; brand?: string | undefined; offset?: number | undefined }) {
   const { db, email } = await priceStockAdmin();
   const nodes = await db.from('catalog_nodes').select('id,name,parent_id,level').order('sort_order');
   const links = await db.from('product_nodes').select('product_id,node_id');
@@ -44,12 +44,12 @@ export async function savePriceStock(input: PriceStockSave) {
   const { db, email } = await priceStockAdmin();
   const patch = { ...input.patch };
   if (patch.name !== undefined) { patch.name = patch.name.trim(); if ((patch.name.match(/\p{L}/gu) ?? []).length < 3) throw new Error('Le nom ne peut pas être vide'); }
-  if (patch.price !== undefined && (patch.price === null || !Number.isSafeInteger(patch.price) || patch.price < 0)) throw new Error('Tapez un prix entier positif.');
+  if (patch.price !== undefined && patch.price !== null && (!Number.isSafeInteger(patch.price) || patch.price < 0)) throw new Error('Tapez un prix entier positif.');
   if (patch.availability && !['in_stock','out_of_stock','on_request'].includes(patch.availability)) throw new Error('Disponibilité invalide.');
   if (patch.stock !== undefined && (!Number.isSafeInteger(patch.stock) || patch.stock < 0)) throw new Error('Quantité invalide.');
   const r = await db.from('products').select('price').eq('id', input.id).single();
   if (r.error) throw new Error('Produit introuvable.');
-  if (patch.price !== undefined && needsPriceConfirmation(r.data.price, patch.price) && !input.confirmed) return { confirmation: true as const };
+  if (patch.price !== undefined && patch.price !== null && needsPriceConfirmation(r.data.price, patch.price) && !input.confirmed) return { confirmation: true as const };
   const { data, error } = await db.rpc('save_product_price_stock', { _id: input.id, _patch: patch as Json, _expected: input.expected, _email: email, _operation: input.operation });
   if (error) throw new Error(error.message);
   return { confirmation: false as const, ...(data as unknown as { state: PriceStockState; before?: PriceStockState }) };
