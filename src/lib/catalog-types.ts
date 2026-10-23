@@ -388,9 +388,9 @@ export function ancestorAtLevel(nodes: CatalogNode[], nodeId: string, level: Nod
 
 export const DEFAULT_SETTINGS: SiteSettings = {
   primary_color: "#FFFFFF",
-  secondary_color: "#EEB111",
-  text_color: "#222222",
+  secondary_color: "#1266e8",
+  text_color: "#0f172a",
   site_mode: "online",
-  page_color: "#F2F4F5",
+  page_color: "#FFFFFF",
   content: {},
 };

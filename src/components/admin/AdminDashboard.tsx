@@ -309,7 +309,7 @@ export function AdminDashboard({
                 <div key={item.key} className="flex items-center gap-4">
                   <input
                     type="color"
-                    value={settings[item.key] ?? "#F2F4F5"}
+                    value={settings[item.key] ?? "#FFFFFF"}
                     onChange={(e) => setSettings((s) => ({ ...s, [item.key]: e.target.value }))}
                     className="h-11 w-16 cursor-pointer rounded-lg border border-border bg-background"
                   />
@@ -338,9 +338,9 @@ export function AdminDashboard({
                   setSettings((prev) => ({
                     ...prev,
                     primary_color: "#FFFFFF",
-                    secondary_color: "#EEB111",
-                    text_color: "#222222",
-                    page_color: "#F2F4F5",
+                    secondary_color: "#1266e8",
+                    text_color: "#0f172a",
+                    page_color: "#FFFFFF",
                   }))
                 }
                 className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold"

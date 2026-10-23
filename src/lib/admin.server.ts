@@ -695,7 +695,7 @@ export async function saveSettings(input: {
 }) {
   const db = await requireAdmin();
   const hex = /^#[0-9a-fA-F]{6}$/;
-  for (const value of [input.primary_color, input.secondary_color, input.text_color, input.page_color ?? "#F2F4F5"]) {
+  for (const value of [input.primary_color, input.secondary_color, input.text_color, input.page_color ?? "#FFFFFF"]) {
     if (!hex.test(value)) throw new Error("INVALID_COLOR");
   }
   const { error } = await db
