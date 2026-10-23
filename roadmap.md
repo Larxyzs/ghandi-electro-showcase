@@ -1,16 +1,14 @@
 # Roadmap
 
-- [x] Verify and repair the four stored failing SEO findings.
+## Electroplanet-style rebuild (from LOVABLE-PROMPT-ELECTROPLANET.md)
+- [x] Part 1: colors/fonts, top bar, header, mega menu, phone menu, footer, newsletter
+- [x] Part 2: new category tree, redirects of old addresses, hidden empty categories, category fields
+- [x] Part 3: product card, category pages with filters, search page, brand pages, comparator
+- [x] Part 4: product page, 3-step checkout, order tracking
+- [x] Part 5: home, store, services, help center, FAQ, contact form, guides, MRE, legal pages, 404, admin "Contenu du site", SEO
+- [ ] Part 6 (optional): customer accounts — waiting for the owner to ask for it
+- [ ] Chrome extension: update section names after the new tree — owner to confirm the extension works with the new list
 
-- [x] Speed up inbox imports, photo copying, previews and completion updates; verify duplicate safety.
-
-- [x] New shop layout (top bar, big search, mega-menu, cards, filters, product page, footer)
-- [x] Category tree created, spelling fixed, one phone number
-- [x] Home banners + quick price list in admin
-- [x] Importer: multiple files, paste, section search/create, per-row move, preview, report
-- [x] Orders: products without price/stock can be ordered, WhatsApp summary, statuses Nouvelle/Confirmée/Livrée/Annulée
-- [x] Sitemap
-- [ ] Social links in footer — waiting for the user's Facebook/Instagram links
-- [ ] Sunday hours — assumed "Fermé", waiting for confirmation
-- [ ] Edit opening hours / phone from the admin (currently one place in code)
-- [ ] Extension endpoint calling the import function — user said "later"
+## Earlier
+- [ ] Social links in footer — owner fills them in admin "Contenu du site"
+- [ ] Sunday hours — assumed "Fermé", editable in admin
