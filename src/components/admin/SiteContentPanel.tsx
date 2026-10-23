@@ -156,8 +156,7 @@ export function SiteContentPanel({ data, onSaved }: { data: SiteData; onSaved: (
             <input key={k} className={input} placeholder={`Lien ${k}`} value={c.social?.[k] ?? ""} onChange={(e) => setC({ ...c, social: { ...c.social, [k]: e.target.value } })} />
           ))}
         </div>
-        <button type="button" disabled={busy} className={btn} onClick={() => save({ store: { ...store, week, photos: (initial.store?.photos ? store.photos : store.photos) ?? [] }, social: c.social ?? {} })}>Enregistrer</button>
-        <p className="text-xs text-foreground/55">Note : les photos déjà enregistrées s'affichent ici avec leur lien temporaire ; laissez-les telles quelles.</p>
+        <button type="button" disabled={busy} className={btn} onClick={() => save({ store: { address: store.address ?? "", phone: store.phone ?? "", whatsapp: store.whatsapp ?? "", maps_link: store.maps_link ?? "", week, photos: store.photos ?? [] }, social: c.social ?? {} })}>Enregistrer</button>
       </Card>
 
       <Card title="Services">

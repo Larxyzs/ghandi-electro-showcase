@@ -166,6 +166,6 @@ function resolveContent(raw: unknown, resolve: (v: string | null) => string | nu
     ...c,
     secondary_banners: (c.secondary_banners ?? []).map((b) => ({ ...b, image_path: b.image, image: resolve(b.image) ?? "" })),
   };
-  if (c.store) out.store = { ...c.store, photos: (c.store.photos ?? []).map((p) => resolve(p) ?? "").filter(Boolean) };
+  if (c.store) out.store = { ...c.store, photo_urls: (c.store.photos ?? []).map((p) => resolve(p) ?? "").filter(Boolean) };
   return out;
 }

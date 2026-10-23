@@ -92,7 +92,7 @@ export function resolveCompany(content?: SiteContent): CompanyInfo {
     hours: summarizeWeek(week),
     week,
     whatsappNumber: (st.whatsapp?.trim() || phone).replace(/\D/g, ""),
-    photos: st.photos ?? [],
+    photos: st.photo_urls ?? [],
     social: content?.social ?? {},
   };
 }

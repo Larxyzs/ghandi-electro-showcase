@@ -233,6 +233,8 @@ export type SiteContent = {
     /** index 0 = Monday … 6 = Sunday */
     week?: DayHours[];
     photos?: string[];
+    /** Ready-to-render photo URLs (filled by the server). */
+    photo_urls?: string[];
   };
   social?: { facebook?: string; instagram?: string; tiktok?: string; youtube?: string };
   services?: { key: string; title: string; text: string; enabled: boolean }[];
