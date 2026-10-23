@@ -17,7 +17,7 @@
 - [x] Part 4: product page, 3-step checkout, order tracking
 - [x] Part 5: home, store, services, help center, FAQ, contact form, guides, MRE, legal pages, 404, admin "Contenu du site", SEO
 - [ ] Part 6 (optional): customer accounts — waiting for the owner to ask for it
-- [ ] Chrome extension: update section names after the new tree — owner to confirm the extension works with the new list
+- [x] Chrome extension 3.7.17 sends to the new section names (old names kept as backup)
 
 ## Earlier
 - [ ] Social links in footer — owner fills them in admin "Contenu du site"
