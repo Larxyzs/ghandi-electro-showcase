@@ -12,14 +12,18 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AProposRouteImport } from './routes/a-propos'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as ComparateurRouteImport } from './routes/comparateur'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as FavorisRouteImport } from './routes/favoris'
 import { Route as LivraisonRouteImport } from './routes/livraison'
 import { Route as MentionsLegalesRouteImport } from './routes/mentions-legales'
 import { Route as PanierRouteImport } from './routes/panier'
+import { Route as RechercheRouteImport } from './routes/recherche'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AdminExtensionRouteImport } from './routes/admin_.extension'
 import { Route as AdminImportRouteImport } from './routes/admin_.import'
+import { Route as MarquesIndexRouteImport } from './routes/marques.index'
+import { Route as MarquesSlugRouteImport } from './routes/marques.$slug'
 import { Route as ProduitsIndexRouteImport } from './routes/produits.index'
 import { Route as ProduitsSplatRouteImport } from './routes/produits.$'
 import { Route as ApiAdminCheckImageRouteImport } from './routes/api/admin/check-image'
@@ -41,6 +45,11 @@ const AProposRoute = AProposRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ComparateurRoute = ComparateurRouteImport.update({
+  id: '/comparateur',
+  path: '/comparateur',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactRoute = ContactRouteImport.update({
@@ -68,6 +77,11 @@ const PanierRoute = PanierRouteImport.update({
   path: '/panier',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RechercheRoute = RechercheRouteImport.update({
+  id: '/recherche',
+  path: '/recherche',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
@@ -81,6 +95,16 @@ const AdminExtensionRoute = AdminExtensionRouteImport.update({
 const AdminImportRoute = AdminImportRouteImport.update({
   id: '/admin_/import',
   path: '/admin/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarquesIndexRoute = MarquesIndexRouteImport.update({
+  id: '/marques/',
+  path: '/marques/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarquesSlugRoute = MarquesSlugRouteImport.update({
+  id: '/marques/$slug',
+  path: '/marques/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProduitsIndexRoute = ProduitsIndexRouteImport.update({
@@ -124,15 +148,19 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
+  '/comparateur': typeof ComparateurRoute
   '/contact': typeof ContactRoute
   '/favoris': typeof FavorisRoute
   '/livraison': typeof LivraisonRoute
   '/mentions-legales': typeof MentionsLegalesRoute
   '/panier': typeof PanierRoute
+  '/recherche': typeof RechercheRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/extension': typeof AdminExtensionRoute
   '/admin/import': typeof AdminImportRoute
+  '/marques/$slug': typeof MarquesSlugRoute
   '/produits/$': typeof ProduitsSplatRoute
+  '/marques/': typeof MarquesIndexRoute
   '/produits/': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
   '/api/public/ghandi-import': typeof ApiPublicGhandiImportRoute
@@ -144,15 +172,19 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
+  '/comparateur': typeof ComparateurRoute
   '/contact': typeof ContactRoute
   '/favoris': typeof FavorisRoute
   '/livraison': typeof LivraisonRoute
   '/mentions-legales': typeof MentionsLegalesRoute
   '/panier': typeof PanierRoute
+  '/recherche': typeof RechercheRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/extension': typeof AdminExtensionRoute
   '/admin/import': typeof AdminImportRoute
+  '/marques/$slug': typeof MarquesSlugRoute
   '/produits/$': typeof ProduitsSplatRoute
+  '/marques': typeof MarquesIndexRoute
   '/produits': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
   '/api/public/ghandi-import': typeof ApiPublicGhandiImportRoute
@@ -165,15 +197,19 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/a-propos': typeof AProposRoute
   '/admin': typeof AdminRoute
+  '/comparateur': typeof ComparateurRoute
   '/contact': typeof ContactRoute
   '/favoris': typeof FavorisRoute
   '/livraison': typeof LivraisonRoute
   '/mentions-legales': typeof MentionsLegalesRoute
   '/panier': typeof PanierRoute
+  '/recherche': typeof RechercheRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin_/extension': typeof AdminExtensionRoute
   '/admin_/import': typeof AdminImportRoute
+  '/marques/$slug': typeof MarquesSlugRoute
   '/produits/$': typeof ProduitsSplatRoute
+  '/marques/': typeof MarquesIndexRoute
   '/produits/': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
   '/api/public/ghandi-import': typeof ApiPublicGhandiImportRoute
@@ -187,15 +223,19 @@ export interface FileRouteTypes {
     | '/'
     | '/a-propos'
     | '/admin'
+    | '/comparateur'
     | '/contact'
     | '/favoris'
     | '/livraison'
     | '/mentions-legales'
     | '/panier'
+    | '/recherche'
     | '/sitemap.xml'
     | '/admin/extension'
     | '/admin/import'
+    | '/marques/$slug'
     | '/produits/$'
+    | '/marques/'
     | '/produits/'
     | '/api/admin/check-image'
     | '/api/public/ghandi-import'
@@ -207,15 +247,19 @@ export interface FileRouteTypes {
     | '/'
     | '/a-propos'
     | '/admin'
+    | '/comparateur'
     | '/contact'
     | '/favoris'
     | '/livraison'
     | '/mentions-legales'
     | '/panier'
+    | '/recherche'
     | '/sitemap.xml'
     | '/admin/extension'
     | '/admin/import'
+    | '/marques/$slug'
     | '/produits/$'
+    | '/marques'
     | '/produits'
     | '/api/admin/check-image'
     | '/api/public/ghandi-import'
@@ -227,15 +271,19 @@ export interface FileRouteTypes {
     | '/'
     | '/a-propos'
     | '/admin'
+    | '/comparateur'
     | '/contact'
     | '/favoris'
     | '/livraison'
     | '/mentions-legales'
     | '/panier'
+    | '/recherche'
     | '/sitemap.xml'
     | '/admin_/extension'
     | '/admin_/import'
+    | '/marques/$slug'
     | '/produits/$'
+    | '/marques/'
     | '/produits/'
     | '/api/admin/check-image'
     | '/api/public/ghandi-import'
@@ -248,15 +296,19 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AProposRoute: typeof AProposRoute
   AdminRoute: typeof AdminRoute
+  ComparateurRoute: typeof ComparateurRoute
   ContactRoute: typeof ContactRoute
   FavorisRoute: typeof FavorisRoute
   LivraisonRoute: typeof LivraisonRoute
   MentionsLegalesRoute: typeof MentionsLegalesRoute
   PanierRoute: typeof PanierRoute
+  RechercheRoute: typeof RechercheRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   AdminExtensionRoute: typeof AdminExtensionRoute
   AdminImportRoute: typeof AdminImportRoute
+  MarquesSlugRoute: typeof MarquesSlugRoute
   ProduitsSplatRoute: typeof ProduitsSplatRoute
+  MarquesIndexRoute: typeof MarquesIndexRoute
   ProduitsIndexRoute: typeof ProduitsIndexRoute
   ApiAdminCheckImageRoute: typeof ApiAdminCheckImageRoute
   ApiPublicGhandiImportRoute: typeof ApiPublicGhandiImportRoute
@@ -286,6 +338,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/comparateur': {
+      id: '/comparateur'
+      path: '/comparateur'
+      fullPath: '/comparateur'
+      preLoaderRoute: typeof ComparateurRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contact': {
@@ -323,6 +382,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PanierRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/recherche': {
+      id: '/recherche'
+      path: '/recherche'
+      fullPath: '/recherche'
+      preLoaderRoute: typeof RechercheRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
@@ -342,6 +408,20 @@ declare module '@tanstack/react-router' {
       path: '/admin/import'
       fullPath: '/admin/import'
       preLoaderRoute: typeof AdminImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marques/': {
+      id: '/marques/'
+      path: '/marques'
+      fullPath: '/marques/'
+      preLoaderRoute: typeof MarquesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/marques/$slug': {
+      id: '/marques/$slug'
+      path: '/marques/$slug'
+      fullPath: '/marques/$slug'
+      preLoaderRoute: typeof MarquesSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/produits/': {
@@ -400,15 +480,19 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AProposRoute: AProposRoute,
   AdminRoute: AdminRoute,
+  ComparateurRoute: ComparateurRoute,
   ContactRoute: ContactRoute,
   FavorisRoute: FavorisRoute,
   LivraisonRoute: LivraisonRoute,
   MentionsLegalesRoute: MentionsLegalesRoute,
   PanierRoute: PanierRoute,
+  RechercheRoute: RechercheRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   AdminExtensionRoute: AdminExtensionRoute,
   AdminImportRoute: AdminImportRoute,
+  MarquesSlugRoute: MarquesSlugRoute,
   ProduitsSplatRoute: ProduitsSplatRoute,
+  MarquesIndexRoute: MarquesIndexRoute,
   ProduitsIndexRoute: ProduitsIndexRoute,
   ApiAdminCheckImageRoute: ApiAdminCheckImageRoute,
   ApiPublicGhandiImportRoute: ApiPublicGhandiImportRoute,
