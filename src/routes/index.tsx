@@ -16,9 +16,9 @@ import { ProductCard } from "@/components/ProductCard";
 import { splatOf } from "@/components/HeaderSearch";
 import { COMPANY, WHATSAPP_GENERAL_MESSAGE, useCompany, whatsappLinkTo } from "@/lib/company";
 import { getGuides } from "@/lib/content.functions";
-import { GuideCard } from "@/routes/conseils.index";
+import { GuideCard } from "@/components/GuideCard";
 import { OpenBadge } from "@/components/SiteLayout";
-import { SeoText } from "@/routes/produits.$";
+import { SeoText } from "@/components/SeoText";
 import { useLiveEdit } from "@/lib/live-edit";
 import { useDynamicText } from "@/lib/dynamic-text";
 import {
