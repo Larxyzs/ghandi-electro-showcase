@@ -5,8 +5,10 @@ import { isNewProduct, type Product } from "@/lib/catalog-types";
 import { useDynamicText } from "@/lib/dynamic-text";
 import { useCart } from "@/lib/cart";
 import { cn } from "@/lib/utils";
-import { formatDH, priceRequestMessage, whatsappLink } from "@/lib/company";
+import { formatDH, priceRequestMessage, useCompany, whatsappLinkTo } from "@/lib/company";
 import { toggleFavorite, useFavorites } from "@/lib/favorites";
+import { useCompare } from "@/lib/compare";
+import { keySpecs } from "@/lib/key-specs";
 
 export function addProductToCart(
   add: ReturnType<typeof useCart>["add"],
@@ -27,109 +29,94 @@ export function addProductToCart(
   );
 }
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product, variant = "grid" }: { product: Product; variant?: "grid" | "list" }) {
   const tr = useDynamicText();
   const { add } = useCart();
+  const company = useCompany();
   const favorites = useFavorites();
+  const compare = useCompare();
   const isFav = favorites.includes(product.id);
   const second = product.gallery?.find((g) => g !== product.image_url);
   const reference = product.model || product.serial_number;
+  const list = variant === "list";
+  const specs = keySpecs(product, list ? 5 : 3);
 
   const stop = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
   };
 
+  const actions = (
+    <div className="pointer-events-auto mt-2 flex flex-col gap-1.5">
+      {product.price === null && (
+        <a href={whatsappLinkTo(company.whatsappNumber, priceRequestMessage(product))} target="_blank" rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="rounded-md border border-whatsapp/60 py-1.5 text-center text-xs font-bold text-whatsapp hover:bg-whatsapp/10">
+          Demander le prix
+        </a>
+      )}
+      <button type="button"
+        onClick={(e) => {
+          stop(e);
+          addProductToCart(add, product);
+          toast.success("Ajouté au panier", { description: tr(product.name) });
+        }}
+        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-brand py-2.5 text-xs font-bold text-brand-foreground hover:bg-brand-deep">
+        <ShoppingCart className="h-3.5 w-3.5" /> Ajouter au panier
+      </button>
+      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-2" onClick={(e) => e.stopPropagation()}>
+        <input type="checkbox" checked={compare.has(product.id)} onChange={() => compare.toggle(product.id)} className="accent-brand" />
+        Comparer
+      </label>
+    </div>
+  );
+
+  const price = product.price !== null ? (
+    <p className="text-xl font-bold text-foreground">{formatDH(product.price)}</p>
+  ) : (
+    <p className="text-sm font-bold text-text-2">Prix sur demande</p>
+  );
+
   return (
-    <div
-      className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-soft)]"
-    >
-      <Link to="/produits/article/$productId" params={{ productId: product.id }} aria-label={tr(product.name)} className="absolute inset-0" />
-      <div className="pointer-events-none relative aspect-square overflow-hidden bg-card">
+    <div className={cn("group relative flex h-full overflow-hidden rounded-lg border border-border bg-card p-3 transition hover:border-input hover:shadow-[var(--shadow-hover)]", list ? "flex-row gap-4" : "flex-col")}>
+      <Link to="/produits/article/$productId" params={{ productId: product.id }} aria-label={tr(product.name)} className="absolute inset-0 z-0" />
+      <div className={cn("pointer-events-none relative shrink-0 overflow-hidden bg-card", list ? "aspect-square w-32 sm:w-44" : "aspect-square w-full")}>
         {product.image_url ? (
           <>
-            <img
-              src={product.image_url}
-              alt={tr(product.name)}
-              loading="lazy"
-              className={cn(
-                "h-full w-full object-contain p-4 transition-opacity duration-300",
-                second && "md:group-hover:opacity-0",
-              )}
-            />
+            <img src={product.image_url} alt={tr(product.name)} loading="lazy"
+              className={cn("h-full w-full object-contain transition-opacity duration-300", second && "md:group-hover:opacity-0")} />
             {second && (
-              <img
-                src={second}
-                alt=""
-                loading="lazy"
-                className="absolute inset-0 hidden h-full w-full object-contain p-4 opacity-0 transition-opacity duration-300 md:block md:group-hover:opacity-100"
-              />
+              <img src={second} alt="" loading="lazy"
+                className="absolute inset-0 hidden h-full w-full object-contain opacity-0 transition-opacity duration-300 md:block md:group-hover:opacity-100" />
             )}
           </>
         ) : (
-          <div className="flex h-full items-center justify-center text-brand/40">
-            <PackageSearch className="h-10 w-10" />
-          </div>
+          <div className="flex h-full items-center justify-center text-text-3"><PackageSearch className="h-10 w-10" /></div>
         )}
         {isNewProduct(product) && (
-          <span className="absolute top-2 start-2 rounded bg-brand px-2 py-0.5 text-[0.65rem] font-bold text-primary-foreground uppercase">
-            Nouveau
-          </span>
+          <span className="absolute top-0 start-0 rounded bg-brand px-2 py-0.5 text-[0.65rem] font-bold text-brand-foreground uppercase">Nouveau</span>
         )}
-        <button
-          type="button"
-          aria-label={isFav ? "Retirer des favoris" : "Ajouter aux favoris"}
-          onClick={(e) => {
-            stop(e);
-            toggleFavorite(product.id);
-          }}
-          className="pointer-events-auto absolute top-2 end-2 grid h-8 w-8 place-items-center rounded-full border border-border bg-background/90 text-foreground/60 hover:text-brand"
-        >
-          <Heart className={cn("h-4 w-4", isFav && "fill-brand text-brand")} />
-        </button>
       </div>
+      <button type="button" aria-label={isFav ? "Retirer des favoris" : "Ajouter aux favoris"}
+        onClick={(e) => { stop(e); toggleFavorite(product.id); }}
+        className="absolute top-2 end-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-card text-text-2 hover:text-foreground">
+        <Heart className={cn("h-4 w-4", isFav && "fill-brand text-brand")} />
+      </button>
 
-      <div className="pointer-events-none relative flex flex-1 flex-col gap-1 border-t border-border/60 p-3 sm:p-4">
-        {product.brand && (
-          <p className="text-[0.7rem] font-semibold tracking-wide text-foreground/50 uppercase">
-            {product.brand}
-          </p>
-        )}
-        <h3 className="line-clamp-2 text-sm leading-snug font-semibold group-hover:text-brand">
-          {tr(product.name)}
-        </h3>
-        {reference && <p className="truncate text-xs text-foreground/45">{reference}</p>}
-
-        <div className="mt-auto pt-2">
-          {product.price !== null ? (
-            <p className="text-lg font-bold text-foreground">{formatDH(product.price)}</p>
+      <div className={cn("pointer-events-none relative flex flex-1 gap-1", list ? "flex-col sm:flex-row sm:gap-6" : "flex-col pt-3")}>
+        <div className="min-w-0 flex-1">
+          {product.brand && <p className="text-[0.7rem] font-medium tracking-wide text-text-3 uppercase">{product.brand}</p>}
+          <h3 className="line-clamp-3 text-sm leading-snug font-medium">{tr(product.name)}</h3>
+          {reference && <p className="truncate text-xs text-text-3">{reference}</p>}
+          {specs.length > 0 && (list ? (
+            <ul className="mt-2 list-disc space-y-0.5 ps-4 text-xs text-text-2">{specs.map((s) => <li key={s}>{s}</li>)}</ul>
           ) : (
-            <p className="text-sm font-semibold text-brand-deep">Prix sur demande</p>
-          )}
-            <div className="pointer-events-auto mt-2 flex flex-col gap-1.5">
-            {product.price === null && (
-              <a
-                href={whatsappLink(priceRequestMessage(product))}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="rounded-md border border-whatsapp/50 py-1.5 text-center text-xs font-semibold text-whatsapp hover:bg-whatsapp/10"
-              >
-                Demander le prix
-              </a>
-            )}
-            <button
-              type="button"
-              onClick={(e) => {
-                stop(e);
-                addProductToCart(add, product);
-                toast.success("Ajouté au panier", { description: tr(product.name) });
-              }}
-              className="inline-flex items-center justify-center gap-1.5 rounded-md bg-brand py-2 text-xs font-semibold text-primary-foreground hover:opacity-90"
-            >
-              <ShoppingCart className="h-3.5 w-3.5" /> Ajouter au panier
-            </button>
-          </div>
+            <p className="mt-1 line-clamp-1 text-xs text-text-2">{specs.join(" · ")}</p>
+          ))}
+        </div>
+        <div className={cn(list ? "sm:w-48" : "mt-auto pt-2")}>
+          {price}
+          {actions}
         </div>
       </div>
     </div>
