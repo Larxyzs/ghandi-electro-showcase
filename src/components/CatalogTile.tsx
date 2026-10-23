@@ -13,7 +13,7 @@ const ICONS: [RegExp, LucideIcon][] = [
   [/machine a laver|lave-linge|seche-linge|linge/, WashingMachine],
   [/vaisselle|evier/, Droplets],
   [/televis|tv|telev|ecran/, Tv],
-  [/son|audio/, Speaker],
+  [/\bson\b|barre de son|audio/, Speaker],
   [/climat/, AirVent],
   [/ventil/, Fan],
   [/hotte|air/, Wind],
