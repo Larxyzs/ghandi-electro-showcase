@@ -12,7 +12,7 @@ const CARDS = [
   { to: "/besoin-aide/nous-contacter", Icon: Mail, t: "Nous contacter", s: "Écrivez-nous, nous vous répondons" },
   { to: "/suivi-commande", Icon: PackageSearch, t: "Suivre ma commande", s: "Avec votre numéro et votre téléphone" },
   { to: "/comment-commander", Icon: ListChecks, t: "Comment commander", s: "Les étapes d'une commande" },
-  { to: "/livraison", Icon: Truck, t: "Livraison et retrait", s: "Partout au Maroc ou au magasin" },
+  { to: "/livraison", Icon: Truck, t: "Livraison et retrait", s: "Gratuite à Casablanca, Mohammedia et Dar Bouazza" },
   { to: "/besoin-aide/faq", Icon: Banknote, t: "Paiement", s: "Paiement à la livraison" },
 ] as const;
 

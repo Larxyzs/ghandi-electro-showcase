@@ -40,13 +40,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Téléviseurs, réfrigérateurs, lave-linge, climatiseurs et cuisson à Casablanca. Livraison partout au Maroc, paiement à la livraison.",
+          "Téléviseurs, réfrigérateurs, lave-linge, climatiseurs et cuisson à Casablanca. Livraison gratuite à Casablanca, Mohammedia et Dar Bouazza, paiement à la livraison.",
       },
       { property: "og:title", content: "Ghandi Home Electro | Électroménager et TV à Casablanca" },
       { property: "og:type", content: "website" },
       {
         property: "og:description",
-        content: "Électroménager et TV à Casablanca. Livraison partout au Maroc, paiement à la livraison.",
+        content: "Électroménager et TV à Casablanca. Livraison gratuite à Casablanca, Mohammedia et Dar Bouazza, paiement à la livraison.",
       },
       { name: "twitter:card", content: "summary_large_image" },
     ],

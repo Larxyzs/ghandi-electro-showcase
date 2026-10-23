@@ -88,8 +88,8 @@ function TopBar() {
     <div className="bg-dark text-xs text-primary-foreground [--primary-foreground:#fff]">
       <div className="shell flex h-9 items-center justify-center gap-4 md:justify-between">
         <p className="truncate text-dark-foreground">
-          <span className="hidden md:inline">Livraison partout au Maroc · Paiement à la livraison</span>
-          <span className="md:hidden">Paiement à la livraison · Livraison partout au Maroc</span>
+          <span className="hidden md:inline">Livraison gratuite à Casablanca, Mohammedia et Dar Bouazza · Paiement à la livraison</span>
+          <span className="md:hidden">Paiement à la livraison · Livraison gratuite à Casablanca, Mohammedia et Dar Bouazza</span>
         </p>
         <nav className="hidden items-center gap-5 text-dark-foreground md:flex">
           <Link to="/magasin" className="hover:text-brand">Notre magasin</Link>
@@ -396,7 +396,7 @@ function Footer() {
       <div className="border-y border-border bg-card">
         <div className="shell grid grid-cols-2 gap-5 py-6 lg:grid-cols-4">
           {[
-            { Icon: Truck, t: "Livraison partout au Maroc", s: "Délai et frais confirmés par téléphone" },
+            { Icon: Truck, t: "Livraison gratuite à Casablanca, Mohammedia et Dar Bouazza", s: "Délai confirmé par téléphone" },
             { Icon: Banknote, t: "Paiement à la livraison", s: "Vous payez à la réception" },
             { Icon: Store, t: "Retrait au magasin", s: company.shortAddress },
             { Icon: Headphones, t: "Conseil par téléphone et WhatsApp", s: "Nous vous aidons à choisir" },

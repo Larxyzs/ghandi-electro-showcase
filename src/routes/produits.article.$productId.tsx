@@ -51,7 +51,7 @@ export const Route = createFileRoute("/produits/article/$productId")({
     }
     const ref = p.model || p.serial_number;
     const title = `${p.name}${p.brand ? ` ${p.brand}` : ""}${ref && !p.name.includes(ref) ? ` ${ref}` : ""} – Ghandi Home Electro Casablanca`;
-    const description = `${p.brand} ${p.name}${ref ? ` (réf. ${ref})` : ""} chez Ghandi Home Electro, Casablanca. ${p.price !== null ? `Prix : ${p.price} DH.` : "Prix sur demande."} Livraison partout au Maroc, paiement à la livraison.`;
+    const description = `${p.brand} ${p.name}${ref ? ` (réf. ${ref})` : ""} chez Ghandi Home Electro, Casablanca. ${p.price !== null ? `Prix : ${p.price} DH.` : "Prix sur demande."} Livraison gratuite à Casablanca, Mohammedia et Dar Bouazza, paiement à la livraison.`;
     const image = p.image_url && p.image_url.startsWith("https://") ? p.image_url : null;
     const ld = {
       "@context": "https://schema.org",
@@ -217,7 +217,7 @@ function ProductDetail() {
   };
   const allOpen = openBoxes.size === sections.length;
   const facts = [
-    { Icon: Truck, t: "Livraison partout au Maroc — délai et frais confirmés par téléphone" },
+    { Icon: Truck, t: "Livraison gratuite à Casablanca, Mohammedia et Dar Bouazza" },
     { Icon: Banknote, t: "Paiement à la livraison" },
     { Icon: Store, t: `Retrait au magasin : ${company.shortAddress}` },
   ];
