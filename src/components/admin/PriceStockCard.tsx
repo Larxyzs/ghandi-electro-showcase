@@ -4,17 +4,20 @@ import { integerDH, type Availability, type PriceStockProduct, type PriceStockSa
 import { cn } from '@/lib/utils';
 
 export type SavedPriceStock = { confirmation: true } | { confirmation: false; state: PriceStockState; before?: PriceStockState };
-export function PriceStockCard({ product, category, email, save, onSaved, next, register }: {
+export function PriceStockCard({ product, category, email, save, onSaved, next, register, registerCommit }: {
   product: PriceStockProduct; category: string; email: string;
   save: (input: PriceStockSave) => Promise<SavedPriceStock>;
   onSaved: (id: string, state: PriceStockState, before?: PriceStockState) => void;
   next: () => void; register: (el: HTMLInputElement | null) => void;
+  registerCommit: (fn: (() => Promise<boolean>) | null) => void;
 }) {
   const key = `ghe-price-draft:${email}:${product.id}`;
   const [draft, setDraft] = useState(product);
   const draftRef = useRef(product);
   const current = useRef(product);
   const originalName = useRef(product.name);
+  const originalPrice = useRef(product.price);
+  const advance = useRef(false);
   const [status, setStatus] = useState('');
   const [dirty, setDirty] = useState(false);
   const [confirm, setConfirm] = useState<PriceStockSave | null>(null);
@@ -41,9 +44,14 @@ export function PriceStockCard({ product, category, email, save, onSaved, next, 
     } catch { /* Invalid stored draft is not applied. */ }
     return () => { mounted.current = false; };
   }, [key, product.id]);
+  useEffect(() => {
+    if (dirty || pending.current) return;
+    current.current = product; draftRef.current = product; setDraft(product);
+  }, [product.updated_at]);
 
   const commit = async (goNext = false, approved?: PriceStockSave): Promise<boolean> => {
-    if (running.current) { queued.current = true; return false; }
+    if (running.current) { queued.current = true; if(goNext) advance.current=true; return false; }
+    if (goNext) advance.current=true;
     const d = draftRef.current;
     if ((d.name.trim().match(/\p{L}/gu) ?? []).length < 3) { setLeaveName(true); setStatus('Le nom ne peut pas être vide'); return false; }
     if (priceError) return false;
@@ -54,7 +62,8 @@ export function PriceStockCard({ product, category, email, save, onSaved, next, 
     if (!Object.keys(patch).length && !pending.current) { setDirty(false); localStorage.removeItem(key); if (goNext) next(); return true; }
     const request = approved ?? pending.current ?? { id: product.id, patch, expected: current.current.updated_at, operation: crypto.randomUUID() };
     pending.current = request;
-    localStorage.setItem(key, JSON.stringify({ draft: d, base: current.current, pending: request }));
+    try { localStorage.setItem(key, JSON.stringify({ draft: d, base: current.current, pending: request })); }
+    catch { setStatus('✗ Pas enregistré · Le navigateur ne peut pas garder la modification.'); return false; }
     running.current = true; setStatus('Enregistrement…');
     try {
       const result = await save(request);
@@ -74,7 +83,7 @@ export function PriceStockCard({ product, category, email, save, onSaved, next, 
         if (mounted.current) { setDraft(draftRef.current); setDirty(false); setStatus('✓ Enregistré'); }
         localStorage.removeItem(key); window.dispatchEvent(new Event('price-drafts'));
       }
-      if (goNext && !changedDuringSave) next();
+      if (advance.current && !changedDuringSave) { advance.current=false; next(); }
       return true;
     } catch (e) { setStatus(`✗ Pas enregistré${e instanceof Error ? ` · ${e.message}` : ''}`); return false; }
     finally {
@@ -82,6 +91,7 @@ export function PriceStockCard({ product, category, email, save, onSaved, next, 
       if (queued.current) { queued.current = false; void commit(); }
     }
   };
+  useEffect(() => { registerCommit(() => commit(true)); return () => registerCommit(null); });
   const availability = (value: Availability) => {
     pending.current = null;
     persist({ ...draftRef.current, availability: value, stock: value === 'in_stock' ? Math.max(1, draftRef.current.stock) : 0 });
@@ -124,7 +134,7 @@ export function PriceStockCard({ product, category, email, save, onSaved, next, 
             </div>
           </label>
           {priceError && <p role="alert" className="mt-2 text-destructive">{priceError}</p>}
-          <p className="mt-2 text-text-2">{current.current.price ? `Ancien prix : ${integerDH(current.current.price)}` : 'Pas encore de prix'}</p>
+          <p className="mt-2 text-text-2">{originalPrice.current ? `Ancien prix : ${integerDH(originalPrice.current)}` : 'Pas encore de prix'}</p>
         </div>
       </div>
       <fieldset className="mt-6"><legend className="mb-3 font-bold">Disponibilité</legend>

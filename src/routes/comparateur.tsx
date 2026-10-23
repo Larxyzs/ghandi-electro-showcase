@@ -8,6 +8,7 @@ import { useCompare } from "@/lib/compare";
 import { useCart } from "@/lib/cart";
 import { formatDH } from "@/lib/company";
 import { ancestorAtLevel, normLabel, specSections, type SiteData } from "@/lib/catalog-types";
+import { availabilityOf, AVAILABILITY_LABELS } from '@/lib/price-stock';
 
 export const Route = createFileRoute("/comparateur")({
   head: () => ({
@@ -82,11 +83,12 @@ function ComparePage() {
                       <p className="mt-2 line-clamp-2 text-sm font-medium">{p.name}</p>
                     </Link>
                     <p className="text-xs text-text-3">{p.model || p.serial_number}</p>
-                    <p className="mt-1 font-bold">{p.price !== null ? formatDH(p.price) : "Prix sur demande"}</p>
-                    <button type="button" onClick={() => { addProductToCart(add, p); toast.success("Ajouté au panier"); }}
+                    <p className="mt-1 font-bold">{p.price ? formatDH(p.price) : "Prix sur demande"}</p>
+                    <p className="text-sm">{AVAILABILITY_LABELS[availabilityOf(p)]}</p>
+                    {availabilityOf(p)==='in_stock' && <button type="button" onClick={() => { if(addProductToCart(add, p)) toast.success("Ajouté au panier"); }}
                       className="mt-2 inline-flex w-full items-center justify-center gap-1 rounded-md bg-brand py-2 text-xs font-bold text-brand-foreground">
                       <ShoppingCart className="h-3.5 w-3.5" /> Ajouter au panier
-                    </button>
+                    </button>}
                   </div>
                 ))}
               </div>
