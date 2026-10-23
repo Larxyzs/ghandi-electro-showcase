@@ -29,7 +29,8 @@ import {
   type SearchSaveResult,
   type SearchSettings,
 } from "@/components/admin/SearchApiPanel";
-import { BannersPanel, PricesPanel } from "@/components/admin/ShopPanels";
+import { BannersPanel } from "@/components/admin/ShopPanels";
+import { Button } from '@/components/ui/button';
 import { AdminEmailsPanel, type AdminEmail } from "@/components/admin/AdminEmailsPanel";
 import { SITE_MODE_LABELS, type SiteMode } from "@/lib/catalog-types";
 import type { AdminRole, StaffAccount } from "@/lib/admin-types";
@@ -104,7 +105,6 @@ export function AdminDashboard({
   const [tab, setTab] = useState<
     | "inventory"
     | "orders"
-    | "prices"
     | "design"
     | "searches"
     | "images"
@@ -178,7 +178,6 @@ export function AdminDashboard({
             [
               { id: "inventory", label: t("admin.tab.inventory"), icon: Package },
               { id: "orders", label: t("admin.tab.orders"), icon: ShoppingBag },
-              { id: "prices", label: "Prix", icon: KeyRound },
               { id: "design", label: t("admin.tab.design"), icon: Palette },
               { id: "searches", label: t("admin.tab.searches"), icon: Search },
               { id: "images", label: t("admin.tab.images"), icon: ImageIcon },
@@ -215,6 +214,7 @@ export function AdminDashboard({
           "max-w-5xl",
         )}
       >
+        <Button asChild className="mb-7 min-h-24 h-auto w-full whitespace-normal bg-price-tool p-6 text-2xl font-bold text-price-tool-foreground hover:bg-price-tool/90"><Link to="/admin/prix-stock"><Tags /> Prix & stock</Link></Button>
         {tab === "staff" && role === "super" ? (
           <StaffPanel
             load={staffActions.list}
@@ -232,8 +232,6 @@ export function AdminDashboard({
           <SiteContentPanel data={data} onSaved={() => onRefresh?.()} />
         ) : tab === "brands" ? (
           <BrandsPanel onSaved={() => onRefresh?.()} />
-        ) : tab === "prices" ? (
-          <PricesPanel products={data.products} onSaved={() => onRefresh?.()} />
         ) : tab === "orders" ? (
           <OrdersPanel
             list={orderActions.list}

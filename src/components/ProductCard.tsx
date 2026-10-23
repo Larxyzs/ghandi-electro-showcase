@@ -9,24 +9,30 @@ import { formatDH, priceRequestMessage, useCompany, whatsappLinkTo } from "@/lib
 import { toggleFavorite, useFavorites } from "@/lib/favorites";
 import { useCompare } from "@/lib/compare";
 import { keySpecs } from "@/lib/key-specs";
+import { availabilityOf, AVAILABILITY_LABELS } from '@/lib/price-stock';
+import { Button } from '@/components/ui/button';
 
 export function addProductToCart(
   add: ReturnType<typeof useCart>["add"],
   product: Product,
   qty = 1,
 ) {
+  if (availabilityOf(product) !== 'in_stock') { toast.error('Produit indisponible au panier. Contactez-nous sur WhatsApp.'); return false; }
+  if (qty > product.stock) { toast.error(`Il n’en reste que ${product.stock}`); return false; }
   add(
     {
       product_id: product.id,
       name: product.name,
       brand: product.brand ?? "",
       price: product.price ?? 0,
-      price_on_request: product.price === null,
+      price_on_request: !product.price,
       image_url: product.image_url,
       stock: product.stock,
+      availability: product.availability,
     },
     qty,
   );
+  return true;
 }
 
 export function ProductCard({ product, variant = "grid" }: { product: Product; variant?: "grid" | "list" }) {
@@ -40,6 +46,8 @@ export function ProductCard({ product, variant = "grid" }: { product: Product; v
   const reference = product.model || product.serial_number;
   const list = variant === "list";
   const specs = keySpecs(product, list ? 5 : 3);
+  const availability = availabilityOf(product);
+  const waMessage = availability === 'out_of_stock' ? `Bonjour, prévenez-moi quand ${product.brand} ${product.name} (réf. ${reference}) sera de nouveau disponible.` : `Bonjour, je souhaite commander ${product.brand} ${product.name} (réf. ${reference}). https://ghandihomeelectro.com/produits/article/${product.id}`;
 
   const stop = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -48,22 +56,21 @@ export function ProductCard({ product, variant = "grid" }: { product: Product; v
 
   const actions = (
     <div className="pointer-events-auto mt-2 flex flex-col gap-1.5">
-      {product.price === null && (
+      {!product.price && (
         <a href={whatsappLinkTo(company.whatsappNumber, priceRequestMessage(product))} target="_blank" rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
           className="rounded-md border border-whatsapp/60 py-1.5 text-center text-xs font-bold text-whatsapp hover:bg-whatsapp/10">
           Demander le prix
         </a>
       )}
-      <button type="button"
+      {availability === 'in_stock' ? <Button type="button"
         onClick={(e) => {
           stop(e);
-          addProductToCart(add, product);
-          toast.success("Ajouté au panier", { description: tr(product.name) });
+          if (addProductToCart(add, product)) toast.success("Ajouté au panier", { description: tr(product.name) });
         }}
         className="inline-flex items-center justify-center gap-1.5 rounded-md bg-brand py-2.5 text-xs font-bold text-brand-foreground hover:bg-brand-deep">
         <ShoppingCart className="h-3.5 w-3.5" /> Ajouter au panier
-      </button>
+      </Button> : <Button asChild className="h-auto whitespace-normal bg-whatsapp py-2.5 text-xs font-bold text-background hover:bg-whatsapp/90"><a href={whatsappLinkTo(company.whatsappNumber,waMessage)} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>{availability === 'out_of_stock' ? 'Me prévenir du retour' : 'Commander sur WhatsApp'}</a></Button>}
       <label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-2" onClick={(e) => e.stopPropagation()}>
         <input type="checkbox" checked={compare.has(product.id)} onChange={() => compare.toggle(product.id)} className="accent-brand" />
         Comparer
@@ -71,7 +78,7 @@ export function ProductCard({ product, variant = "grid" }: { product: Product; v
     </div>
   );
 
-  const price = product.price !== null ? (
+  const price = product.price && product.price > 0 ? (
     <p className="text-xl font-bold text-foreground">{formatDH(product.price)}</p>
   ) : (
     <p className="text-sm font-bold text-text-2">Prix sur demande</p>
@@ -116,6 +123,7 @@ export function ProductCard({ product, variant = "grid" }: { product: Product; v
         </div>
         <div className={cn(list ? "sm:w-48" : "mt-auto pt-2")}>
           {price}
+          <p className={cn('mt-2 text-xs font-bold', availability === 'in_stock' ? 'text-stock-ok' : availability === 'on_request' ? 'text-whatsapp' : 'text-text-2')}>{AVAILABILITY_LABELS[availability]}</p>
           {actions}
         </div>
       </div>

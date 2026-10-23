@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { integerDH, type PriceStockChange, type PriceStockProduct, type PriceStockState } from '@/lib/price-stock';
 import { cn } from '@/lib/utils';
 
-export const Route = createFileRoute('/admin/prix-stock')({
+export const Route = createFileRoute('/admin_/prix-stock')({
   ssr: false,
   head: () => ({ meta: [
     { title: 'Prix & stock | Ghandi Home Electro' },
@@ -151,7 +151,7 @@ function PriceStockPage() {
       <Button variant="outline" className={btn} onClick={() => safeChange(() => void fetchRows())}>Actualiser</Button>
     </div>
     {error && <p role="alert" className="mt-4 font-bold text-destructive">{error} <Button variant="outline" className={btn} onClick={() => void fetchRows()}>Réessayer</Button></p>}
-    <div className="mt-6 space-y-5">{shown.map(p => <PriceStockCard key={p.id} product={p} email={email} category={data?.nodes.find(n => n.id===p.node_id)?.name ?? ''} save={save} onSaved={onSaved} next={() => next(p.id)} register={el => { if (el) inputs.current.set(p.id,el); else inputs.current.delete(p.id); }} />)}</div>
+    <div className="mt-6 space-y-5">{shown.map(p => <PriceStockCard key={p.id} product={p} email={email} category={data?.nodes.find(n => n.id===p.node_id)?.name ?? ''} save={input => save({data:input})} onSaved={onSaved} next={() => next(p.id)} register={el => { if (el) inputs.current.set(p.id,el); else inputs.current.delete(p.id); }} />)}</div>
     {!busy && !products.length && <p className="py-12 text-xl">Aucun produit dans cette sélection.</p>}
     {mode==='one' && products[index] && <div className="mt-5 grid grid-cols-2 gap-3"><Button variant="outline" disabled={index===0} className={btn} onClick={() => safeChange(() => setIndex(Math.max(0,index-1)))}>‹ Précédent</Button><Button className={cn(btn,'bg-price-tool text-price-tool-foreground hover:bg-price-tool/90')} disabled={index+1>=products.length && products.length>=(data?.total ?? 0)} onClick={() => { inputs.current.get(products[index]?.id ?? '')?.dispatchEvent(new KeyboardEvent('keydown',{ key:'Enter',bubbles:true })); }}>Suivant ›</Button></div>}
     <div ref={sentinel} className="mt-5">{busy && <p>Chargement…</p>}{!busy && data && products.length<data.total && <Button variant="outline" className={btn} onClick={() => void fetchRows(true)}>Afficher 30 produits de plus</Button>}</div>

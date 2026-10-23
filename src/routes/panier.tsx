@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Check, CheckCircle2, Clock, Home as HomeIcon, MapPin, Minus, PackageSearch, Plus, Store, Trash2 } from "lucide-react";
 import { SiteLayout, WaIcon } from "@/components/SiteLayout";
@@ -8,6 +8,8 @@ import { placeOrder } from "@/lib/orders.functions";
 import { formatDH, useCompany, whatsappLinkTo } from "@/lib/company";
 import { useDynamicText } from "@/lib/dynamic-text";
 import { cn } from "@/lib/utils";
+import { availabilityOf } from '@/lib/price-stock';
+import type { SiteData } from '@/lib/catalog-types';
 
 export const Route = createFileRoute("/panier")({
   head: () => ({
@@ -57,6 +59,8 @@ function PanierPage() {
   const { items, setQty, remove, clear } = useCart();
   const tr = useDynamicText();
   const company = useCompany();
+  const catalog = useLoaderData({ from:'__root__' }) as SiteData;
+  const unavailable = items.some(i => { const p=catalog.products.find(p => p.id===i.product_id); return !p || availabilityOf(p)!=='in_stock' || i.qty>p.stock; });
   const [step, setStep] = useState(1);
   const [mode, setMode] = useState<Mode>("livraison");
   const [form, setForm] = useState<FormState>(EMPTY);
@@ -100,6 +104,7 @@ function PanierPage() {
   };
 
   const submit = async () => {
+    if (unavailable) { setServerError('Un produit est indisponible ou la quantité dépasse le stock. Contactez-nous sur WhatsApp.'); return; }
     if (!cgv) {
       setErrors({ cgv: "Veuillez accepter les conditions générales de vente." });
       return;
@@ -131,6 +136,7 @@ function PanierPage() {
       if (m.includes("INVALID_PHONE")) { setStep(2); setErrors({ phone: "Numéro marocain invalide." }); }
       else if (m.includes("EMPTY_CART")) setServerError("Votre panier est vide.");
       else if (m.includes("INSUFFICIENT_STOCK")) setServerError("Un produit n'a plus assez de stock. Modifiez la quantité.");
+      else if (m.includes('PRODUCT_UNAVAILABLE')) setServerError('Un produit est en rupture ou sur demande. Contactez-nous sur WhatsApp.');
       else setServerError("La commande n'a pas pu être envoyée. Réessayez ou appelez-nous.");
     } finally {
       setBusy(false);
@@ -174,6 +180,7 @@ function PanierPage() {
     <SiteLayout>
       <section className="shell max-w-5xl py-4">
         <Steps step={step} />
+        {unavailable && <div role="alert" className="mt-4 border border-destructive p-4"><p className="font-bold text-destructive">Un produit est indisponible ou la quantité dépasse le stock. Retirez-le ou contactez-nous sur WhatsApp.</p><a href={whatsappLinkTo(company.whatsappNumber,'Bonjour, un produit de mon panier est indisponible. Pouvez-vous m’aider ?')} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block rounded-md bg-whatsapp px-5 py-3 font-bold text-background">Contacter sur WhatsApp</a></div>}
         {items.length === 0 ? (
           <div className="panel mt-4 flex flex-col items-center gap-3 p-12 text-center">
             <PackageSearch className="h-10 w-10 text-brand" />
