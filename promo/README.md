@@ -14,6 +14,28 @@ as a poster image.
 | 17.5–21 s | Services: free delivery, cash on delivery, store pick-up, phone and WhatsApp advice, with a progress rail hopping from card to card |
 | 21–25 s | 3D tilted map of Casablanca, the pin drops on Boulevard Ghandi, then the extruded 3D logo with orbits, phone, website and address |
 
+## 40-second version
+
+`ghandi-home-electro-promo-40s.mp4` is a completely different, slower cut (same format): the story
+plays in a floating 3D model of Casablanca built with CSS 3D, and every caption stays on screen long
+enough to be read (only the brands go fast). `ghandi-home-electro-promo-40s.jpg` is its last frame.
+
+| Time | Scene |
+| --- | --- |
+| 0–4 s | Dark stage: a power button draws itself and is pressed, a power wave switches on a field of appliance icons, they implode into a flash, the 3D logo lands with "GHANDI" dropping letter by letter |
+| 4–9.5 s | An iris opens on the city: buildings spring up from the ground, trees pop, cars drive, the shop rises on Boulevard Ghandi and its pin drops — "Votre magasin d'électroménager à Casablanca", address and opening hours |
+| 9.5–15 s | The camera dives through the shop door into the showroom and lands on each univers on the beat (Froid, Lavage, Cuisson, TV, Climatisation) |
+| 15–18 s | Front view of the brand wall: the eight brands light up on 8th notes |
+| 18–23.75 s | A giant phone drops into a plaza; a finger orders on it while "Commander en 3 étapes" follows along (Panier, Livraison, Confirmation) |
+| 23.75–28.35 s | The parcel flies from the phone into the delivery van; the camera pulls back as Mohammedia and Dar Bouazza rise as floating islands, pins drop and vans fly along the routes — "Livraison gratuite" |
+| 28.35–30.85 s | The van parks at a house, the parcel hops to the door — "Paiement à la livraison" |
+| 30.85–35.5 s | Above the shop a phone rings and a WhatsApp message pops up — "Conseil par téléphone et WhatsApp" — then the camera pulls back over the whole city |
+| 35.5–40 s | A blue iris closes on the final card: logo, "Commandez en ligne ou sur WhatsApp", phone, website, address and hours |
+
+```sh
+COMP=v40 WORKERS=3 SUBFRAMES=3 promo/build.sh   # animation/v40.html -> ghandi-home-electro-promo-40s.mp4
+```
+
 Texts, colours (`#1266e8`), font (Roboto) and contact details come from the site itself
 (`src/lib/company.ts`, `src/lib/services.ts`, `src/styles.css`, the home page). The pages are rebuilt
 from the site's components; product cards show generic product types with the site's own
@@ -24,7 +46,9 @@ from the site's components; product cards show generic product types with the si
 - `animation/` — the animation as an HTML page (`js/fx.js` holds the reusable motion accents: ray
   bursts, ring pulses, confetti, electric arcs, grid floor, text bands, warp lines). Every frame is a pure function of time (`seek(t)`),
   so it renders identically every time. Open `animation/index.html?play` in Chrome to preview it
-  (silent), or `?t=12.3` to look at one moment.
+  (silent), or `?t=12.3` to look at one moment. The 40-second version is `animation/v40.html`
+  (scenes in `js/v40/`), built on `js/iso.js`, a small CSS 3D engine for the city diorama
+  (boxes, ground planes, billboards that face the camera, and a camera with zoom, yaw and pitch).
 - `render.cjs` — drives Chromium with Playwright: exports the sound cue list and renders the frames.
 - `audio/build_audio.py` — synthesises everything you hear: an original 120 BPM track and the
   sound effects (whooshes, impacts, pops, clicks, typing, notification dings, phone buzz, cash

@@ -171,5 +171,38 @@
     };
   }
 
-  G.FXL = { lineBurst, ringPulse, shapeBurst, arc, gridFloor, marquee, warp };
+  /** Ambient layer of slowly drifting geometric shapes, so no moment is ever static. */
+  function ambient(parent, o) {
+    const c = Object.assign({ n: 18, colors: ["rgb(18 102 232 / .22)"], seed: 7, size: [16, 46], speed: [10, 34] }, o);
+    const r = rng(c.seed);
+    const items = [];
+    for (let i = 0; i < c.n; i++) {
+      const kind = ["ring", "plus", "dot", "tri", "square"][i % 5];
+      const s = c.size[0] + r() * (c.size[1] - c.size[0]);
+      const col = c.colors[Math.floor(r() * c.colors.length)];
+      const d = el(parent, "abs");
+      const sw = Math.max(2.5, s / 9);
+      const svg = {
+        ring: `<circle cx="50" cy="50" r="40" fill="none" stroke="${col}" stroke-width="${(sw * 100) / s}"/>`,
+        plus: `<path d="M50 12v76M12 50h76" stroke="${col}" stroke-width="${(sw * 100) / s}" stroke-linecap="round"/>`,
+        dot: `<circle cx="50" cy="50" r="22" fill="${col}"/>`,
+        tri: `<path d="M50 14 88 82H12Z" fill="none" stroke="${col}" stroke-width="${(sw * 100) / s}" stroke-linejoin="round"/>`,
+        square: `<rect x="18" y="18" width="64" height="64" rx="12" fill="none" stroke="${col}" stroke-width="${(sw * 100) / s}"/>`,
+      }[kind];
+      d.innerHTML = `<svg width="${s}" height="${s}" viewBox="0 0 100 100">${svg}</svg>`;
+      const a = r() * Math.PI * 2;
+      const v = c.speed[0] + r() * (c.speed[1] - c.speed[0]);
+      items.push({ d, x: r() * 2120 - 100, y: r() * 1280 - 100, vx: Math.cos(a) * v, vy: Math.sin(a) * v, rot: r() * 360, vr: (r() - 0.5) * 60, ph: r() * 6.28, s });
+    }
+    return (t, alpha = 1) => {
+      for (const it of items) {
+        const x = ((((it.x + it.vx * t + Math.sin(t * 0.7 + it.ph) * 18 + 100) % 2120) + 2120) % 2120) - 100;
+        const y = ((((it.y + it.vy * t + Math.cos(t * 0.6 + it.ph) * 18 + 100) % 1280) + 1280) % 1280) - 100;
+        it.d.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0) rotate(${(it.rot + it.vr * t).toFixed(1)}deg)`;
+        it.d.style.opacity = alpha.toFixed(3);
+      }
+    };
+  }
+
+  G.FXL = { lineBurst, ringPulse, shapeBurst, arc, gridFloor, marquee, warp, ambient };
 })(window);

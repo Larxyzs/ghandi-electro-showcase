@@ -16,11 +16,12 @@ from scipy import signal
 from scipy.io import wavfile
 
 SR = 48000
-DUR = 25.0
+COMP = os.environ.get("COMP", "")  # "" = 25 s version, "v40" = 40 s version
+DUR = 40.0 if COMP == "v40" else 25.0
 N = int(SR * DUR)
 BEAT = 0.5  # 120 BPM
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "..", "out")
+OUT = os.path.join(HERE, "..", "out", COMP)
 
 
 # ----------------------------------------------------------------------------- helpers
@@ -873,6 +874,194 @@ def build_music():
     return out[:N], kicks
 
 
+# ----------------------------------------------------------------------------- music (40 s version)
+CHORDS_V40 = dict(CHORDS, Bbmaj9=[58, 62, 65, 69, 72])
+ROOT_V40 = dict(ROOT, Bbmaj9=34)
+# 2-s bars from 2.0 s: logo and city on Dm, then the loop Dm Bb F C under the story, a breakdown on C and
+# the final drop on Fadd9 at 36.0 s
+PROG_V40 = [(0.0, "Asus"), (1.0, "A"), (2.0, "Dm"), (6.0, "Bb"), (8.0, "F"), (10.0, "C"), (12.0, "Dm"), (14.0, "Bb"),
+            (16.0, "F"), (18.0, "C"), (20.0, "Dm"), (22.0, "Bb"), (24.0, "F"), (26.0, "C"), (28.0, "Dm"), (30.0, "Bb"),
+            (32.0, "F"), (34.0, "C"), (36.0, "Fadd9"), (38.0, "Bbmaj9"), (39.0, "Fadd9")]
+FULL_V40 = [(4.0, 9.0), (10.0, 14.5), (15.5, 17.5), (24.0, 34.0), (36.0, 39.0)]  # four on the floor
+MID_V40 = [(18.5, 23.5)]  # backbeat (kick 1 and 3, clap 2 and 4) under the order steps
+HALF_V40 = [(2.0, 3.5)]  # kick on 1 and 3 under the logo
+
+
+def build_music_v40():
+    mus = np.zeros((N + SR * 3, 2))
+    drums = np.zeros_like(mus)
+    kicks = []
+    on = lambda t, spans: any(a - 1e-6 <= t < b - 1e-6 for a, b in spans)
+    full = lambda t: on(t, FULL_V40)
+    mid = lambda t: on(t, MID_V40)
+    half = lambda t: on(t, HALF_V40)
+    whole = lambda t: abs(t - np.floor(t + 1e-6)) < 1e-6
+
+    def chord(t):
+        name = PROG_V40[0][1]
+        for t0, c in PROG_V40:
+            if t >= t0 - 1e-6:
+                name = c
+        return name
+
+    def kick(t, gain=1.0, lp=None):
+        x = drum_kick(gain)
+        if lp:
+            x = st(filt(x[:, 0], "lp", lp))
+        place(drums, x, t)
+        kicks.append(t)
+
+    def roll(t0, t1, gain0=0.15, gain1=0.85, seed=0):
+        tr = t0
+        while tr < t1 - 0.02:
+            k = (tr - t0) / (t1 - t0)
+            place(drums, drum_snare(1 + 0.5 * k, 740 + seed + int(tr * 100)), tr, gain0 + (gain1 - gain0) * k)
+            tr += 0.125 if k < 0.5 else 0.0625
+
+    def arp(t0, t1, octave=12, gain=0.07, step=0.125, order=(0, 2, 1, 3, 2, 4, 3, 5)):
+        i = 0
+        tn = t0
+        while tn < t1 - 1e-6:
+            c = CHORDS_V40[chord(tn)]
+            seq = c + [c[1] + 12, c[2] + 12]
+            m = seq[order[i % len(order)] % len(seq)] + octave
+            place(mus, inst_pluck(m, tn, gain, 0.13, 0.5 * np.sin(i * 0.9)), tn)
+            i += 1
+            tn += step
+
+    # --- pads, one per chord
+    for k, (t0, c) in enumerate(PROG_V40):
+        t1 = PROG_V40[k + 1][0] if k + 1 < len(PROG_V40) else DUR + 0.5
+        g, cut = 0.1, 1800
+        if t0 < 2.0:
+            g, cut = 0.12, 1000
+        elif t0 == 34.0:
+            g, cut = 0.13, 2400  # breakdown: the pad carries the riser
+        elif t0 >= 36.0:
+            g, cut = 0.15, 2200
+        place(mus, inst_pad(CHORDS_V40[c], t0, t1 - t0, g, cut), t0)
+
+    # --- intro (0 - 2 s): drone, the power-on arpeggio, a roll into the logo hit
+    place(mus, st(np.sin(2 * np.pi * mtof(33) * tt(2.4)) * np.minimum(1, tt(2.4) / 0.6) * 0.12), 0.0)
+    for i in range(8):
+        tn = 1.0 + i * 0.125
+        notes = CHORDS_V40["A"] + [69, 73, 76]
+        place(mus, inst_pluck(notes[i % len(notes)] + 12, tn, 0.05 + 0.05 * i / 8, 0.12, 0.4 * np.sin(i)), tn)
+    for tb in (1.0, 1.5):
+        kick(tb, 0.8, 400)
+    roll(1.5, 2.0, 0.2, 0.8)
+    place(mus, reverse_swell(1.2), 2.0 - 1.2)
+
+    # --- hits that open sections, rolls and swells leading into them
+    for t_c, g in ((2.0, 1.0), (4.0, 0.8), (10.0, 0.8), (15.5, 0.7), (18.5, 0.9), (24.0, 0.8), (28.0, 0.6), (36.0, 1.15)):
+        place(drums, drum_crash(900 + int(t_c * 10)), t_c, g)
+    for a, b in ((3.5, 4.0), (9.5, 10.0), (15.0, 15.5), (23.5, 24.0)):
+        roll(a, b, 0.12, 0.6, int(a))
+    for t_s, d in ((4.0, 0.5), (10.0, 0.5), (18.5, 0.45), (24.0, 0.5)):
+        place(mus, reverse_swell(d, 960 + int(t_s)), t_s - d)
+    place(mus, inst_stab([n + 12 for n in CHORDS_V40["Dm"]], 2.0, 0.5, 0.15, 1.4), 2.0)
+    place(mus, inst_bass(ROOT_V40["Dm"], 2.0, 0.9, 0.34), 2.0)
+    # the giant phone lands on the beat at 18.5 s
+    kick(18.5, 1.2)
+    place(mus, inst_bass(ROOT_V40["C"], 18.5, 0.45, 0.32), 18.5)
+
+    # --- drums
+    tb = 2.0
+    while tb < DUR - 0.01:
+        if full(tb) or ((half(tb) or mid(tb)) and whole(tb)):
+            kick(tb, 1.0)
+        tb += BEAT
+    tc = 2.0
+    while tc < DUR - 0.01:
+        if ((full(tc) or mid(tc)) and abs((tc % 1.0) - 0.5) < 1e-6) or (half(tc) and abs((tc % 2.0) - 1.0) < 1e-6):
+            place(drums, drum_clap(int(tc * 10)), tc, 0.55 if full(tc) else 0.45)
+        tc += 0.5
+    for i in range(int((DUR - 2.0) / 0.125)):
+        th = 2.0 + i * 0.125
+        sixteenth = i % 2 == 1
+        if full(th):
+            if sixteenth and not (24.0 <= th < 34.0):
+                continue  # 16th ghost hats only in the delivery / advice stretch
+            off = (i % 4) == 2
+            place(drums, pan(drum_hat(off, 800 + i), 0.25 if i % 2 else -0.15), th, 0.55 if off else (0.14 if sixteenth else 0.22))
+        elif (half(th) or mid(th)) and not sixteenth:
+            off = (i % 4) == 2
+            place(drums, pan(drum_hat(off and mid(th), 800 + i), 0.2), th, 0.4 if off and mid(th) else 0.2)
+
+    # --- bass
+    for i in range(int((DUR - 2.0) / 0.25)):
+        tn = 2.0 + i * 0.25
+        root = ROOT_V40[chord(tn)]
+        if full(tn):
+            if i % 2 == 1:
+                place(mus, inst_bass(root + 12, tn, 0.2, 0.26), tn)
+            elif i % 4 == 0:
+                place(mus, inst_bass(root, tn, 0.22, 0.3), tn)
+        elif mid(tn) and i % 2 == 0:
+            place(mus, inst_bass(root + (12 if i % 4 == 2 else 0), tn, 0.4, 0.27), tn)
+        elif half(tn) and i % 4 == 0 and tn >= 2.5:
+            place(mus, inst_bass(root, tn, 0.85, 0.3), tn)
+
+    # --- chord stabs: syncopated in the grooves, 8ths with the brand panels, accents on each univers
+    bar = 4.0
+    while bar < 39.0:
+        for off in (0.0, 0.75, 1.5):
+            ts = bar + off
+            if full(ts) and not (15.5 <= ts < 17.5) and ts != 36.0:
+                place(mus, inst_stab(CHORDS_V40[chord(ts)], ts, 0.2, 0.13), ts)
+            elif mid(ts) and off:
+                place(mus, inst_stab(CHORDS_V40[chord(ts)], ts, 0.16, 0.08, 0.8), ts)
+        bar += 2.0
+    for i in range(8):
+        ts = 15.5 + i * 0.25
+        place(mus, inst_stab([n + (12 if i >= 4 else 0) for n in CHORDS_V40[chord(ts)]], ts, 0.12, 0.11, 1.3), ts)
+    for k, ts in enumerate((10.0, 11.0, 12.0, 13.0, 14.0)):
+        place(mus, inst_stab([n + 12 for n in CHORDS_V40[chord(ts)]], ts, 0.25, 0.09, 1.2), ts)
+
+    # --- plucks
+    arp(6.0, 9.0, 12, 0.075)
+    arp(10.0, 14.5, 12, 0.065, 0.25, (0, 2, 4, 2))
+    arp(18.5, 23.5, 24, 0.06, 0.25, (0, 3, 1, 4))
+    arp(19.0, 23.5, 12, 0.05, 0.5, (0, 2, 1))
+    arp(24.0, 28.0, 12, 0.075)
+    arp(30.0, 34.0, 12, 0.07)
+
+    # --- breakdown (34 - 36 s): drums out, filtered pulses, long roll and swell into the drop
+    for tb in (34.0, 34.5, 35.0, 35.5):
+        kick(tb, 0.7, 300)
+    roll(35.0, 36.0, 0.1, 0.9, 50)
+    place(mus, sfx_riser(1.5) * 0.25, 34.5)
+    place(mus, reverse_swell(1.0, 999), 35.0)
+
+    # --- drop on Fadd9 (36 s) and the final card
+    place(mus, inst_stab([n + 12 for n in CHORDS_V40["Fadd9"]], 36.0, 0.6, 0.16, 1.4), 36.0)
+    place(mus, inst_bass(ROOT_V40["Fadd9"], 36.0, 1.6, 0.34), 36.0)
+    for k, m in enumerate([77, 81, 84, 89]):
+        place(mus, inst_pluck(m, 36.6 + k * 0.12, 0.06, 0.4, -0.5 + k * 0.33), 36.6 + k * 0.12)
+    arp(37.0, 39.0, 24, 0.055)
+    # last hit at 39 s, then the chord rings out under the fade
+    kick(39.0, 1.15)
+    place(drums, drum_crash(939), 39.0, 0.75)
+    place(mus, inst_stab([n + 12 for n in CHORDS_V40["Fadd9"]], 39.0, 0.8, 0.15, 1.3), 39.0)
+    place(mus, inst_bass(ROOT_V40["Fadd9"], 39.0, 1.0, 0.34), 39.0)
+    for k, m in enumerate([77, 81, 84, 89, 93]):
+        place(mus, inst_pluck(m, 39.1 + k * 0.09, 0.05, 0.45, -0.6 + k * 0.3), 39.1 + k * 0.09)
+
+    # sidechain pumping on the music bus from the kicks
+    duck = np.ones(mus.shape[0])
+    for tk in kicks:
+        i = int(tk * SR)
+        seg = 1 - 0.55 * np.exp(-np.arange(int(0.45 * SR)) / SR / 0.09)
+        j = min(len(duck), i + len(seg))
+        duck[i:j] = np.minimum(duck[i:j], seg[: j - i])
+    mus *= duck[:, None]
+    mus = reverb(mus, IR_HALL, 0.18)[: mus.shape[0]]
+    out = mus + drums
+    sos = _sos("lp", 15000, 2)
+    out = np.stack([signal.sosfilt(sos, out[:, 0]), signal.sosfilt(sos, out[:, 1])], axis=1)
+    return out[:N], kicks
+
+
 # ----------------------------------------------------------------------------- mix
 def build_sfx(cues):
     bus = np.zeros((N + SR * 3, 2))
@@ -903,7 +1092,7 @@ def limiter(x, ceiling=0.95, window=0.005):
 def main():
     with open(os.path.join(OUT, "cues.json")) as f:
         cues = json.load(f)
-    music, _ = build_music()
+    music, _ = build_music_v40() if COMP == "v40" else build_music()
     sfx = build_sfx(cues)
     music = norm(music, 0.5)
     # gentle ducking of the music under dense effects
@@ -913,6 +1102,8 @@ def main():
     mix = filt(mix[:, 0], "hp", 28)[:, None] * [1, 0] + filt(mix[:, 1], "hp", 28)[:, None] * [0, 1]
     t = np.arange(N) / SR
     mix *= np.clip((DUR - t) / 0.35, 0, 1)[:, None]  # fade out over the last 0.35 s
+    if COMP == "v40":
+        mix *= 1.2  # the longer piece has more quiet stretches; bring it to the same loudness
     mix = np.tanh(mix * 1.15) / np.tanh(1.15)
     mix = limiter(mix, 0.93)
     os.makedirs(OUT, exist_ok=True)

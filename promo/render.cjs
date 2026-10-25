@@ -1,5 +1,7 @@
 /* Renders promo/animation/index.html frame by frame with Playwright (Chromium) and encodes with ffmpeg.
  *
+ * COMP=v40 renders animation/v40.html into promo/out/v40/ (default: animation/index.html into promo/out/).
+ *
  *   node promo/render.cjs cues                 -> promo/out/cues.json (sound cue list read by audio/build_audio.py)
  *   node promo/render.cjs snap 1.5 3.25 ...    -> promo/out/snaps/t<time>.png
  *   node promo/render.cjs video [workers] [sub] -> promo/out/video.mp4 (no audio, 1920x1080 @ 60 fps)
@@ -13,8 +15,9 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT = __dirname;
-const OUT = path.join(ROOT, "out");
-const PAGE = "file://" + path.join(ROOT, "animation", "index.html");
+const COMP = process.env.COMP || "";
+const OUT = path.join(ROOT, "out", COMP);
+const PAGE = "file://" + path.join(ROOT, "animation", (COMP || "index") + ".html");
 const W = 1920;
 const H = 1080;
 

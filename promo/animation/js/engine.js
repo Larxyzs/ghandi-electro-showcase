@@ -2,7 +2,7 @@
    No CSS animations, no wall clock — the renderer calls seek(t) for each frame. */
 (function (G) {
   const FPS = 60;
-  const DURATION = 25;
+  const DURATION = (G.COMP && G.COMP.duration) || 25; // a page sets window.COMP before loading the engine
   const W = 1920;
   const H = 1080;
   const BPM = 120;
