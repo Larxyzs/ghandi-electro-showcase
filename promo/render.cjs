@@ -2,7 +2,10 @@
  *
  *   node promo/render.cjs cues                 -> promo/out/cues.json (sound cue list read by audio/build_audio.py)
  *   node promo/render.cjs snap 1.5 3.25 ...    -> promo/out/snaps/t<time>.png
- *   node promo/render.cjs video [workers]      -> promo/out/video.mp4 (no audio, 1920x1080 @ 60 fps)
+ *   node promo/render.cjs video [workers] [sub] -> promo/out/video.mp4 (no audio, 1920x1080 @ 60 fps)
+ *
+ * Motion blur: with sub > 1 every output frame is the average of `sub` sub-frames spread over a
+ * 180° shutter (half a frame), like a film camera.
  */
 const { chromium } = require("playwright");
 const { spawn } = require("child_process");
@@ -33,10 +36,11 @@ async function seekShot(page, t, opts = {}) {
   return page.screenshot({ type: "png", clip: { x: 0, y: 0, width: W, height: H }, ...opts });
 }
 
-function ffmpegSegment(file, fps) {
+function ffmpegSegment(file, fps, sub) {
+  const blur = sub > 1 ? ["-vf", `tmix=frames=${sub},select='eq(mod(n\,${sub})\,${sub - 1})',setpts=N/(${fps}*TB)`, "-r", String(fps)] : [];
   const ff = spawn(
     "ffmpeg",
-    ["-y", "-loglevel", "error", "-f", "image2pipe", "-framerate", String(fps), "-c:v", "png", "-i", "-", "-c:v", "libx264", "-preset", "medium", "-crf", "10", "-pix_fmt", "yuv444p", file],
+    ["-y", "-loglevel", "error", "-f", "image2pipe", "-framerate", String(fps * sub), "-c:v", "png", "-i", "-", ...blur, "-c:v", "libx264", "-preset", "medium", "-crf", "10", "-pix_fmt", "yuv444p", file],
     { stdio: ["pipe", "inherit", "inherit"] },
   );
   const done = new Promise((res, rej) => ff.on("close", (c) => (c === 0 ? res() : rej(new Error("ffmpeg exited " + c)))));
@@ -66,10 +70,14 @@ async function main() {
     }
   } else if (mode === "video") {
     const workers = parseInt(args[0] || "3", 10);
+    const sub = parseInt(args[1] || "1", 10);
     const probe = await openPage(browser);
     const { fps, duration } = probe.meta;
     await probe.page.close();
-    const total = Math.round(fps * duration);
+    // RANGE=a,b (seconds) renders only part of the video, for quick checks
+    const [ra, rb] = (process.env.RANGE || `0,${duration}`).split(",").map(Number);
+    const first = Math.round(ra * fps);
+    const total = Math.round(rb * fps) - first;
     const per = Math.ceil(total / workers);
     const segDir = path.join(OUT, "segments");
     fs.mkdirSync(segDir, { recursive: true });
@@ -78,16 +86,19 @@ async function main() {
     const segs = [];
     await Promise.all(
       Array.from({ length: workers }, async (_, w) => {
-        const from = w * per;
-        const to = Math.min(total, from + per);
+        const from = first + w * per;
+        const to = Math.min(first + total, from + per);
         if (from >= to) return;
         const file = path.join(segDir, `seg${w}.mp4`);
         segs[w] = file;
         const { page } = await openPage(browser);
-        const { ff, done } = ffmpegSegment(file, fps);
+        const { ff, done } = ffmpegSegment(file, fps, sub);
         for (let f = from; f < to; f++) {
-          const buf = await seekShot(page, f / fps);
-          if (!ff.stdin.write(buf)) await new Promise((r) => ff.stdin.once("drain", r));
+          for (let k = 0; k < sub; k++) {
+            const offset = sub > 1 ? ((k + 0.5) / sub - 0.5) * (0.5 / fps) : 0;
+            const buf = await seekShot(page, Math.max(0, f / fps + offset));
+            if (!ff.stdin.write(buf)) await new Promise((r) => ff.stdin.once("drain", r));
+          }
           doneFrames++;
           if (doneFrames % 60 === 0) {
             const el = (Date.now() - t0) / 1000;

@@ -563,6 +563,7 @@ SFX = {
     "zap": lambda c: sfx_zap(),
     "powerup": lambda c: sfx_powerup(c.get("dur", 0.55)),
     "riser": lambda c: sfx_riser(c.get("dur", 1.0)),
+    "riserShort": lambda c: sfx_riser(c.get("dur", 0.45)),
     "shimmer": lambda c: sfx_shimmer(c.get("dur", 0.8), int(c["t"] * 10)),
     "scroll": lambda c: sfx_scroll(c.get("dur", 0.5)),
     "blip": lambda c: sfx_blip(c.get("pitch", 1)),
@@ -579,7 +580,7 @@ SFX = {
 LEVEL = {
     "impact": 1.0, "subdrop": 0.8, "hit": 0.75, "punch": 0.85, "slam": 0.8, "thud": 0.7, "pop": 0.55, "tick": 0.4,
     "click": 0.6, "type": 0.45, "ding": 0.7, "buzz": 0.5, "glass": 0.5, "fall": 0.45, "crackle": 0.5, "zap": 0.6,
-    "powerup": 0.6, "riser": 0.55, "shimmer": 0.5, "scroll": 0.45, "blip": 0.35, "sonar": 0.55, "pinDrop": 0.85,
+    "powerup": 0.6, "riser": 0.55, "riserShort": 0.4, "shimmer": 0.5, "scroll": 0.45, "blip": 0.35, "sonar": 0.55, "pinDrop": 0.85,
     "truck": 0.7, "horn": 0.55, "cash": 0.8, "ring": 0.45, "glitch": 0.5, "whoosh": 0.6, "swish": 0.45, "swoosh": 0.45,
 }
 

@@ -85,6 +85,26 @@ SCENE_BUILDERS.push(() =>
       const FOCUS = { x: btnPos.x + 330, y: btnPos.y + 150 };
 
       /* ---------- cursor ---------- */
+      // impact accents: rays around the browser when it slams, a burst on the click, rays behind the carousel
+      const back = el(root, "fill");
+      root.insertBefore(back, cam);
+      const deskFx = [
+        FXL.lineBurst(back, { x: 960, y: 540, t0: 6.97, n: 22, r0: 760, r1: 1200, width: 7, color: BLUE, dur: 0.5, seed: 41 }),
+        FXL.lineBurst(cam, { x: btnPos.x, y: btnPos.y, t0: 8.56, n: 9, r0: 34, r1: 110, width: 5, color: BLUE, dur: 0.35, seed: 42 }),
+        FXL.lineBurst(back, { x: 960, y: 420, t0: 9.5, n: 18, r0: 600, r1: 980, width: 6, color: "#7fb2ff", dur: 0.45, seed: 43 }),
+        FXL.lineBurst(back, { x: 960, y: 420, t0: 10.15, n: 18, r0: 600, r1: 980, width: 6, color: "#7fb2ff", dur: 0.45, seed: 44, rot: 10 }),
+        FXL.ringPulse(back, { x: 960, y: 420, t0: 10.15, r0: 300, r1: 900, width: 3, color: "rgb(18 102 232 / .45)", dur: 0.6 }),
+      ];
+      // the address types in big letters in the empty page, then flies up into the address bar
+      const bigUrl = el(root, "abs hd");
+      bigUrl.style.cssText += `left:0;top:0;font-size:86px;color:${BLUE};white-space:nowrap;transform-origin:0 50%;`;
+      const bigTxt = el(bigUrl, "", "", "span");
+      const bigCaret = el(bigUrl, "", null, "span");
+      bigCaret.style.cssText += `display:inline-block;width:8px;height:0.9em;margin-left:6px;background:${BLUE};vertical-align:-0.08em;border-radius:4px;`;
+      bigTxt.textContent = URL;
+      const bigW = bigUrl.offsetWidth;
+      const bigH = bigUrl.offsetHeight;
+      const urlBox = W1.txt.getBoundingClientRect();
       const cursor = el(cam, "cursor", ART.cursorArrow);
       const ripple = el(cam, "ripple");
 
@@ -255,6 +275,15 @@ SCENE_BUILDERS.push(() =>
         marker.style.width = last.offsetLeft + last.offsetWidth - first.offsetLeft + 36 + "px";
         marker.style.height = first.offsetHeight + 8 + "px";
         marker.style.transform = `scaleX(${E.outExpo(prog(t, 10.3, 10.6)).toFixed(4)})`;
+
+        deskFx.forEach((u) => u(t));
+        // big typed address -> address bar
+        const fly = E.inOutCubic(prog(t, 7.5, 7.68));
+        const bx = lerp(960 - bigW / 2, urlBox.left, fly);
+        const by = lerp(560 - bigH / 2, urlBox.top + urlBox.height / 2 - bigH / 2, fly);
+        bigTxt.textContent = URL.slice(0, n);
+        bigCaret.style.opacity = fly < 0.05 && Math.floor(t * 8) % 2 === 0 ? "1" : fly < 0.05 && n < URL.length ? "1" : "0";
+        tf(bigUrl, { x: bx, y: by, s: lerp(1, 16 / 86, fly), o: t > 7.04 && t < 7.7 ? 1 - prog(t, 7.62, 7.7) : 0 });
 
         /* --- wipe out --- */
         bars.forEach((b) => {

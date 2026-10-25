@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 
 node render.cjs cues                    # sound cue list from the animation -> out/cues.json
 python3 audio/build_audio.py            # music + sound effects       -> out/audio_raw.wav
-node render.cjs video "${WORKERS:-3}"   # 1500 frames, 1920x1080 @ 60 -> out/video.mp4
+node render.cjs video "${WORKERS:-3}" "${SUBFRAMES:-3}"  # 1500 frames, 1920x1080 @ 60, motion blur -> out/video.mp4
 
 ffmpeg -y -loglevel error -i out/video.mp4 -i out/audio_raw.wav -map 0:v -map 1:a \
   -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p -profile:v high \

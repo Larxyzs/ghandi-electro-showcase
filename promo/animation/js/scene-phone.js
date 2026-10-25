@@ -54,15 +54,26 @@ SCENE_BUILDERS.push(() =>
       LINES.forEach((ln) => {
         // each line is a mask: words drop into it from above and bounce on its baseline
         const row = el(head, "hd");
-        row.style.cssText += `font-size:${fs}px;line-height:1.16;color:#0f172a;overflow:hidden;padding:0.05em 0.2em 0.16em 0;margin:-0.05em 0 -0.16em;`;
+        row.style.cssText += `font-size:${fs}px;line-height:1.16;color:#0f172a;overflow:hidden;padding:0.05em 0.2em 0.16em 0;margin:-0.05em 0 -0.16em;position:relative;`;
         ln.forEach(([w, t0, hl], i) => {
           const s = el(row, "wd", null, "span");
           s.textContent = w;
           if (hl) s.style.color = BLUE;
           if (i < ln.length - 1) el(row, "", " ", "span");
-          words.push({ s, t0, rot: (i % 2 ? 1 : -1) * (6 + 5 * ((t0 * 7) % 1)) });
+          // outline echoes that trail the word while it falls
+          const echoes = [0.035, 0.07].map(() => {
+            const e = el(row, "wd abs", null, "span");
+            e.textContent = w;
+            e.style.cssText += `color:transparent;-webkit-text-stroke:2px ${BLUE};pointer-events:none;`;
+            return e;
+          });
+          words.push({ s, t0, echoes, rot: (i % 2 ? 1 : -1) * (6 + 5 * ((t0 * 7) % 1)) });
         });
       });
+      words.forEach((w) => w.echoes.forEach((e) => {
+        e.style.left = w.s.offsetLeft + "px";
+        e.style.top = w.s.offsetTop + "px";
+      }));
       const casa = words[words.length - 1].s;
       const swoosh = el(head, "abs");
       swoosh.innerHTML = `<svg width="100%" height="100%" viewBox="0 0 600 60" preserveAspectRatio="none"><path d="M8 40 C 140 18, 300 14, 592 30" stroke="${BLUE}" stroke-width="14" fill="none" stroke-linecap="round"/></svg>`;
@@ -128,11 +139,9 @@ SCENE_BUILDERS.push(() =>
 
       // floating category bubbles around the phone
       const BUB = [
-        { ic: "refrigerator", x: 330, y: -300, t0: 3.38 },
-        { ic: "washing-machine", x: 360, y: 20, t0: 3.46 },
-        { ic: "tv", x: 320, y: 330, t0: 3.54 },
-        { ic: "air-vent", x: -300, y: -390, t0: 3.62 },
-        { ic: "flame", x: -330, y: 360, t0: 3.7 },
+        { ic: "tv", x: 330, y: -300, t0: 3.5 },
+        { ic: "flame", x: 370, y: 10, t0: 3.58 },
+        { ic: "air-vent", x: -300, y: -390, t0: 3.66 },
       ].map((b, i) => {
         const d = el(cam, "abs");
         d.style.cssText += `left:${PX + b.x - 56}px;top:${540 + b.y - 56}px;width:112px;height:112px;border-radius:32px;background:#fff;color:${BLUE};display:grid;place-items:center;
@@ -140,6 +149,28 @@ SCENE_BUILDERS.push(() =>
         d.innerHTML = icon(b.ic, 54, 1.6);
         return { d, ...b, ph: i * 1.3 };
       });
+
+      // real appliances rise from the floor behind the phone
+      const APPL = [
+        { k: "fridge", h: 330, x: PX + 175, t0: 3.36 },
+        { k: "washer", h: 196, x: PX - 365, t0: 3.44 },
+      ].map((a) => {
+        const d = el(cam, "abs");
+        d.innerHTML = ART.appliance(a.k);
+        const svgA = d.firstChild;
+        svgA.style.height = a.h + "px";
+        svgA.style.width = "auto";
+        svgA.style.display = "block";
+        d.style.cssText += `left:${a.x}px;top:${GROUND + 4 - a.h}px;transform-origin:50% 100%;filter:drop-shadow(0 30px 30px rgb(4 21 58 / .25));`;
+        cam.insertBefore(d, stagePhone);
+        return { d, ...a };
+      });
+      const landFx = [
+        FXL.lineBurst(cam, { x: PX, y: GROUND - 20, t0: TL, n: 16, r0: 250, r1: 560, width: 6, color: BLUE, dur: 0.45, seed: 31, rot: 5 }),
+        FXL.shapeBurst(cam, { x: PX, y: GROUND - 40, t0: TL, n: 22, speed: [500, 1200], angle: [195, 345], colors: [BLUE, "#7fb2ff", "#0b57c4"], seed: 32, gravity: 1300 }),
+      ];
+      const casaFx = FXL.lineBurst(head, { x: 0, y: 0, t0: 4.3, n: 7, r0: 18, r1: 90, width: 6, color: BLUE, dur: 0.35, seed: 33, rot: -150, jitter: 0 });
+      const warpFx = FXL.warp(root, { x: 960, y: 470, color: BLUE, width: 5, seed: 34 });
 
       /* ---------- sound ---------- */
       cue(2.95, "fall", { dur: 0.3, gain: 0.8 });
@@ -156,6 +187,9 @@ SCENE_BUILDERS.push(() =>
         cue(n.t0, "ding", { pitch: [1, 1.1892, 1.4983][i], gain: 0.75 }); // D6, F6, A6: in key with the music
         cue(n.t0, "buzz", { gain: 0.6 });
       });
+      APPL.forEach((a, i) => cue(a.t0 + 0.05, "pop", { pitch: 0.6 + i * 0.15, gain: 0.7 }));
+      cue(TL + 0.02, "shimmer", { dur: 0.5, gain: 0.35 });
+      cue(4.3, "swish", { gain: 0.45 });
       cue(5.85, "scroll", { dur: 0.5, gain: 0.6 });
       cue(5.95, "swish", { gain: 0.5 });
       cue(6.38, "whoosh", { dur: 0.6, gain: 1.0, rise: 1 });
@@ -239,10 +273,17 @@ SCENE_BUILDERS.push(() =>
           const r = w.rot * (1 - prog(t, w.t0, w.t0 + 0.17));
           w.s.style.transform = `translate3d(0,${(-hh).toFixed(1)}px,0) rotate(${r.toFixed(2)}deg) scale(${(1 + qq * 0.5).toFixed(3)},${(1 - qq).toFixed(3)})`;
           w.s.style.opacity = t < w.t0 ? "0" : "1";
+          w.echoes.forEach((e, k) => {
+            const lag = (k + 1) * 0.035;
+            const he = gravityDrop(t - w.t0 - lag, fs * 1.45, 0.17, 0.12, 2);
+            const moving = t > w.t0 && t < w.t0 + 0.17 + lag;
+            e.style.transform = `translate3d(0,${(-he).toFixed(1)}px,0) rotate(${(w.rot * (1 - prog(t, w.t0 + lag, w.t0 + lag + 0.17))).toFixed(2)}deg)`;
+            e.style.opacity = moving ? (0.55 - k * 0.2).toFixed(2) : "0";
+          });
         });
         // underline under "Casablanca"
         const cl = casa.offsetLeft;
-        const ct = casa.offsetTop + casa.offsetHeight;
+        const ct = casa.parentElement.offsetTop + casa.offsetTop + casa.offsetHeight; // rows are positioned: offsets are row-relative
         swoosh.style.left = cl + "px";
         swoosh.style.top = ct - 8 + "px";
         swoosh.style.width = casa.offsetWidth + "px";
@@ -256,6 +297,18 @@ SCENE_BUILDERS.push(() =>
         // words leave to the left before the dive
         const outp = E.inExpo(prog(t, 6.38, 6.68));
         tf(head, { x: -1500 * outp, f: outp > 0.02 ? `blur(${(outp * 16).toFixed(1)}px)` : "none" });
+
+        // appliances, landing accents, warp
+        APPL.forEach((a) => {
+          const k = spring(t - a.t0, 2.6, 0.45);
+          const away = E.inExpo(prog(t, 6.38, 6.7));
+          tf(a.d, { sy: Math.max(0, k), sx: 0.7 + 0.3 * Math.max(0, k), x: (a.x - PX) * 1.4 * away, o: (t > a.t0 ? 1 : 0) * (1 - away) });
+        });
+        landFx.forEach((u) => u(t));
+        const cx0 = casa.offsetLeft + casa.offsetWidth + 18;
+        const cy0 = casa.parentElement.offsetTop + casa.offsetTop + 20;
+        casaFx(t, cx0, cy0);
+        warpFx(t, E.inQuad(prog(t, 6.45, 6.85)) * (1 - prog(t, 6.9, 7.0)));
 
         // bubbles
         BUB.forEach((b) => {

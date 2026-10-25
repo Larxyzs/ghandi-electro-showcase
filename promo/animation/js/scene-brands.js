@@ -56,21 +56,34 @@ SCENE_BUILDERS.push(() =>
       const progFill = el(prog8, "fill");
       progFill.style.transformOrigin = "0 50%";
 
-      // grid
+      // per-slam ray bursts (blue on white frames, white on blue frames)
+      const slamFx = BRANDS.map((_, i) =>
+        FXL.lineBurst(root, { x: 960, y: 540, t0: T1 + i * STEP, n: 16, r0: 560, r1: 980, width: 7, color: i % 2 ? "rgb(255 255 255 / .8)" : BLUE, dur: 0.26, seed: 60 + i, rot: i * 11 }),
+      );
+
+      // finale: a tilted 3D wall of brand tiles sliding in alternating directions
+      const wall = el(root, "fill");
+      wall.style.perspective = "1500px";
+      const plane = el(wall, "abs");
+      plane.style.cssText += "left:-700px;top:-260px;width:3320px;height:1600px;transform-origin:50% 50%;";
+      const wallRows = [];
+      for (let r = 0; r < 7; r++) {
+        const row = el(plane, "abs");
+        row.style.cssText += `left:0;top:${r * 225}px;display:flex;gap:28px;white-space:nowrap;`;
+        let html = "";
+        for (let k = 0; k < 16; k++) {
+          const b = BRANDS[(k + r * 3) % BRANDS.length];
+          const hot = (k + r) % 5 === 0;
+          html += `<span style="flex:none;width:330px;height:180px;border-radius:28px;display:grid;place-items:center;font:900 52px Roboto;letter-spacing:-.01em;
+            background:${hot ? BLUE : "#fff"};color:${hot ? "#fff" : "#0f172a"};box-shadow:0 26px 44px -28px rgb(11 57 140 / .55), inset 0 0 0 2px ${hot ? BLUE : "#e3ebf7"};">${b}</span>`;
+        }
+        row.innerHTML = html;
+        wallRows.push(row);
+      }
       const gridTitle = el(root, "abs hd");
-      gridTitle.style.cssText += "left:0;top:200px;width:1920px;text-align:center;font-size:88px;color:#0f172a;";
-      gridTitle.textContent = "Nos marques";
-      const tiles = BRANDS.map((b, i) => {
-        const d = el(root, "abs");
-        const col = i % 4;
-        const row = Math.floor(i / 4);
-        const x = 960 - (4 * 330 + 3 * 28) / 2 + col * 358;
-        const y = 380 + row * 190;
-        d.style.cssText += `left:${x}px;top:${y}px;width:330px;height:160px;border-radius:26px;background:#fff;display:grid;place-items:center;
-          font:900 48px Roboto;color:#0f172a;letter-spacing:-.01em;box-shadow:0 26px 44px -28px rgb(11 57 140 / .55), inset 0 0 0 2px #e3ebf7;`;
-        d.textContent = b;
-        return { d, x: x + 165, y: y + 80, t0: T_GRID + 0.06 + i * 0.045 };
-      });
+      gridTitle.style.cssText += `left:0;top:470px;width:1920px;text-align:center;font-size:110px;color:#fff;`;
+      gridTitle.innerHTML = `<span style="display:inline-block;background:${BLUE};padding:26px 64px 34px;border-radius:40px;box-shadow:0 40px 80px -30px rgb(4 21 58 / .6)">Nos marques</span>`;
+      const titleBox = gridTitle.firstChild;
 
       /* ---------- sound ---------- */
       cue(14.58, "thud", { pitch: 0.9, gain: 0.7 });
@@ -82,7 +95,8 @@ SCENE_BUILDERS.push(() =>
       cue(glitchIdx * STEP + T1, "glitch", { dur: 0.2, gain: 0.5 });
       cue(T_GRID, "whoosh", { dur: 0.25, gain: 0.5 });
       cue(T_GRID + 0.02, "thud", { pitch: 1.1, gain: 0.6 });
-      tiles.forEach((tl, i) => i % 2 === 0 && cue(tl.t0 + 0.05, "pop", { pitch: 1 + i * 0.08, gain: 0.5 }));
+      cue(T_GRID + 0.08, "pop", { pitch: 1.2, gain: 0.7 });
+      cue(T_GRID + 0.05, "riserShort", { dur: 0.45, gain: 0.5 });
       cue(17.28, "whoosh", { dur: 0.25, gain: 0.6, pan: -0.3 });
 
       return (t) => {
@@ -178,15 +192,17 @@ SCENE_BUILDERS.push(() =>
           tf(g, { x: jx, y: (j ? -1 : 1) * amp * 0.25, o: 0.85 * Math.exp(-d * 10) });
         });
 
-        // grid
-        const gt = E.outBack(prog(t, T_GRID, T_GRID + 0.3));
-        const out = E.inBack(prog(t, 17.28, 17.5));
-        tf(gridTitle, { y: 50 * (1 - gt) - 300 * out, o: gridOn ? prog(t, T_GRID, T_GRID + 0.08) * (1 - out) : 0 });
-        tiles.forEach((tl, i) => {
-          const s = spring(t - tl.t0, 3, 0.5);
-          const away = E.inBack(prog(t, 17.28 + i * 0.015, 17.48 + i * 0.015));
-          tf(tl.d, { s: Math.max(0, s) * (1 - away), o: gridOn ? prog(t, tl.t0, tl.t0 + 0.05) : 0, y: -40 * away });
-        });
+        slamFx.forEach((u) => u(t));
+
+        // finale wall
+        wall.style.display = gridOn ? "" : "none";
+        const wk = E.outExpo(prog(t, T_GRID, T_GRID + 0.45));
+        const out = E.inCubic(prog(t, 17.25, 17.5));
+        tf(plane, { rx: lerp(62, 30, wk), r: -14, s: lerp(1.5, 1, wk) * (1 + 1.6 * out), o: 1 - out });
+        wallRows.forEach((row, r) => tf(row, { x: (r % 2 ? -1 : 1) * (t - T_GRID) * 520 - 900 }));
+        const gt = spring(t - T_GRID - 0.06, 3, 0.48);
+        titleBox.style.transform = `scale(${Math.max(0, gt * (1 - out)).toFixed(4)}) rotate(${((1 - Math.min(1, gt)) * -8).toFixed(2)}deg)`;
+        gridTitle.style.opacity = gridOn ? "1" : "0";
 
         const sh = shake(t, T1 + Math.max(0, idx) * STEP, 0.16, inSlams ? 9 : 0, 26, idx + 1);
         root.style.transform = `translate(${sh.x.toFixed(1)}px,${sh.y.toFixed(1)}px)`;

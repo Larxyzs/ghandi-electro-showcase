@@ -37,6 +37,13 @@ SCENE_BUILDERS.push(() =>
         return { s, t0: 17.5 + i * 0.12 };
       });
 
+      // entrance accents behind the title
+      const introFx = [
+        FXL.ringPulse(root, { x: 960, y: 540, t0: 17.46, r0: 40, r1: 1200, width: 0, color: "transparent", fill: "rgb(18 102 232 / .08)", dur: 0.7 }),
+        FXL.lineBurst(content, { x: 960, y: 170, t0: 17.62, n: 14, r0: 300, r1: 620, width: 6, color: BLUE, dur: 0.4, seed: 79 }),
+        FXL.ringPulse(content, { x: 960, y: 170, t0: 17.62, r0: 60, r1: 520, width: 3, color: "rgb(18 102 232 / .5)", dur: 0.6 }),
+      ];
+      root.insertBefore(root.lastChild, content);
       const wrap = el(content, "fill");
       wrap.style.perspective = "1800px";
       const cards = CARDS.map((c, i) => {
@@ -58,6 +65,31 @@ SCENE_BUILDERS.push(() =>
         return { d, fillBlue, icw, tt, st, stage, ...c, i };
       });
       cards.forEach((c) => (c.st.style.top = 178 + c.tt.offsetHeight + 14 + "px"));
+      cards.forEach((c, i) => {
+        c.num = el(c.d, "abs hd");
+        c.num.style.cssText += "right:30px;left:auto;top:34px;font-size:44px;font-weight:800;";
+        c.num.textContent = "0" + (i + 1);
+      });
+
+      // progress rail under the cards: fills up and a glowing dot hops from service to service
+      const RAIL_Y = Y0 + CH + 64;
+      const cx = (i) => X0 + i * (CW + GAP) + CW / 2;
+      const rail = el(content, "abs");
+      rail.style.cssText += `left:${cx(0)}px;top:${RAIL_Y - 3}px;width:${cx(3) - cx(0)}px;height:6px;border-radius:6px;background:#dbe6f7;`;
+      const railFill = el(rail, "fill");
+      railFill.style.cssText += `background:${BLUE};border-radius:6px;transform-origin:0 50%;`;
+      const nodes = cards.map((c, i) => {
+        const n = el(content, "abs");
+        n.style.cssText += `left:${cx(i) - 14}px;top:${RAIL_Y - 14}px;width:28px;height:28px;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 5px #dbe6f7;`;
+        return n;
+      });
+      const dot = el(content, "abs");
+      dot.style.cssText += `width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:${BLUE};box-shadow:0 0 0 8px rgb(18 102 232 / .2),0 0 24px ${BLUE};`;
+      const actFx = cards.map((c, i) => [
+        FXL.lineBurst(content, { x: cx(i), y: RAIL_Y, t0: c.a, n: 10, r0: 24, r1: 90, width: 5, color: BLUE, dur: 0.35, seed: 70 + i }),
+        FXL.ringPulse(content, { x: cx(i), y: RAIL_Y, t0: c.a, r0: 14, r1: 70, width: 3, color: BLUE, dur: 0.5 }),
+        FXL.shapeBurst(content, { x: cx(i), y: Y0 + 120, t0: c.a + 0.02, n: 12, speed: [300, 700], angle: [200, 340], colors: [BLUE, "#7fb2ff", "#0b57c4"], seed: 75 + i, gravity: 1200, size: [8, 16] }),
+      ]).flat();
 
       /* card 1: delivery truck */
       const C1 = cards[0];
@@ -106,6 +138,7 @@ SCENE_BUILDERS.push(() =>
       tWords.forEach((w, i) => cue(w.t0 + 0.14, "thud", { pitch: 0.95 + i * 0.1, gain: 0.7 }));
       cards.forEach((c, i) => cue(17.58 + i * 0.08, "swish", { gain: 0.35 + i * 0.05, pan: -0.6 + i * 0.4 }));
       cards.forEach((c, i) => cue(c.a, "hit", { pitch: 1.1 + i * 0.1, gain: 0.55 }));
+      cards.forEach((c, i) => i && cue(c.a - 0.2, "blip", { pitch: 1 + i * 0.25, gain: 0.5 }));
       cue(18.06, "truck", { dur: 0.75, gain: 0.85 });
       cue(18.55, "horn", { gain: 0.6 });
       cue(18.86, "cash", { gain: 0.9 });
@@ -119,7 +152,8 @@ SCENE_BUILDERS.push(() =>
       return (t) => {
         // exit: everything swipes up while the map scene comes in from below
         const ex = E.inOutQuart(prog(t, T_EXIT, T_EXIT + 0.3));
-        tf(content, { y: -1080 * ex, f: ex > 0.02 && ex < 0.98 ? `blur(${(Math.sin(Math.PI * ex) * 10).toFixed(1)}px)` : "none" });
+        const push0 = E.inOutSine(prog(t, 17.6, 20.9));
+        tf(content, { y: -1080 * ex, s: 1 + 0.05 * push0, f: ex > 0.02 && ex < 0.98 ? `blur(${(Math.sin(Math.PI * ex) * 10).toFixed(1)}px)` : "none" });
         const act = cards.find((c) => t >= c.a && t < c.a + 0.75) || null;
         const gx = act ? X0 + act.i * (CW + GAP) + CW / 2 : 960;
         tf(glow, { x: gx - 450, y: 560 - 450, o: act ? 1 : 0.5 });
@@ -140,7 +174,7 @@ SCENE_BUILDERS.push(() =>
           c.d.style.zIndex = on ? "2" : "1";
           c.fillBlue.style.transform = `scaleY(${lit.toFixed(4)})`;
           c.fillBlue.style.opacity = lit > 0.001 ? "1" : "0";
-          const white = lit > 0.5;
+          const white = lit > 0.8; // switch text colour only once the blue fill covers it
           c.tt.style.color = white ? "#ffffff" : "#0f172a";
           c.st.style.color = white ? "rgb(255 255 255 / .9)" : "#5f6368";
           c.icw.style.background = white ? "#ffffff" : "#e9f1fd";
@@ -149,6 +183,26 @@ SCENE_BUILDERS.push(() =>
           c.stage.style.color = white ? "#ffffff" : BLUE;
           c.stage.style.opacity = (0.22 + 0.78 * lit).toFixed(3);
         });
+
+        introFx.forEach((u) => u(t));
+        // progress rail, hopping dot, numbers, activation bursts, slow camera push
+        const k = cards.reduce((a, c, i) => a + (i ? E.inOutCubic(prog(t, c.a - 0.22, c.a)) : 0), 0);
+        railFill.style.transform = `scaleX(${(k / 3).toFixed(4)})`;
+        const dx = cx(0) + k * (CW + GAP);
+        const hop = cards.reduce((a, c, i) => a + (i ? Math.sin(Math.PI * prog(t, c.a - 0.22, c.a)) : 0), 0);
+        tf(dot, { x: dx, y: RAIL_Y - 60 * hop, o: prog(t, 17.9, 18.0), s: 1 + 0.25 * hop });
+        nodes.forEach((n, i) => {
+          const hit = t >= cards[i].a;
+          n.style.boxShadow = hit ? `inset 0 0 0 5px ${BLUE}` : "inset 0 0 0 5px #dbe6f7";
+          tf(n, { s: 1 + M.squash(t, cards[i].a, 0.45, 4, 8), o: prog(t, 17.6 + i * 0.08, 17.75 + i * 0.08) });
+        });
+        rail.style.opacity = prog(t, 17.6, 17.9).toFixed(3);
+        cards.forEach((c) => {
+          const lit = t >= c.a && t < c.a + 0.78;
+          c.num.style.color = lit ? "rgb(255 255 255 / .55)" : "#dbe6f7";
+        });
+        actFx.forEach((u) => u(t));
+        content.style.transformOrigin = "960px 560px";
 
         // card 1: truck drives through
         const tk = prog(t, 18.06, 18.5);

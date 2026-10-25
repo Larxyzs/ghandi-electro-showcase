@@ -44,6 +44,17 @@ SCENE_BUILDERS.push(() =>
       });
 
       /* ---------- word roll ---------- */
+      // kinetic outline bands top and bottom, a beat burst behind the word, confetti when the tiles land
+      const BAND = "FROID · LAVAGE · CUISSON · TV · CLIMATISATION · ";
+      const bands = [
+        FXL.marquee(root, { text: BAND, size: 92, stroke: "2px rgb(255 255 255 / .22)", speed: 420, y: -6, gap: 0, reps: 4 }),
+        FXL.marquee(root, { text: BAND, size: 92, stroke: "2px rgb(255 255 255 / .22)", speed: -420, y: 978, gap: 0, reps: 4 }),
+      ];
+      const beatFx = ITEMS.map((_, i) => [
+        FXL.lineBurst(root, { x: 960, y: 650, t0: T0 + i * STEP, n: 18, r0: 330, r1: 760, width: 6, color: "rgb(255 255 255 / .75)", dur: 0.38, seed: 50 + i, rot: i * 9 }),
+        FXL.ringPulse(root, { x: 960, y: 350, t0: T0 + i * STEP + 0.03, r0: 90, r1: 260, width: 4, color: "rgb(255 255 255 / .8)", dur: 0.45 }),
+      ]).flat();
+      const tileFx = FXL.shapeBurst(root, { x: 960, y: 535, t0: T_TILES + 0.4, n: 30, speed: [700, 1500], colors: ["#ffffff", "#cfe3ff", "#9cc6ff"], seed: 58, gravity: 900 });
       const label = el(root, "abs pill");
       label.style.cssText += "left:960px;top:150px;color:#fff;font-size:26px;letter-spacing:.2em;text-transform:uppercase;box-shadow:inset 0 0 0 2px rgb(255 255 255 / .6);";
       label.innerHTML = "Nos univers";
@@ -120,6 +131,9 @@ SCENE_BUILDERS.push(() =>
         pulse.style.opacity = (0.25 + 0.75 * Math.pow(1 - beat, 3)).toFixed(3);
         tf(marq, { r: -14, s: 1 + 0.02 * Math.sin(t) });
         rowsM.forEach((r, i) => tf(r, { x: (i % 2 ? -1 : 1) * (lt * 140) - (i % 2 ? 0 : 600) }));
+        bands.forEach((u) => u(t));
+        beatFx.forEach((u) => u(t));
+        tileFx(t);
         streaks.forEach((d, i) => {
           const k = E.outCubic(prog(t, T0 + i * 0.04, T0 + 0.35 + i * 0.04));
           tf(d, { x: lerp(-200 + i * 300, -2400, k), skx: -18 });

@@ -18,14 +18,21 @@ SCENE_BUILDERS.push(() =>
 
       /* ---------- map ---------- */
       const mapLayer = el(root, "fill");
-      mapLayer.style.background = "#eef3f9";
-      const map = el(mapLayer, "abs");
+      mapLayer.style.background = "linear-gradient(180deg, #dfeafb 0%, #eef3f9 40%)";
+      const mapStage = el(mapLayer, "fill");
+      mapStage.style.perspective = "1400px";
+      mapStage.style.perspectiveOrigin = `${SCREEN_PIN.x}px ${SCREEN_PIN.y}px`;
+      const mapCam = el(mapStage, "fill");
+      mapCam.style.transformOrigin = `${SCREEN_PIN.x}px ${SCREEN_PIN.y}px`;
+      const map = el(mapCam, "abs");
       map.innerHTML = ART.cityMap();
       map.style.transformOrigin = "0 0";
       const streets = M.prepDraw(map.querySelectorAll(".street, .avenue"));
       const blvd = M.prepDraw(map.querySelectorAll(".blvd, .blvd-base"));
       const blvdText = map.querySelector("textPath").parentNode;
 
+      const fog = el(mapLayer, "fill");
+      fog.style.background = "linear-gradient(180deg, #e6effc 0%, rgb(230 239 252 / .85) 14%, rgb(230 239 252 / 0) 34%)";
       const pinShadow = el(mapLayer, "abs");
       pinShadow.style.cssText += "width:90px;height:26px;border-radius:50%;background:radial-gradient(closest-side, rgb(4 21 58 / .45), transparent);";
       const rings = [0, 1, 2].map(() => {
@@ -68,10 +75,38 @@ SCENE_BUILDERS.push(() =>
       const lock = el(fin, "fill");
       lock.style.transformOrigin = "960px 420px";
       const HS = 1.45;
-      const house = el(lock, "abs");
+      const house3dWrap = el(lock, "fill");
+      house3dWrap.style.perspective = "1100px";
+      house3dWrap.style.perspectiveOrigin = "960px 260px";
+      const house = el(house3dWrap, "abs");
       house.style.cssText += `left:${960 - 120 * HS}px;top:96px;width:${240 * HS}px;height:${220 * HS}px;`;
       house.innerHTML = ART.logoHouse({ ink: "#ffffff", fill: "#ffffff", detail: BLUE, hl: "#b7d3ff", vent: "#ffffff" });
       const drum = house.querySelector(".lh-drum");
+      // extrusion: darker copies stacked behind the white face
+      house.style.transformStyle = "preserve-3d";
+      const front = house.firstElementChild;
+      for (let i = 12; i >= 1; i--) {
+        const layer = el(null, "fill");
+        const shade = i > 9 ? "#082f74" : "#0b4fb8";
+        layer.innerHTML = ART.logoHouse({ ink: shade, fill: shade, detail: shade, hl: shade, vent: shade });
+        layer.style.transform = `translateZ(${-i * 3.2}px)`;
+        house.insertBefore(layer, front);
+      }
+      front.style.transform = "translateZ(0.5px)";
+      const finFx = [
+        FXL.lineBurst(fin, { x: 960, y: 260, t0: T_HIT, n: 20, r0: 260, r1: 760, width: 8, dur: 0.5, seed: 81 }),
+        FXL.shapeBurst(fin, { x: 960, y: 300, t0: T_HIT, n: 30, speed: [700, 1600], colors: ["#ffffff", "#cfe3ff", "#9cc6ff"], seed: 82, gravity: 500 }),
+        FXL.ringPulse(fin, { x: 960, y: 260, t0: T_HIT + 0.1, r0: 120, r1: 760, width: 3, color: "rgb(255 255 255 / .6)", dur: 0.8 }),
+      ];
+      const ORB = { x: 960, y: 262, rx: 330, k: 0.26 };
+      const orbits = [-12, 14].map((rot, i) => {
+        const o = el(lock, "abs");
+        o.style.cssText += `left:${ORB.x - ORB.rx}px;top:${ORB.y - ORB.rx * ORB.k}px;width:${2 * ORB.rx}px;height:${2 * ORB.rx * ORB.k}px;border-radius:50%;border:2px solid rgb(255 255 255 / .35);`;
+        lock.insertBefore(o, house3dWrap);
+        const e = el(lock, "abs");
+        e.style.cssText += "width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:#fff;box-shadow:0 0 12px 4px #b9d8ff,0 0 30px 10px #2f7dff;";
+        return { o, e, rot, ph: i * Math.PI };
+      });
       const wm = el(lock, "abs wm");
       wm.style.cssText += "left:0;width:1920px;top:444px;color:#fff;";
       const wmMain = el(wm, "wm-main");
@@ -108,6 +143,7 @@ SCENE_BUILDERS.push(() =>
       /* ---------- sound ---------- */
       for (let i = 0; i < 10; i++) cue(21.05 + i * 0.05, "blip", { pitch: 1 + (i % 5) * 0.12, gain: 0.3 });
       cue(21.12, "swoosh", { dur: 0.4, gain: 0.5 });
+      cue(21.1, "swoosh", { dur: 1.1, gain: 0.35 }); // camera tilts over the map
       cue(T_LAND - 0.22, "fall", { dur: 0.22, gain: 0.6 });
       cue(T_LAND, "pinDrop", { gain: 1.0 });
       [0, 0.25, 0.5].forEach((d) => cue(T_LAND + d, "sonar", { gain: 0.45 - d * 0.4 }));
@@ -136,6 +172,9 @@ SCENE_BUILDERS.push(() =>
         const mx = SCREEN_PIN.x - PIN.x * ms;
         const my = SCREEN_PIN.y - PIN.y * ms;
         tf(map, { x: mx, y: my, s: ms });
+        const tilt = E.inOutCubic(prog(t, 21.05, 22.35));
+        tf(mapCam, { rx: 38 * tilt, r: -6 * tilt });
+        fog.style.opacity = tilt.toFixed(3);
         streets.forEach((s, i) => {
           const a = 21.0 + ((i >> 1) % 12) * 0.03; // avenue casing and fill are consecutive: keep them together
           M.drawTo([s], E.outCubic(prog(t, a, a + 0.45)));
@@ -181,7 +220,22 @@ SCENE_BUILDERS.push(() =>
         const sh = shake(t, T_HIT, 0.5, 16, 22, 9);
         const slam = E.outExpo(prog(t, T_HIT, T_HIT + 0.35));
         const settle = 1 + 0.03 * E.inOutSine(prog(t, 23.4, 25.0));
-        tf(house, { s: lerp(2.2, 1, slam), o: prog(t, T_HIT - 0.02, T_HIT + 0.04), f: slam < 0.97 ? `blur(${((1 - slam) * 18).toFixed(1)}px)` : "none" });
+        const turn = -42 * (1 - E.outCubic(prog(t, T_HIT, T_HIT + 0.8))) + 20 * Math.sin((t - T_HIT - 0.4) * 2.0) * prog(t, T_HIT + 0.3, T_HIT + 1.0);
+        tf(house, { s: lerp(2.2, 1, slam), ry: turn, rx: 10 * Math.sin((t - T_HIT) * 1.5) * prog(t, T_HIT + 0.3, T_HIT + 1.0), o: prog(t, T_HIT - 0.02, T_HIT + 0.04) });
+        house3dWrap.style.filter = slam < 0.97 ? `blur(${((1 - slam) * 18).toFixed(1)}px)` : "none";
+        finFx.forEach((u) => u(t));
+        const oin = E.outBack(prog(t, T_HIT + 0.15, T_HIT + 0.55));
+        orbits.forEach((ob) => {
+          const vis = t > T_HIT + 0.15;
+          ob.o.style.opacity = vis ? (0.9 * oin).toFixed(3) : "0";
+          tf(ob.o, { r: ob.rot, s: 0.5 + 0.5 * oin });
+          const th = (t - T_HIT) * 3.8 + ob.ph;
+          const a = (ob.rot * Math.PI) / 180;
+          const ex = ORB.rx * Math.cos(th) * (0.5 + 0.5 * oin);
+          const ey = ORB.rx * ORB.k * Math.sin(th) * (0.5 + 0.5 * oin);
+          ob.e.style.transform = `translate3d(${(ORB.x + ex * Math.cos(a) - ey * Math.sin(a)).toFixed(1)}px,${(ORB.y + ex * Math.sin(a) + ey * Math.cos(a)).toFixed(1)}px,0)`;
+          ob.e.style.opacity = vis ? ((Math.sin(th) > 0 ? 1 : 0.3) * oin).toFixed(3) : "0";
+        });
         drum.style.transform = `rotate(${(Math.max(0, t - T_HIT) * 720).toFixed(1)}deg)`;
         tf(lock, { x: sh.x, y: sh.y, r: sh.r, s: settle });
         letters.forEach((s, i) => {

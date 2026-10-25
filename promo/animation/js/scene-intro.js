@@ -36,6 +36,9 @@ SCENE_BUILDERS.push(() =>
         bokeh.push({ b, x: r() * 1920, y: r() * 1080, v: 20 + r() * 60, a: 10 + r() * 40, f: 0.3 + r() * 0.8, ph: r() * 6, o: 0.15 + r() * 0.45 });
       }
 
+      // perspective grid floor under the logo
+      const floor = FXL.gridFloor(root, { top: FLOOR_Y - 20, color: "rgb(120 180 255 / .55)", speed: 260, cell: 80 });
+
       const cam = el(root, "fill");
       cam.style.transformOrigin = `${DOOR.x}px ${DOOR.y}px`;
 
@@ -113,6 +116,27 @@ SCENE_BUILDERS.push(() =>
       halo.style.cssText += `left:${960 - 700}px;top:${HY + 110 * HS - 700}px;width:1400px;height:1400px;border-radius:50%;
         background:radial-gradient(closest-side, rgb(255 255 255 / .35), rgb(160 200 255 / .12) 45%, transparent 70%);`;
       cam.insertBefore(halo, cam.firstChild);
+
+      // electric "Jacob's ladder" between the two sparks while they climb the walls
+      const ladder = FXL.arc(cam, { segs: 16, amp: 24, width: 3, seed: 5 });
+      const ladder2 = FXL.arc(cam, { segs: 10, amp: 34, width: 1.6, seed: 8, color: "#cfe3ff" });
+      // flash accents
+      const flashFx = [
+        FXL.lineBurst(cam, { x: APEX.x, y: APEX.y, t0: T_DRAW1, n: 16, r0: 70, r1: 560, width: 8, dur: 0.5, seed: 11 }),
+        FXL.ringPulse(cam, { x: APEX.x, y: APEX.y, t0: T_DRAW1 + 0.07, r1: 620, width: 3, color: "rgb(255 255 255 / .7)", dur: 0.75 }),
+        FXL.shapeBurst(cam, { x: 960, y: HY + 120 * HS, t0: T_DRAW1, n: 26, speed: [600, 1500], colors: ["#ffffff", "#cfe3ff", "#9cc6ff"], seed: 12, gravity: 420 }),
+      ];
+      // two electron orbits around the logo (atom / "electro" motif)
+      const ORB = { x: 960, y: HY + 118 * HS, rx: 470, k: 0.24 };
+      const orbits = [-14, 16].map((rot, i) => {
+        const o = el(cam, "abs");
+        o.style.cssText += `left:${ORB.x - ORB.rx}px;top:${ORB.y - ORB.rx * ORB.k}px;width:${2 * ORB.rx}px;height:${2 * ORB.rx * ORB.k}px;border-radius:50%;
+          border:2px solid rgb(255 255 255 / .38);transform-origin:50% 50%;`;
+        cam.insertBefore(o, houseBox);
+        const e = el(cam, "abs");
+        e.style.cssText += "width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:#fff;box-shadow:0 0 12px 4px #b9d8ff,0 0 34px 10px #2f7dff;";
+        return { o, e, rot, ph: i * Math.PI };
+      });
       const flashBurst = M.burst(cam, { n: 40, seed: 9, x: APEX.x, y: APEX.y, t0: T_DRAW1, life: 0.9, speed: [400, 1300], size: [3, 9], gravity: 500, drag: 2.6, colors: ["#ffffff", "#cfe3ff", "#8fc0ff"], shape: "streak" });
 
       // wordmark
@@ -138,6 +162,7 @@ SCENE_BUILDERS.push(() =>
       cue(0.02, "zap", { gain: 0.7 });
       cue(0.1, "powerup", { dur: 0.55 });
       cue(T_DRAW0, "crackle", { dur: T_DRAW1 - T_DRAW0 });
+      [0.72, 0.93, 1.12, 1.31].forEach((tz, i) => cue(tz, "zap", { gain: 0.3 + i * 0.05 }));
       cue(0.45, "riser", { dur: T_DRAW1 - 0.45, gain: 0.8 });
       cue(T_DRAW1, "impact", { gain: 1.0 });
       cue(T_DRAW1, "subdrop", { gain: 0.9 });
@@ -219,6 +244,31 @@ SCENE_BUILDERS.push(() =>
         const fp = prog(t, T_DRAW1 - 0.04, T_DRAW1 + 0.45);
         tf(flare, { sx: 0.2 + 1.2 * E.outExpo(fp), sy: 1 + 2 * (1 - fp), o: fp > 0 && fp < 1 ? Math.pow(1 - fp, 1.4) : 0 });
         halo.style.opacity = (0.9 * prog(t, T_DRAW1, T_DRAW1 + 0.4) * (0.85 + 0.15 * Math.sin(t * 6))).toFixed(3);
+
+        // electro layer
+        floor(t, prog(t, 0.15, 0.6) * (1 - 0.55 * prog(t, T_DRAW1, T_DRAW1 + 0.3)));
+        const climbing = t > T_DRAW0 + 0.06 && t < T_DRAW1 - 0.015;
+        const la = pt(left, LL, p);
+        const ra = pt(right, LR, p);
+        ladder(t, la, ra, climbing);
+        ladder2(t + 0.5, { x: la.x, y: la.y + 6 }, { x: ra.x, y: ra.y + 6 }, climbing && Math.floor(t * 20) % 3 !== 0);
+        flashFx.forEach((u) => u(t));
+        const bump = M.squash(t, T_DRAW1, 0.12, 3, 7);
+        tf(houseBox, { s: 1 + bump });
+        const oin = E.outBack(prog(t, T_DRAW1 + 0.05, T_DRAW1 + 0.45));
+        orbits.forEach((ob) => {
+          const vis = t > T_DRAW1 + 0.05;
+          ob.o.style.opacity = vis ? (0.9 * oin).toFixed(3) : "0";
+          tf(ob.o, { r: ob.rot, s: 0.5 + 0.5 * oin });
+          const th = (t - T_DRAW1) * 4.4 + ob.ph;
+          const a = (ob.rot * Math.PI) / 180;
+          const ex = ORB.rx * Math.cos(th) * (0.5 + 0.5 * oin);
+          const ey = ORB.rx * ORB.k * Math.sin(th) * (0.5 + 0.5 * oin);
+          const x = ORB.x + ex * Math.cos(a) - ey * Math.sin(a);
+          const y = ORB.y + ex * Math.sin(a) + ey * Math.cos(a);
+          ob.e.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`;
+          ob.e.style.opacity = vis ? ((Math.sin(th) > 0 ? 1 : 0.3) * oin).toFixed(3) : "0";
+        });
 
         // appliances pop up inside the house
         const fs = sp(t, 1.56, 0, 1, 4, 0.38);
