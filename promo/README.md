@@ -22,7 +22,7 @@ enough to be read (only the brands go fast). `ghandi-home-electro-promo-40s.jpg`
 
 | Time | Scene |
 | --- | --- |
-| 0–4 s | Dark stage: a power button draws itself and is pressed, a power wave switches on a field of appliance icons, they implode into a flash, the 3D logo lands with "GHANDI" dropping letter by letter |
+| 0–4 s | Hook on the very first frame: "Besoin d'un frigo ?" (the noun flips on the beat: clim, télé), the question is sucked into a power button that is pressed, a power wave switches on a field of appliance icons, they implode into a flash and the 3D logo lands as the answer |
 | 4–9.5 s | An iris opens on the city: buildings spring up from the ground, trees pop, cars drive, the shop rises on Boulevard Ghandi and its pin drops — "Votre magasin d'électroménager à Casablanca", address and opening hours |
 | 9.5–15 s | The camera dives through the shop door into the showroom and lands on each univers on the beat (Froid, Lavage, Cuisson, TV, Climatisation) |
 | 15–18 s | Front view of the brand wall: the eight brands light up on 8th notes |
@@ -30,7 +30,7 @@ enough to be read (only the brands go fast). `ghandi-home-electro-promo-40s.jpg`
 | 23.75–28.35 s | The parcel flies from the phone into the delivery van; the camera pulls back as Mohammedia and Dar Bouazza rise as floating islands, pins drop and vans fly along the routes — "Livraison gratuite" |
 | 28.35–30.85 s | The van parks at a house, the parcel hops to the door — "Paiement à la livraison" |
 | 30.85–35.5 s | Above the shop a phone rings and a WhatsApp message pops up — "Conseil par téléphone et WhatsApp" — then the camera pulls back over the whole city |
-| 35.5–40 s | A blue iris closes on the final card: logo, "Commandez en ligne ou sur WhatsApp", phone, website, address and hours |
+| 35.5–40 s | A blue iris opens on the final card: logo, the slogan "L'électroménager qui fait vivre votre maison", one big WhatsApp button with the number (tapped by a finger), website, address and hours; then the card switches off like an old TV into the dark stage of the first frame, so the video loops seamlessly on TikTok / Reels |
 
 ```sh
 COMP=v40 WORKERS=3 SUBFRAMES=3 promo/build.sh   # animation/v40.html -> ghandi-home-electro-promo-40s.mp4

@@ -1,5 +1,6 @@
-/* 40 s — Scene 1 (0 – 5 s): a power button draws itself and is pressed; a power wave switches on a whole
-   field of appliance icons; they implode into a flash; the 3D logo lock-up lands; blinds close to white. */
+/* 40 s — Scene 1 (0 – 4.5 s): the hook question is on screen from the very first frame ("Besoin d'un frigo ?",
+   the noun flips on the beat), it is sucked into a power button that is pressed; a power wave switches on a
+   whole field of appliance icons; they implode into a flash and the 3D logo lock-up lands as the answer. */
 SCENE_BUILDERS.push(() =>
   M.scene(
     "power",
@@ -8,9 +9,15 @@ SCENE_BUILDERS.push(() =>
     (root) => {
       const { el, E, prog, clamp, lerp, cue, tf, shake, gravityDrop, squash, sp, icon } = M;
       const C = { x: 960, y: 420 };
-      const T_PRESS = 0.95;
-      const T_WAVE = 1.0;
-      const WAVE_SPEED = 1500;
+      const HOOK = [
+        ["d'un frigo ?", 0.0],
+        ["d'une clim ?", 0.5],
+        ["d'une télé ?", 0.75],
+      ];
+      const T_COLLAPSE = 1.0; // the question is sucked into the power button
+      const T_PRESS = 1.2;
+      const T_WAVE = 1.25;
+      const WAVE_SPEED = 2800;
       const T_IMPLODE = 1.72;
       const T_FLASH = 2.0;
       const T_REVEAL = 4.0; // a hole opens in the middle and reveals the city underneath
@@ -42,6 +49,26 @@ SCENE_BUILDERS.push(() =>
       const front = el(dark, "abs");
       front.style.cssText += "border-radius:50%;border:3px solid rgb(170 210 255 / .9);box-shadow:0 0 30px 6px rgb(80 150 255 / .6), inset 0 0 30px 6px rgb(80 150 255 / .4);";
       const arcs = [0, 1, 2, 3, 4, 5].map((i) => FXL.arc(dark, { segs: 14, amp: 30, width: 2.6, seed: 90 + i }));
+
+      // hook: "Besoin" + a blue pill whose phrase rolls on the beat
+      const hook = el(dark, "abs");
+      hook.style.cssText += "left:0;top:0;width:1920px;height:1080px;transform-origin:960px 420px;";
+      const h1 = el(hook, "abs hd");
+      h1.style.cssText += "left:0;top:236px;width:1920px;text-align:center;font-size:150px;line-height:1;color:#fff;text-shadow:0 0 40px rgb(80 150 255 / .45);";
+      h1.textContent = "Besoin";
+      const PILL_Y = 418;
+      const PILL_H = 150;
+      const pill = el(hook, "abs");
+      pill.style.cssText += `left:0;top:${PILL_Y}px;height:${PILL_H}px;border-radius:36px;background:${ART.BLUE};box-shadow:0 0 0 4px rgb(255 255 255 / .9), 0 0 60px 10px rgb(47 125 255 / .55);`;
+      const roll = el(hook, "abs");
+      roll.style.cssText += `left:0;top:${PILL_Y}px;width:1920px;height:${PILL_H}px;overflow:hidden;`;
+      const phrases = HOOK.map(([txt]) => {
+        const row = el(roll, "abs");
+        row.style.cssText += `left:0;top:0;width:1920px;height:${PILL_H}px;text-align:center;`;
+        const sp = el(row, "hd", txt, "span");
+        sp.style.cssText += `display:inline-block;font-size:100px;line-height:${PILL_H}px;color:#fff;white-space:nowrap;`;
+        return { row, sp };
+      });
 
       // the power button
       const btn = el(dark, "abs");
@@ -78,12 +105,19 @@ SCENE_BUILDERS.push(() =>
 
 
       /* ---------- sound ---------- */
-      cue(0.12, "powerup", { dur: 0.7, gain: 0.7 });
+      cue(0.0, "punch", { pitch: 0.85, gain: 1.0 });
+      cue(0.0, "subdrop", { gain: 0.75 });
+      HOOK.slice(1).forEach(([, t0], i) => {
+        cue(t0, "pop", { pitch: 1.0 + i * 0.25, gain: 0.75 });
+        cue(t0, "swish", { gain: 0.3 });
+      });
+      cue(T_COLLAPSE - 0.04, "swoosh", { dur: 0.2, gain: 0.6 });
+      cue(T_COLLAPSE, "powerup", { dur: 0.22, gain: 0.6 });
       cue(T_PRESS, "click", { gain: 1.0 });
       cue(T_WAVE, "impact", { gain: 0.75 });
       cue(T_WAVE, "zap", { gain: 0.6 });
-      cue(T_WAVE, "crackle", { dur: 0.75, gain: 0.8 });
-      for (let i = 0; i < 9; i++) cue(T_WAVE + 0.05 + i * 0.075, "blip", { pitch: 1 + i * 0.12, gain: 0.35 });
+      cue(T_WAVE, "crackle", { dur: 0.45, gain: 0.8 });
+      for (let i = 0; i < 6; i++) cue(T_WAVE + 0.05 + i * 0.06, "blip", { pitch: 1 + i * 0.15, gain: 0.35 });
       cue(T_IMPLODE - 0.05, "whoosh", { dur: 0.33, gain: 0.9, rise: 1 });
       cue(T_FLASH, "impact", { gain: 1.1 });
       cue(T_FLASH, "subdrop", { gain: 1.0 });
@@ -106,9 +140,34 @@ SCENE_BUILDERS.push(() =>
         floor(t, isDark ? prog(t, 0.1, 0.6) : 0);
 
         if (isDark) {
-          // button draws, breathes, is pressed, then collapses into the flash
-          M.drawTo(pw, E.outCubic(prog(t, 0.15, 0.75)));
-          const press = t < T_PRESS ? 1 - 0.05 * Math.sin(t * 7) * prog(t, 0.75, 0.9) : 1 + squash(t, T_PRESS, -0.16, 3.5, 7);
+          // hook: slams in on frame 0, the phrase flips on the beat, then everything is sucked into the button
+          const col = E.inBack(prog(t, T_COLLAPSE, T_COLLAPSE + 0.14));
+          hook.style.display = col < 1 ? "" : "none";
+          if (col < 1) {
+            const slam = 1 + 0.1 * (1 - E.outCubic(prog(t, 0, 0.22)));
+            tf(hook, { s: slam * (1 - col), o: 1 - prog(t, T_COLLAPSE + 0.06, T_COLLAPSE + 0.14) });
+            let idx = 0;
+            HOOK.forEach(([, t0], i) => t >= t0 && (idx = i));
+            phrases.forEach((ph, i) => {
+              const tIn = HOOK[i][1];
+              const tOut = i < HOOK.length - 1 ? HOOK[i + 1][1] : 99;
+              const kin = i === 0 ? 1 : E.outBack(prog(t, tIn + 0.03, tIn + 0.19));
+              const kout = E.outCubic(prog(t, tOut, tOut + 0.08));
+              ph.row.style.display = t >= tIn - 0.001 && kout < 1 ? "" : "none";
+              tf(ph.row, { y: PILL_H * (1 - kin) - PILL_H * kout });
+            });
+            // the pill's width springs from one phrase to the next
+            const wOf = (i) => phrases[i].sp.offsetWidth + 110;
+            const k = idx === 0 ? 1 : M.spring(t - HOOK[idx][1], 4, 0.55);
+            const w = idx === 0 ? wOf(0) : lerp(wOf(idx - 1), wOf(idx), k);
+            pill.style.width = w.toFixed(1) + "px";
+            pill.style.left = (960 - w / 2).toFixed(1) + "px";
+          }
+
+          // button pops up and draws as the question collapses into it, is pressed, then implodes into the flash
+          M.drawTo(pw, E.outCubic(prog(t, T_COLLAPSE, T_COLLAPSE + 0.18)));
+          const pin = Math.max(0, M.spring(t - T_COLLAPSE, 3, 0.5));
+          const press = t < T_PRESS ? pin : 1 + squash(t, T_PRESS, -0.16, 3.5, 7);
           const imp = E.inExpo(prog(t, T_IMPLODE, T_FLASH));
           tf(btn, { s: press * (1 + 0.6 * imp) });
           disc.setAttribute("fill", `rgb(18 102 232 / ${(0.55 * prog(t, T_PRESS, T_PRESS + 0.1)).toFixed(3)})`);

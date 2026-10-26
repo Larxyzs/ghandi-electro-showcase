@@ -402,6 +402,24 @@ def sfx_powerup(dur=0.55):
     return st(edge(x, 0.01, 0.04)) * 0.5
 
 
+def sfx_powerdown(dur=0.5):
+    """TV switching off: a falling whine, a soft thump when the picture folds, a last static tick."""
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    u = t / dur
+    f = 1400 * 0.04 ** u
+    whine = sweep(saw(f, n) * 0.5 + np.sin(2 * np.pi * np.cumsum(f / 2) / SR), "lp", 200 + 5000 * (1 - u) ** 2)
+    whine *= (1 - u) ** 0.7 * 0.6
+    out = whine.copy()
+    i = int(0.16 * SR)
+    tb = tt(0.25)
+    out[i : i + len(tb)] += (np.sin(2 * np.pi * np.cumsum(70 + 90 * np.exp(-tb / 0.02)) / SR) * np.exp(-tb / 0.08))[: n - i] * 0.8
+    j = int(0.3 * SR)
+    ts = tt(0.06)
+    out[j : j + len(ts)] += (filt(noise(len(ts), 97), "hp", 3000) * np.exp(-ts / 0.01))[: n - j] * 0.4
+    return st(edge(out, 0.002, 0.03))
+
+
 def sfx_riser(dur=1.0):
     n = int(dur * SR)
     u = np.arange(n) / n
@@ -575,6 +593,7 @@ SFX = {
     "cash": lambda c: sfx_cash(),
     "ring": lambda c: sfx_ring(c.get("dur", 0.6)),
     "glitch": lambda c: sfx_glitch(c.get("dur", 0.2)),
+    "powerdown": lambda c: sfx_powerdown(c.get("dur", 0.5)),
 }
 
 # Relative level of each effect family in the mix.
@@ -583,6 +602,7 @@ LEVEL = {
     "click": 0.6, "type": 0.45, "ding": 0.7, "buzz": 0.5, "glass": 0.5, "fall": 0.45, "crackle": 0.5, "zap": 0.6,
     "powerup": 0.6, "riser": 0.55, "riserShort": 0.4, "shimmer": 0.5, "scroll": 0.45, "blip": 0.35, "sonar": 0.55, "pinDrop": 0.85,
     "truck": 0.7, "horn": 0.55, "cash": 0.8, "ring": 0.45, "glitch": 0.5, "whoosh": 0.6, "swish": 0.45, "swoosh": 0.45,
+    "powerdown": 0.6,
 }
 
 
@@ -941,12 +961,17 @@ def build_music_v40():
             g, cut = 0.15, 2200
         place(mus, inst_pad(CHORDS_V40[c], t0, t1 - t0, g, cut), t0)
 
-    # --- intro (0 - 2 s): drone, the power-on arpeggio, a roll into the logo hit
-    place(mus, st(np.sin(2 * np.pi * mtof(33) * tt(2.4)) * np.minimum(1, tt(2.4) / 0.6) * 0.12), 0.0)
-    for i in range(8):
-        tn = 1.0 + i * 0.125
+    # --- intro (0 - 2 s): the hook slams on frame 0, plucks on the phrase flips, the power-on arpeggio after
+    # the press, a roll into the logo hit
+    place(mus, st(np.sin(2 * np.pi * mtof(33) * tt(2.4)) * np.minimum(1, tt(2.4) / 0.25) * 0.12), 0.0)
+    kick(0.0, 1.1)
+    place(mus, inst_bass(ROOT_V40["A"], 0.0, 0.45, 0.32), 0.0)
+    for tn, m in ((0.5, 81), (0.75, 85)):
+        place(mus, inst_pluck(m, tn, 0.09, 0.2, 0.0), tn)
+    for i in range(6):
+        tn = 1.25 + i * 0.125
         notes = CHORDS_V40["A"] + [69, 73, 76]
-        place(mus, inst_pluck(notes[i % len(notes)] + 12, tn, 0.05 + 0.05 * i / 8, 0.12, 0.4 * np.sin(i)), tn)
+        place(mus, inst_pluck(notes[i % len(notes)] + 12, tn, 0.05 + 0.05 * i / 6, 0.12, 0.4 * np.sin(i)), tn)
     for tb in (1.0, 1.5):
         kick(tb, 0.8, 400)
     roll(1.5, 2.0, 0.2, 0.8)
@@ -1059,7 +1084,22 @@ def build_music_v40():
     out = mus + drums
     sos = _sos("lp", 15000, 2)
     out = np.stack([signal.sosfilt(sos, out[:, 0]), signal.sosfilt(sos, out[:, 1])], axis=1)
+    out = tape_stop(out, 39.35, 39.75)
     return out[:N], kicks
+
+
+def tape_stop(x, t0, t1):
+    """Playback slows linearly to a halt between t0 and t1 (pitch falls with it); silence after t1."""
+    i0, i1 = int(t0 * SR), int(t1 * SR)
+    u = np.arange(i1 - i0) / SR
+    T = t1 - t0
+    pos = t0 + u - u * u / (2 * T)
+    src = np.arange(x.shape[0]) / SR
+    y = x.copy()
+    for c in range(x.shape[1]):
+        y[i0:i1, c] = np.interp(pos, src, x[:, c]) * np.sqrt(np.clip(1 - (u / T) ** 2, 0, 1))
+    y[i1:] = 0
+    return y
 
 
 # ----------------------------------------------------------------------------- mix
