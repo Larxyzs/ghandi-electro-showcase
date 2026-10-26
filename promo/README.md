@@ -18,7 +18,7 @@ as a poster image.
 
 `ghandi-home-electro-promo-40s.mp4` is a completely different, slower cut (same format): the story
 plays in a floating 3D model of Casablanca built with CSS 3D, and every caption stays on screen long
-enough to be read (only the brands go fast). `ghandi-home-electro-promo-40s.jpg` is its last frame.
+enough to be read (only the brands go fast). `ghandi-home-electro-promo-40s.jpg` is its end card (taken at 38.8 s, before the power-off).
 
 | Time | Scene |
 | --- | --- |
