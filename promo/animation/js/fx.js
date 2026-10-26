@@ -37,7 +37,7 @@
     const c = Object.assign({ r0: 10, r1: 300, width: 5, color: "#fff", dur: 0.6, sy: 1, fill: "" }, o);
     const d = el(parent, "abs");
     d.style.cssText += `border-radius:50%;border:${c.width}px solid ${c.color};${c.fill ? `background:${c.fill};` : ""}`;
-    return (t) => {
+    return (t, x = c.x, y = c.y) => {
       const p = (t - c.t0) / c.dur;
       if (p <= 0 || p >= 1) {
         d.style.opacity = "0";
@@ -46,7 +46,7 @@
       const rr = lerp(c.r0, c.r1, E.outCubic(p));
       d.style.width = 2 * rr + "px";
       d.style.height = 2 * rr * c.sy + "px";
-      d.style.transform = `translate3d(${(c.x - rr).toFixed(1)}px,${(c.y - rr * c.sy).toFixed(1)}px,0)`;
+      d.style.transform = `translate3d(${(x - rr).toFixed(1)}px,${(y - rr * c.sy).toFixed(1)}px,0)`;
       d.style.opacity = Math.pow(1 - p, 1.3).toFixed(3);
     };
   }
@@ -69,7 +69,7 @@
       const v = c.speed[0] + r() * (c.speed[1] - c.speed[0]);
       parts.push({ d, vx: Math.cos(a) * v, vy: Math.sin(a) * v, s, spin: (r() - 0.5) * 720, life: c.life * (0.7 + 0.3 * r()) });
     }
-    return (t) => {
+    return (t, x0 = c.x, y0 = c.y) => {
       const dt = t - c.t0;
       for (const p of parts) {
         if (dt <= 0 || dt >= p.life) {
@@ -77,8 +77,8 @@
           continue;
         }
         const f = (1 - Math.exp(-c.drag * dt)) / c.drag;
-        const x = c.x + p.vx * f;
-        const y = c.y + p.vy * f + 0.5 * c.gravity * dt * dt;
+        const x = x0 + p.vx * f;
+        const y = y0 + p.vy * f + 0.5 * c.gravity * dt * dt;
         const u = dt / p.life;
         const sc = u < 0.15 ? u / 0.15 : 1 - Math.pow((u - 0.15) / 0.85, 2) * 0.6;
         p.d.style.transform = `translate3d(${(x - p.s / 2).toFixed(1)}px,${(y - p.s / 2).toFixed(1)}px,0) rotate(${(p.spin * dt).toFixed(1)}deg) scale(${sc.toFixed(3)})`;

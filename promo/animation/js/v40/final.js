@@ -49,6 +49,10 @@ SCENE_BUILDERS.push(() =>
       sheen.style.cssText += "left:0;top:-20px;width:180px;height:200px;background:linear-gradient(90deg, transparent, rgb(255 255 255 / .45), transparent);";
       const ripple = el(cam, "abs");
       ripple.style.cssText += "left:0;top:0;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:6px solid #fff;opacity:0;";
+      const tapFx = [
+        FXL.shapeBurst(cam, { x: 1240, y: BY + 104, t0: T_TAP, n: 26, speed: [400, 1000], colors: ["#ffffff", "#bff0d1", "#9cc6ff"], seed: 141, gravity: 400, size: [10, 22] }),
+        FXL.lineBurst(cam, { x: 1240, y: BY + 104, t0: T_TAP, n: 12, r0: 50, r1: 170, width: 6, color: "#ffffff", dur: 0.4, seed: 142 }),
+      ];
       const finger = el(cam, "abs");
       finger.style.cssText += "left:0;top:0;width:96px;height:120px;transform-origin:40px 6px;filter:drop-shadow(0 16px 18px rgb(2 20 60 / .45));opacity:0;";
       finger.innerHTML = ART.handTap;
@@ -79,6 +83,7 @@ SCENE_BUILDERS.push(() =>
       cue(36.87, "pop", { pitch: 1.1, gain: 0.6 });
       cue(T_TAP, "click", { gain: 0.9 });
       cue(T_TAP + 0.04, "pop", { pitch: 1.5, gain: 0.55 });
+      cue(T_TAP + 0.02, "shimmer", { dur: 0.6, gain: 0.4 });
       cue(37.75, "tick", { pitch: 1.3, gain: 0.4 });
       cue(37.9, "tick", { pitch: 1.5, gain: 0.35 });
       cue(38.25, "shimmer", { dur: 0.7, gain: 0.45 });
@@ -123,6 +128,7 @@ SCENE_BUILDERS.push(() =>
           const away = 1 - E.outCubic(prog(t, T_TAP - 0.5, T_TAP - 0.08)) + E.inCubic(prog(t, T_TAP + 0.18, T_TAP + 0.55));
           finger.style.transform = `translate3d(${(TAP.x - 40 + 160 * away).toFixed(1)}px,${(TAP.y - 6 + 260 * away).toFixed(1)}px,0) scale(${(1.45 * (1 - 0.08 * press)).toFixed(3)})`;
         }
+        tapFx.forEach((u) => u(t));
         const rp = prog(t, T_TAP, T_TAP + 0.5);
         ripple.style.opacity = rp > 0 && rp < 1 ? (1 - rp).toFixed(3) : "0";
         ripple.style.transform = `translate3d(${TAP.x}px,${TAP.y}px,0) scale(${(0.3 + 1.6 * E.outCubic(rp)).toFixed(3)})`;

@@ -420,6 +420,17 @@ def sfx_powerdown(dur=0.5):
     return st(edge(out, 0.002, 0.03))
 
 
+def sfx_scribble(dur=0.42, seed=130):
+    """Marker on paper: band-passed noise in quick strokes."""
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    strokes = 0.55 + 0.45 * np.abs(np.sin(2 * np.pi * 7.5 * t + 0.6 * np.sin(2 * np.pi * 2.1 * t)))
+    x = filt(noise(n, seed), "bp", [1800, 6500]) * strokes
+    x += filt(noise(n, seed + 1), "bp", [500, 1400]) * strokes * 0.35
+    env = np.minimum(1, t / 0.02) * np.minimum(1, (dur - t) / 0.06)
+    return pan(edge(x * env * 0.5, 0.003, 0.02), 0.15)
+
+
 def sfx_riser(dur=1.0):
     n = int(dur * SR)
     u = np.arange(n) / n
@@ -594,6 +605,7 @@ SFX = {
     "ring": lambda c: sfx_ring(c.get("dur", 0.6)),
     "glitch": lambda c: sfx_glitch(c.get("dur", 0.2)),
     "powerdown": lambda c: sfx_powerdown(c.get("dur", 0.5)),
+    "scribble": lambda c: sfx_scribble(c.get("dur", 0.42), int(c["t"] * 10)),
 }
 
 # Relative level of each effect family in the mix.
@@ -602,7 +614,7 @@ LEVEL = {
     "click": 0.6, "type": 0.45, "ding": 0.7, "buzz": 0.5, "glass": 0.5, "fall": 0.45, "crackle": 0.5, "zap": 0.6,
     "powerup": 0.6, "riser": 0.55, "riserShort": 0.4, "shimmer": 0.5, "scroll": 0.45, "blip": 0.35, "sonar": 0.55, "pinDrop": 0.85,
     "truck": 0.7, "horn": 0.55, "cash": 0.8, "ring": 0.45, "glitch": 0.5, "whoosh": 0.6, "swish": 0.45, "swoosh": 0.45,
-    "powerdown": 0.6,
+    "powerdown": 0.6, "scribble": 0.4,
 }
 
 

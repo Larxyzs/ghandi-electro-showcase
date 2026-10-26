@@ -5,7 +5,7 @@ SCENE_BUILDERS.push(() =>
     4.4,
     36.0,
     (root) => {
-      const { el, E, prog, clamp, lerp, tf, spring, icon } = M;
+      const { el, E, prog, clamp, lerp, tf, spring, icon, cue } = M;
       const BLUE = ART.BLUE;
       const words = (txt, cls = "") =>
         txt
@@ -35,6 +35,54 @@ SCENE_BUILDERS.push(() =>
               it.style.opacity = prog(t, a, a + 0.15).toFixed(3);
             });
           },
+        };
+      }
+      /** Hand-drawn circle or underline around some words of a card, drawn on at t0 (laid out on first use). */
+      function scribble(cardObj, pick, kind, t0, color = BLUE) {
+        const host = cardObj.c;
+        const wrap = el(host, "abs");
+        wrap.style.cssText += "left:0;top:0;width:0;height:0;overflow:visible;pointer-events:none;";
+        let shapes = null;
+        return (t) => {
+          if (host.style.display === "none" || t < t0 - 0.05) return;
+          if (!shapes) {
+            let x0 = 1e9;
+            let y0 = 1e9;
+            let x1 = -1e9;
+            let y1 = -1e9;
+            for (const e of pick(host)) {
+              let x = 0;
+              let y = 0;
+              for (let n = e; n && n !== host; n = n.offsetParent) {
+                x += n.offsetLeft;
+                y += n.offsetTop;
+              }
+              x0 = Math.min(x0, x);
+              y0 = Math.min(y0, y);
+              x1 = Math.max(x1, x + e.offsetWidth);
+              y1 = Math.max(y1, y + e.offsetHeight);
+            }
+            const w = x1 - x0;
+            const h = y1 - y0;
+            let d;
+            if (kind === "circle") {
+              const cx = (x0 + x1) / 2;
+              const cy = (y0 + y1) / 2 + 2;
+              const pts = [];
+              for (let i = 0; i <= 44; i++) {
+                const a = -2.5 + (i / 44) * Math.PI * 2 * 1.1;
+                const wob = 1 + 0.05 * Math.sin(i * 1.3) + 0.04 * (i / 44);
+                pts.push(`${(cx + Math.cos(a) * (w / 2 + 14) * wob).toFixed(1)} ${(cy + Math.sin(a) * (h / 2 + 9) * wob).toFixed(1)}`);
+              }
+              d = "M" + pts.join(" L");
+            } else {
+              const y = y1 + 2;
+              d = `M ${x0 - 8} ${y + 7} C ${x0 + w * 0.3} ${y - 3}, ${x0 + w * 0.65} ${y + 9}, ${x1 + 12} ${y - 2} Q ${x1 + 2} ${y + 6} ${x1 - 18} ${y + 12}`;
+            }
+            wrap.innerHTML = `<svg width="10" height="10" style="position:absolute;left:0;top:0;overflow:visible"><path d="${d}" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            shapes = M.prepDraw(wrap);
+          }
+          M.drawTo(shapes, E.inOutCubic(prog(t, t0, t0 + 0.42)));
         };
       }
       const chip = (ic, txt, extra = "") =>
@@ -68,7 +116,7 @@ SCENE_BUILDERS.push(() =>
           x: 70,
           y: 600,
           w: 1080,
-          tIn: 5.55,
+          tIn: 6.0,
           tOut: 8.7,
           html: `${kicker("Bienvenue chez Ghandi Home Electro")}
             <div class="hd" style="font-size:66px;line-height:1.12;margin-top:18px;color:#0f172a;white-space:normal">${words("Votre magasin d'électroménager")} ${words("à Casablanca", "blue")}</div>
@@ -98,6 +146,14 @@ SCENE_BUILDERS.push(() =>
       ];
       cards.forEach((c) => c.c.querySelectorAll(".blue").forEach((b) => (b.style.color = BLUE)));
       cards[3].c.style.top = "700px";
+      const wordsOf = (txts) => (host) => [...host.querySelectorAll(".rvw")].filter((w) => txts.includes(w.textContent));
+      [6.62, 25.95, 29.05, 31.6].forEach((t0) => cue(t0, "scribble", { gain: 0.6 }));
+      const marks = [
+        scribble(cards[0], wordsOf(["Casablanca"]), "underline", 6.62),
+        scribble(cards[1], wordsOf(["gratuite"]), "circle", 25.95),
+        scribble(cards[2], wordsOf(["à", "la", "livraison"]), "underline", 29.05),
+        scribble(cards[3], wordsOf(["WhatsApp"]), "circle", 31.6),
+      ];
 
       /* showroom: univers card with a rolling name */
       // names and the line under them use the site's wording: "Froid, lavage, cuisson, TV et climatisation"
@@ -154,6 +210,7 @@ SCENE_BUILDERS.push(() =>
         const inShow = t >= 9.5 && t < 18.0;
         tf(mark, { o: prog(t, 4.6, 5.0) * (1 - prog(t, 35.2, 35.5)), x: 30 * (1 - E.outCubic(prog(t, 4.6, 5.0))) });
         cards.forEach((c) => c.update(t));
+        marks.forEach((m) => m(t));
 
         /* univers */
         const ushow = t > 9.75 && t < 14.95;

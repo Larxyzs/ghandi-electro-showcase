@@ -23,7 +23,7 @@ enough to be read (only the brands go fast). `ghandi-home-electro-promo-40s.jpg`
 | Time | Scene |
 | --- | --- |
 | 0–4 s | Hook on the very first frame: "Besoin d'un frigo ?" (the noun flips on the beat: clim, télé), the question is sucked into a power button that is pressed, a power wave switches on a field of appliance icons, they implode into a flash and the 3D logo lands as the answer |
-| 4–9.5 s | An iris opens on the city: buildings spring up from the ground, trees pop, cars drive, the shop rises on Boulevard Ghandi and its pin drops — "Votre magasin d'électroménager à Casablanca", address and opening hours |
+| 4–9.5 s | An iris opens on the city: buildings spring up, trees pop, cars drive. The shop — a 3D model of the real building at 41 Boulevard Ghandi (glass front on two floors, six blue pillars, overhanging flat roof, bay with blinds, "41" over the door, railing) — assembles itself on the beat: pillars shoot up, the glass floors rise, the roof slams down, the lights come on, the sign and the pin drop — "Votre magasin d'électroménager à Casablanca", address and opening hours |
 | 9.5–15 s | The camera dives through the shop door into the showroom and lands on each univers on the beat (Froid, Lavage, Cuisson, TV, Climatisation) |
 | 15–18 s | Front view of the brand wall: the eight brands light up on 8th notes |
 | 18–23.75 s | A giant phone drops into a plaza; a finger orders on it while "Commander en 3 étapes" follows along (Panier, Livraison, Confirmation) |
@@ -35,6 +35,10 @@ enough to be read (only the brands go fast). `ghandi-home-electro-promo-40s.jpg`
 ```sh
 COMP=v40 WORKERS=3 SUBFRAMES=3 promo/build.sh   # animation/v40.html -> ghandi-home-electro-promo-40s.mp4
 ```
+
+Extra motion accents: speed lines on every fast camera move, hand-drawn circles and underlines on the
+key words, confetti when the order is validated and when the parcel reaches the door, brand panels that
+flip as they light up, puffs behind the van.
 
 Texts, colours (`#1266e8`), font (Roboto) and contact details come from the site itself
 (`src/lib/company.ts`, `src/lib/services.ts`, `src/styles.css`, the home page). The pages are rebuilt

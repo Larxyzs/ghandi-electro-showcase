@@ -13,7 +13,7 @@
     streetA: { x: 900, w: 100 }, // north-south streets
     streetB: { x: -700, w: 100 },
     streetC: { y: 1180, d: 100 }, // southern street
-    store: { x: 60, y: 60, w: 320, d: 210, h: 170 },
+    store: { x: 30, y: 55, w: 380, d: 215, h: 196 }, // the real building at 41 Boulevard Ghandi
     house: { x: 1040, y: 560, w: 190, d: 170, h: 110 },
     phone: { x: -250, y: 830, w: 300, d: 650 },
     show: { x: 4200, y: 0, w: 1640, d: 980 }, // showroom interior
@@ -79,7 +79,7 @@
     /* ---- buildings (rise from the ground when the city is revealed) ---- */
     const r = rng(404);
     const reserved = [
-      [L.store.x - 40, L.store.y - 60, L.store.w + 80, L.store.d + 120],
+      [20, 0, 400, 330], // the shop
       [L.house.x - 30, L.house.y - 40, L.house.w + 90, L.house.d + 90],
       [L.phone.x - 380, L.phone.y - 380, 760, 760],
       [-200, 480, 460, 260], // van stop + plaza edge
@@ -115,36 +115,19 @@
       }
     });
 
-    /* ---- the shop ---- */
+    /* ---- the shop: the real building at 41 Boulevard Ghandi (glass front on two floors, six blue
+       pillars, overhanging flat roof, bay with blinds over the entrance, "41" above the door, railing) ---- */
     const st = L.store;
-    const storeG = W.group(city, st.x, st.y, 0);
-    const facade = `
-      <div style="position:absolute;left:0;right:0;top:0;height:34px;background:${BLUE};display:flex;align-items:center;justify-content:center;color:#fff;font:800 15px Unbounded;letter-spacing:.14em">GHANDI HOME ELECTRO</div>
-      <div style="position:absolute;left:14px;top:48px;width:110px;height:108px;border-radius:6px;background:linear-gradient(160deg,#cfe2ff,#7fb2ff);overflow:hidden;display:flex;align-items:flex-end;justify-content:center;gap:4px;padding-bottom:4px;box-sizing:border-box">
-        <span style="height:86px;display:block">${ART.appliance("fridge").replace("<svg", '<svg style="height:86px;width:auto"')}</span>
-        <span style="height:50px;display:block">${ART.appliance("washer").replace("<svg", '<svg style="height:50px;width:auto"')}</span></div>
-      <div style="position:absolute;left:136px;top:56px;width:48px;height:114px;border-radius:6px 6px 0 0;background:#0b55c6;box-shadow:inset 0 0 0 5px #1a6ef0"><div style="position:absolute;left:6px;right:6px;top:6px;bottom:0;background:linear-gradient(160deg,#bcd6ff,#5aa2ff)"></div></div>
-      <div style="position:absolute;right:14px;top:48px;width:110px;height:108px;border-radius:6px;background:linear-gradient(160deg,#cfe2ff,#7fb2ff);overflow:hidden;display:flex;align-items:center;justify-content:center">
-        <span style="width:96px;display:block">${ART.appliance("tv").replace("<svg", '<svg style="width:96px;height:auto"')}</span></div>`;
-    const storeBox = W.box(storeG, { x: 0, y: 0, w: st.w, d: st.d, h: st.h, c: "white", south: facade });
-    storeBox.west.style.background = `repeating-linear-gradient(90deg, transparent 0 22px, rgb(63 134 238 / .35) 22px 60px, transparent 60px 80px) 0 60px / 100% 70px no-repeat, ${SHADE.white.west}`;
-    W.box(storeG, { x: 0, y: 0, z: st.h, w: st.w, d: st.d, h: 10, c: "pale" });
-    W.box(storeG, { x: 100, y: st.d, z: 112, w: 120, d: 30, h: 8, c: "blue" }); // awning
-    // rooftop sign, turned towards the camera
-    const sign = el(storeG, "abs iso-f");
-    sign.style.cssText += `width:300px;height:96px;border-radius:18px;background:${BLUE};display:flex;align-items:center;gap:14px;padding:0 18px;
-      box-shadow:0 0 0 6px #ffffff;transform:translate3d(${st.w / 2}px,${st.d * 0.55}px,${st.h + 10 + 96}px) rotateZ(45deg) rotateX(-90deg) translateX(-150px);`;
-    sign.innerHTML = `<span style="flex:none;width:68px;height:62px">${ART.logoHouse({ ink: "#fff", fill: "#fff", detail: BLUE, hl: "#b7d3ff", vent: "#fff" })}</span>
-      <span style="color:#fff;line-height:1"><b style="display:block;font:600 30px 'Lexend Zetta';letter-spacing:.06em">GHANDI</b><span style="font:600 11px 'Lexend Zetta';letter-spacing:.3em">HOME ELECTRO</span></span>`;
-    out.store = { g: storeG, box: storeBox, sign };
+    const shop = buildShop(W, city, st);
+    out.store = shop;
     // forecourt
     W.plane(city, { x: st.x - 20, y: st.y + st.d, z: 0.7, w: st.w + 40, d: 30, bg: "#e3ecf9" });
 
     /* ---- trees along the boulevard ---- */
     for (let x = -1300; x < 2150; x += 190) {
-      if (x > 100 && x < 330) continue;
       if (Math.abs(x - L.streetA.x - 50) < 120 || Math.abs(x - L.streetB.x - 50) < 120) continue;
       [L.blvd.y - 18, L.blvd.y + L.blvd.d + 18].forEach((y, k) => {
+        if (k === 0 && x > -60 && x < 440) return; // keep the shop front clear
         const tr = ISO.tree(W, city, x + (k ? 95 : 0), y, 0.9);
         out.trees.push({ ...tr, x: x + (k ? 95 : 0), y, dist: Math.hypot(x - 220, y - 165) });
       });
@@ -264,10 +247,10 @@
       b.z0 = z;
       return b;
     };
-    out.pins = [pin("Casablanca", 220, 165, 290, true), ...out.sats.map((s) => pin(s.name, s.px, s.py, 0, false))];
+    out.pins = [pin("Casablanca", 220, 165, 330, true), ...out.sats.map((s) => pin(s.name, s.px, s.py, 0, false))];
     // dashed flight arcs from the shop roof to each island, drawn on upright planes
     out.routes = out.sats.map((s) => {
-      const a = { x: 220, y: 165, z: 185 };
+      const a = { x: 220, y: 165, z: 225 };
       const b = { x: s.px, y: s.py, z: 0 };
       const len = Math.hypot(b.x - a.x, b.y - a.y);
       const ang = Math.atan2(b.y - a.y, b.x - a.x);
@@ -317,6 +300,142 @@
     /* ---- showroom interior (separate set, east of the city) ---- */
     out.show = buildShowroom(W);
     return out;
+  }
+
+  /** The shop, modelled on the real building, in the video's blue and white. Every part is its own group
+      so world.js can assemble it piece by piece. Origin: the building's back-left corner on the ground. */
+  function buildShop(W, parent, st) {
+    const g = W.group(parent, st.x, st.y, 0);
+    const F1 = 100; // ground floor height
+    const SLAB = 10;
+    const F2 = st.h - F1 - SLAB; // upper floor
+    const COLS = [20, 80, 140, 200, 240, 316]; // pillar centres (x)
+    const DOOR = { x: 258, w: 36, h: 80 };
+    const BAY = { x: 226, w: st.w - 226 + 4, d: 18 }; // over the entrance, a little forward of the front
+    const glass = "linear-gradient(180deg, #e6f1ff 0%, #b9d6ff 100%)";
+    const mullions = (step) => `repeating-linear-gradient(90deg, transparent 0 ${step - 3}px, rgb(255 255 255 / .95) ${step - 3}px ${step}px)`;
+    const reflect = "linear-gradient(115deg, transparent 18%, rgb(255 255 255 / .5) 21%, transparent 29%, transparent 58%, rgb(255 255 255 / .3) 61%, transparent 68%)";
+    const appl = (k, h, x, bottom, extra = "") =>
+      `<span style="position:absolute;left:${x}px;bottom:${bottom}px;height:${h}px;display:block;${extra}">${ART.appliance(k).replace("<svg", `<svg style="height:${h}px;width:auto"`)}</span>`;
+    /** A glazed face: interior (appliances, ceiling lights), dimmer that lifts when the lights go on,
+        mullions, reflections, and a sheen that sweeps across. */
+    const glassFace = (w, h, inner, step = 38) => `
+      <div style="position:absolute;inset:0;background:${glass}"></div>
+      <div class="st-in" style="position:absolute;inset:0">${inner}</div>
+      <div class="st-lamp" style="position:absolute;left:8px;right:8px;top:6px;height:3px;border-radius:3px;background:#ffffff;box-shadow:0 0 10px 3px rgb(255 248 225 / .9);opacity:0"></div>
+      <div class="st-dim" style="position:absolute;inset:0;background:rgb(28 70 150 / .32)"></div>
+      <div class="st-glow" style="position:absolute;inset:0;background:linear-gradient(180deg, rgb(255 252 240 / .5), rgb(255 255 255 / .08));opacity:0"></div>
+      <div style="position:absolute;inset:0;background:${mullions(step)}"></div>
+      <div style="position:absolute;inset:0;background:${reflect}"></div>
+      <div class="st-sheen" style="position:absolute;top:-10px;left:0;width:70px;height:${h + 20}px;background:linear-gradient(90deg, transparent, rgb(255 255 255 / .8), transparent);transform:translateX(-120px) skewX(-18deg)"></div>`;
+
+    // floor plate
+    const plate = W.box(g, { x: -8, y: -8, w: st.w + 16, d: st.d + 16, h: 6, c: { top: "#f4f8ff", west: "#cfdcf0", south: "#b9cbe6" } });
+    // ground floor: showroom behind glass, the entrance and the "41" plaque
+    const f1Inner =
+      appl("fridge", 64, 12, 6) + appl("sbs", 66, 46, 6) + appl("fridge", 62, 94, 6) + appl("washer", 40, 132, 6) + appl("washer", 40, 164, 6) +
+      appl("tv", 34, 200, 40) + appl("cooker", 46, 306, 6) + appl("microwave", 24, 340, 30) + appl("ac", 18, 196, 76);
+    const f1South =
+      glassFace(st.w, F1, f1Inner) +
+      `<div style="position:absolute;left:${DOOR.x}px;bottom:0;width:${DOOR.w}px;height:${DOOR.h}px;background:#16294f;border-radius:3px 3px 0 0">
+        <div style="position:absolute;left:4px;right:4px;top:4px;bottom:0;background:linear-gradient(180deg,#cfe2ff,#8fbaf7)"></div>
+        <div style="position:absolute;left:${DOOR.w / 2 - 1}px;top:4px;bottom:0;width:2px;background:#16294f"></div></div>
+      <div class="st-41" style="position:absolute;left:${DOOR.x + 4}px;top:4px;width:${DOOR.w - 8}px;height:14px;border-radius:3px;background:#16294f;color:#fff;font:800 11px/14px Roboto;text-align:center">41</div>`;
+    const f1West = glassFace(st.d, F1, appl("washer", 40, 30, 6) + appl("fridge", 62, 90, 6) + appl("tv", 32, 150, 40), 36);
+    const f1 = W.box(g, { x: 0, y: 0, z: 6, w: st.w, d: st.d, h: F1 - 6, c: "white", south: f1South, west: f1West });
+    // slab between the floors
+    const slab = W.box(g, { x: -2, y: -2, z: F1, w: st.w + 4, d: st.d + 4, h: SLAB, c: { top: "#ffffff", west: "#f1f6fd", south: "#ffffff" } });
+    slab.south.style.borderBottom = slab.west.style.borderBottom = "2px solid #c9d8ee";
+    // upper floor
+    const f2Inner = appl("tv", 30, 20, 4) + appl("fridge", 50, 70, 4) + appl("washer", 32, 110, 4) + appl("tv", 30, 150, 4) + appl("ac", 16, 30, 52) + appl("ac", 16, 150, 52);
+    const f2 = W.box(g, { x: 0, y: 0, z: F1 + SLAB, w: st.w, d: st.d, h: F2, c: "white", south: glassFace(st.w, F2, f2Inner), west: glassFace(st.d, F2, appl("fridge", 50, 60, 4) + appl("tv", 30, 120, 4), 36) });
+    // the bay over the entrance: aluminium band on top, glass with blinds below
+    const bay = W.box(g, {
+      x: BAY.x,
+      y: st.d - 4,
+      z: F1 + 4,
+      w: BAY.w,
+      d: BAY.d + 4,
+      h: F2 + SLAB - 4,
+      c: { top: "#ffffff", west: "#e9f0fa", south: "#eef4fc" },
+      south: `<div style="position:absolute;left:0;right:0;top:0;height:34px;background:repeating-linear-gradient(90deg, #f4f8ff 0 36px, #d3e0f3 36px 38px), #f4f8ff;border-bottom:2px solid #c9d8ee"></div>
+        <div style="position:absolute;left:0;right:0;top:36px;bottom:0;background:repeating-linear-gradient(180deg, rgb(255 255 255 / .9) 0 3px, transparent 3px 7px), ${glass}"></div>
+        <div class="st-glow" style="position:absolute;left:0;right:0;top:36px;bottom:0;background:rgb(255 252 240 / .35);opacity:0"></div>
+        <div style="position:absolute;left:0;right:0;top:36px;bottom:0;background:${mullions(30)}"></div>
+        <div style="position:absolute;inset:0;background:linear-gradient(90deg, transparent 70%, rgb(9 40 100 / .14))"></div>
+        <div class="st-sheen" style="position:absolute;top:-10px;left:0;width:60px;height:120px;background:linear-gradient(90deg, transparent, rgb(255 255 255 / .8), transparent);transform:translateX(-120px) skewX(-18deg)"></div>`,
+    });
+    // overhanging flat roof with a blue line under the fascia, and small rooftop units
+    const roof = W.box(g, {
+      x: -14,
+      y: -12,
+      z: st.h,
+      w: st.w + 28,
+      d: st.d + 34,
+      h: 16,
+      c: { top: "#f4f8ff", west: "#e3ecf8", south: "#f7faff" },
+    });
+    roof.south.style.background = roof.west.style.background = `linear-gradient(180deg, #ffffff 0 70%, #dfe9f7 70% 82%, ${BLUE} 82%)`;
+    [
+      [40, 24, 18, 18, 24],
+      [300, 40, 46, 30, 16],
+      [256, 40, 34, 30, 16],
+    ].forEach(([x, y, w, d, h]) => W.box(roof.g, { x, y, z: 16, w, d, h, c: "steel" }));
+    // six blue pillars in front of the glass (gradients fake the round shape)
+    const cols = COLS.map((cx) => {
+      // one cylinder across both visible faces: highlight on the shared corner
+      const b = W.box(g, { x: cx - 7, y: st.d + 6, w: 14, d: 14, h: st.h, c: "blue" });
+      b.south.style.background = "linear-gradient(90deg, #a9d0ff 0%, #3a8bff 30%, #0e4bb0 72%, #072e75 100%)";
+      b.west.style.background = "linear-gradient(90deg, #072e75 0%, #1a6ef0 62%, #7fb5ff 100%)";
+      b.top.style.borderRadius = "50%";
+      return b;
+    });
+    // entrance steps and the railing along the sidewalk (gap at the entrance)
+    W.plane(g, { x: DOOR.x - 10, y: st.d, z: 0.9, w: DOOR.w + 20, d: 30, bg: "#22314d" });
+    const rail = [
+      [-12, 248],
+      [DOOR.x + DOOR.w + 12, st.w + 14 - (DOOR.x + DOOR.w + 12)],
+    ].map(([x, w]) => {
+      const base = W.box(g, { x, y: st.d + 28, w, d: 6, h: 7, c: "navy" });
+      const fence = W.wall(g, {
+        x,
+        y: st.d + 31,
+        z: 7,
+        w,
+        h: 22,
+        css: `background:repeating-linear-gradient(55deg, transparent 0 9px, #b8c9e2 9px 11px), repeating-linear-gradient(-55deg, transparent 0 9px, #b8c9e2 9px 11px);border-top:3px solid #9fb4d4;`,
+      });
+      return { base, fence };
+    });
+    // rooftop sign, turned towards the camera
+    const sign = el(g, "abs iso-f");
+    sign.style.cssText += `width:300px;height:96px;border-radius:18px;background:${BLUE};display:flex;align-items:center;gap:14px;padding:0 18px;
+      box-shadow:0 0 0 6px #ffffff;transform:translate3d(${st.w / 2}px,${st.d * 0.5}px,${st.h + 16 + 96}px) rotateZ(45deg) rotateX(-90deg) translateX(-150px);`;
+    sign.innerHTML = `<span style="flex:none;width:68px;height:62px">${ART.logoHouse({ ink: "#fff", fill: "#fff", detail: BLUE, hl: "#b7d3ff", vent: "#fff" })}</span>
+      <span style="color:#fff;line-height:1"><b style="display:block;font:600 30px 'Lexend Zetta';letter-spacing:.06em">GHANDI</b><span style="font:600 11px 'Lexend Zetta';letter-spacing:.3em">HOME ELECTRO</span></span>`;
+    // dust ring for the roof landing (world space, around the footprint)
+    const dust = W.plane(parent, { x: 0, y: 0, z: 1.3, w: 10, d: 10, css: "border-radius:40px;border:10px solid rgb(255 255 255 / .9);box-shadow:0 0 18px rgb(18 102 232 / .35);opacity:0" });
+    const faces = [f1.south, f1.west, f2.south, f2.west, bay.south];
+    return {
+      g,
+      sign,
+      plate,
+      f1,
+      slab,
+      f2,
+      bay,
+      roof,
+      cols,
+      rail,
+      dust,
+      faces,
+      plaque: f1.south.querySelector(".st-41"),
+      door: { x: st.x + DOOR.x + DOOR.w / 2, y: st.y + st.d, z: DOOR.h / 2 },
+      F1,
+      SLAB,
+      F2,
+      top: st.h + 16, // roof surface
+    };
   }
 
   function phoneScreens() {
