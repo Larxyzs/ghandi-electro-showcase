@@ -7,7 +7,9 @@
  *   node promo/render.cjs video [workers] [sub] -> promo/out/video.mp4 (no audio, 1920x1080 @ 60 fps)
  *
  * Motion blur: with sub > 1 every output frame is the average of `sub` sub-frames spread over a
- * 180° shutter (half a frame), like a film camera.
+ * 180° shutter (half a frame), like a film camera. A composition can list its fast moments in
+ * window.COMP.fast ([[t0, t1], ...]); those get FAST_SUB sub-frames (default 7) so whips, dives and
+ * slams blur smoothly instead of showing ghost copies.
  */
 const { chromium } = require("playwright");
 const { spawn } = require("child_process");
@@ -30,7 +32,7 @@ async function openPage(browser) {
   await page.waitForFunction(() => window.READY !== undefined);
   await page.evaluate(() => window.READY);
   if (errors.length) console.error("Page errors:\n" + errors.join("\n"));
-  const meta = await page.evaluate(() => ({ fps: M.FPS, duration: M.DURATION }));
+  const meta = await page.evaluate(() => ({ fps: M.FPS, duration: M.DURATION, fast: (window.COMP && window.COMP.fast) || [] }));
   return { page, meta };
 }
 
@@ -75,46 +77,57 @@ async function main() {
     const workers = parseInt(args[0] || "3", 10);
     const sub = parseInt(args[1] || "1", 10);
     const probe = await openPage(browser);
-    const { fps, duration } = probe.meta;
+    const { fps, duration, fast } = probe.meta;
     await probe.page.close();
+    const fastSub = sub > 1 ? parseInt(process.env.FAST_SUB || "7", 10) : 1;
+    const subAt = (f) => (fast.some(([a, b]) => f / fps >= a && f / fps < b) ? Math.max(sub, fastSub) : sub);
     // RANGE=a,b (seconds) renders only part of the video, for quick checks
     const [ra, rb] = (process.env.RANGE || `0,${duration}`).split(",").map(Number);
     const first = Math.round(ra * fps);
     const total = Math.round(rb * fps) - first;
-    const per = Math.ceil(total / workers);
+    // jobs: runs of frames with the same sub-frame count, cut into pieces of at most 90 frames
+    const jobs = [];
+    for (let f = first; f < first + total; ) {
+      const s0 = subAt(f);
+      let g = f + 1;
+      while (g < first + total && g - f < 90 && subAt(g) === s0) g++;
+      jobs.push({ from: f, to: g, sub: s0 });
+      f = g;
+    }
     const segDir = path.join(OUT, "segments");
+    fs.rmSync(segDir, { recursive: true, force: true });
     fs.mkdirSync(segDir, { recursive: true });
     const t0 = Date.now();
     let doneFrames = 0;
-    const segs = [];
+    let next = 0;
+    const segs = jobs.map((_, i) => path.join(segDir, `seg${String(i).padStart(4, "0")}.mp4`));
     await Promise.all(
-      Array.from({ length: workers }, async (_, w) => {
-        const from = first + w * per;
-        const to = Math.min(first + total, from + per);
-        if (from >= to) return;
-        const file = path.join(segDir, `seg${w}.mp4`);
-        segs[w] = file;
+      Array.from({ length: workers }, async () => {
         const { page } = await openPage(browser);
-        const { ff, done } = ffmpegSegment(file, fps, sub);
-        for (let f = from; f < to; f++) {
-          for (let k = 0; k < sub; k++) {
-            const offset = sub > 1 ? ((k + 0.5) / sub - 0.5) * (0.5 / fps) : 0;
-            const buf = await seekShot(page, Math.max(0, f / fps + offset));
-            if (!ff.stdin.write(buf)) await new Promise((r) => ff.stdin.once("drain", r));
+        while (next < jobs.length) {
+          const i = next++;
+          const { from, to, sub: n } = jobs[i];
+          const { ff, done } = ffmpegSegment(segs[i], fps, n);
+          for (let f = from; f < to; f++) {
+            for (let k = 0; k < n; k++) {
+              const offset = n > 1 ? ((k + 0.5) / n - 0.5) * (0.5 / fps) : 0;
+              const buf = await seekShot(page, Math.max(0, f / fps + offset));
+              if (!ff.stdin.write(buf)) await new Promise((r) => ff.stdin.once("drain", r));
+            }
+            doneFrames++;
+            if (doneFrames % 60 === 0) {
+              const el = (Date.now() - t0) / 1000;
+              process.stdout.write(`\r${doneFrames}/${total} frames  ${el.toFixed(0)}s elapsed  ~${((el / doneFrames) * (total - doneFrames)).toFixed(0)}s left   `);
+            }
           }
-          doneFrames++;
-          if (doneFrames % 60 === 0) {
-            const el = (Date.now() - t0) / 1000;
-            process.stdout.write(`\r${doneFrames}/${total} frames  ${el.toFixed(0)}s elapsed  ~${((el / doneFrames) * (total - doneFrames)).toFixed(0)}s left   `);
-          }
+          ff.stdin.end();
+          await done;
         }
-        ff.stdin.end();
-        await done;
         await page.close();
       }),
     );
     const list = path.join(segDir, "list.txt");
-    fs.writeFileSync(list, segs.filter(Boolean).map((f) => `file '${f}'`).join("\n"));
+    fs.writeFileSync(list, segs.map((f) => `file '${f}'`).join("\n"));
     await new Promise((res, rej) => {
       const ff = spawn("ffmpeg", ["-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", list, "-c", "copy", path.join(OUT, "video.mp4")], { stdio: "inherit" });
       ff.on("close", (c) => (c === 0 ? res() : rej(new Error("concat failed"))));

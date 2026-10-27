@@ -116,43 +116,42 @@ SCENE_BUILDERS.push(() =>
           x: 70,
           y: 560,
           w: 900,
-          tIn: 6.0,
-          tOut: 8.7,
-          html: `${kicker("Bienvenue chez Ghandi Home Electro")}
-            <div class="hd" style="font-size:66px;line-height:1.12;margin-top:18px;color:#0f172a;white-space:normal">${words("Votre magasin d'électroménager")} ${words("à Casablanca", "blue")}</div>
-            <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:24px">${chip("map-pin", "41 Boulevard Ghandi, Casablanca")}${chip("clock", "Lundi – Samedi · 9h00 – 13h00 · 15h00 – 20h00")}</div>`,
+          tIn: 5.9,
+          tOut: 9.15,
+          html: `<div class="hd" style="font-size:66px;line-height:1.12;color:#0f172a;white-space:normal">${words("Votre magasin d'électroménager")} ${words("à Casablanca", "blue")}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:26px">${chip("map-pin", "41 Boulevard Ghandi, Casablanca", "font-size:28px")}</div>`,
         }),
         card({
           x: 70,
           y: 70,
           w: 1010,
-          tIn: 25.45,
-          tOut: 27.85,
+          tIn: 25.35,
+          tOut: 28.05,
           html: `<div style="display:flex;gap:28px;align-items:center">
             <span class="rv" style="flex:none;width:118px;height:118px;border-radius:32px;background:${BLUE};color:#fff;display:grid;place-items:center">${icon("truck", 66, 1.8)}</span>
             <div><div class="hd" style="font-size:56px;color:#0f172a;line-height:1.1">${words("Livraison gratuite")}</div>
             <div class="rv" style="font:400 31px Roboto;color:#5f6368;margin-top:10px">À Casablanca, Mohammedia et Dar Bouazza.</div></div></div>`,
         }),
-        feature("banknote", "Paiement à la livraison", "Vous payez à la réception.", 28.6, 30.35),
+        feature("banknote", "Paiement à la livraison", "Vous payez à la réception.", 28.4, 30.85),
         feature(
           "headphones",
           "Conseil par téléphone et WhatsApp",
           "Nous vous aidons à choisir.",
-          31.0,
+          31.1,
           34.0,
-          `<div style="display:flex;gap:14px;margin-top:18px">${chip("phone", SITE.PHONE)}${chip("message-circle", "WhatsApp", "")}</div>`,
+          "",
           990,
         ),
       ];
       cards.forEach((c) => c.c.querySelectorAll(".blue").forEach((b) => (b.style.color = BLUE)));
       cards[3].c.style.top = "700px";
       const wordsOf = (txts) => (host) => [...host.querySelectorAll(".rvw")].filter((w) => txts.includes(w.textContent));
-      [6.62, 25.95, 29.05, 31.6].forEach((t0) => cue(t0, "scribble", { gain: 0.6 }));
+      [6.5, 25.95, 28.9, 31.7].forEach((t0) => cue(t0, "scribble", { gain: 0.6 }));
       const marks = [
-        scribble(cards[0], wordsOf(["Casablanca"]), "underline", 6.62),
+        scribble(cards[0], wordsOf(["Casablanca"]), "underline", 6.5),
         scribble(cards[1], wordsOf(["gratuite"]), "circle", 25.95),
-        scribble(cards[2], wordsOf(["à", "la", "livraison"]), "underline", 29.05),
-        scribble(cards[3], wordsOf(["WhatsApp"]), "circle", 31.6),
+        scribble(cards[2], wordsOf(["à", "la", "livraison"]), "underline", 28.9),
+        scribble(cards[3], wordsOf(["WhatsApp"]), "circle", 31.7),
       ];
 
       /* showroom: univers card with a rolling name */
@@ -190,7 +189,7 @@ SCENE_BUILDERS.push(() =>
       const STEPS = [
         ["shopping-cart", "Panier", "Ajoutez vos produits au panier."],
         ["truck", "Livraison", "Livraison à domicile ou retrait au magasin."],
-        ["circle-check-big", "Confirmation", "Nous vous appelons pour confirmer. Paiement à la livraison."],
+        ["circle-check-big", "Confirmation", "Nous vous appelons pour confirmer."],
       ];
       const T_STEP = [18.5, 20.0, 21.5];
       const order = el(root, "abs");

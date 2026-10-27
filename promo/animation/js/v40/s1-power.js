@@ -10,9 +10,9 @@ SCENE_BUILDERS.push(() =>
       const { el, E, prog, clamp, lerp, cue, tf, shake, gravityDrop, squash, sp, icon } = M;
       const C = { x: 960, y: 420 };
       const HOOK = [
-        ["d'un frigo ?", 0.0],
-        ["d'une clim ?", 0.5],
-        ["d'une télé ?", 0.75],
+        ["d'un frigo ?", 0.0],
+        ["d'une clim ?", 0.5],
+        ["d'une télé ?", 0.75],
       ];
       const T_COLLAPSE = 1.0; // the question is sucked into the power button
       const T_PRESS = 1.2;

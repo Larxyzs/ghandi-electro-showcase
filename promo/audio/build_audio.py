@@ -1107,7 +1107,7 @@ def build_music_v40():
     out = mus + drums
     sos = _sos("lp", 15000, 2)
     out = np.stack([signal.sosfilt(sos, out[:, 0]), signal.sosfilt(sos, out[:, 1])], axis=1)
-    out = tape_stop(out, 39.35, 39.75)
+    out = tape_stop(out, 39.5, 39.9)
     return out[:N], kicks
 
 
@@ -1166,9 +1166,10 @@ def main():
     t = np.arange(N) / SR
     mix *= np.clip((DUR - t) / 0.35, 0, 1)[:, None]  # fade out over the last 0.35 s
     if COMP == "v40":
-        mix *= 1.2  # the longer piece has more quiet stretches; bring it to the same loudness
+        mix *= 1.24  # the longer piece has more quiet stretches; bring it to the same loudness
     mix = np.tanh(mix * 1.15) / np.tanh(1.15)
-    mix = limiter(mix, 0.93)
+    # peaks at -1.5 dBFS (social platforms re-encode the audio; true peaks overshoot sample peaks)
+    mix = limiter(mix, 0.8 if COMP == "v40" else 0.93)
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, "audio_raw.wav")
     wavfile.write(path, SR, (np.clip(mix, -1, 1) * 32767).astype(np.int16))
