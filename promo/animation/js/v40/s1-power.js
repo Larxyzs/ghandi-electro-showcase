@@ -126,6 +126,8 @@ SCENE_BUILDERS.push(() =>
       cue(2.2, "pop", { pitch: 1.0, gain: 0.6 });
       cue(2.3, "tick", { pitch: 1.3, gain: 0.5 });
       LT.forEach((t0, i) => cue(t0 + 0.16, "thud", { pitch: 0.9 + i * 0.07, gain: 0.7 }));
+      // sonic logo: one note per letter of GHANDI (the end card plays the same melody)
+      [74, 77, 81, 81, 79, 81].forEach((m, i) => cue(LT[i] + 0.16, "note", { midi: m, gain: 0.75 }));
       cue(2.85, "shimmer", { dur: 0.6, gain: 0.45 });
       cue(3.05, "swish", { gain: 0.4 });
       cue(T_REVEAL - 0.05, "whoosh", { dur: 0.5, gain: 0.85, rise: 1 });

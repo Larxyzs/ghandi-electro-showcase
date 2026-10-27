@@ -64,9 +64,11 @@ SCENE_BUILDERS.push(() =>
         K(4.0, 300, 200, 0, 0.42, -34, 56),
         K(4.75, 220, 175, 70, 1.35, -38, 56, E.outCubic, 960, 620),
         K(5.75, 220, 175, 80, 1.45, -44, 55, E.inOutSine, 960, 630),
-        K(6.35, 250, 190, 30, 0.76, -44, 56, E.inOutCubic, 1150, 470),
-        K(8.75, 290, 235, 50, 0.95, -50, 55, E.inOutSine, 1240, 400),
-        K(9.5, DOOR.x, DOOR.y + 30, DOOR.z, 7.5, -48, 50, E.inCubic, 960, 540),
+        // hero shot: crane down to an almost street-level view of the facade, slow orbit while the card reads
+        K(6.4, 232, 250, 120, 1.22, -24, 75, E.inOutCubic, 1350, 600),
+        K(8.6, 250, 255, 110, 1.38, -12, 78, E.inOutSine, 1350, 600),
+        // and straight in through the door
+        K(9.5, DOOR.x, DOOR.y + 30, DOOR.z, 7.5, -8, 80, E.inCubic, 960, 540),
         K(9.5, SHOWX + 140, 680, 110, 2.1, -40, 50, E.inCubic, 1000, 450),
         K(T_ZONE[0], zoneX(0), 600, 110, ZZ, -40, 48, E.outCubic, 1120, 470),
         ...[1, 2, 3, 4].flatMap((i) => [
@@ -198,6 +200,30 @@ SCENE_BUILDERS.push(() =>
       ].map((b, i) => ({ ...b, fx: FXL.shapeBurst(fxLayer, { x: 0, y: 0, t0: b.t0, n: b.n, colors: b.colors, angle: b.angle, speed: b.speed, gravity: b.gravity, size: b.size, seed: 120 + i }), ring: FXL.ringPulse(fxLayer, { x: 0, y: 0, t0: b.t0, r0: 30, r1: 220, width: 5, color: i ? BLUE : "#ffffff", dur: 0.55 }) }));
       // white puffs behind the van while it drives
       const puffs = [0, 1, 2, 3, 4, 5].map(() => W.billboard(C.city, { x: 0, y: 0, z: 10, w: 40, h: 40, css: "border-radius:50%;background:radial-gradient(circle at 38% 36%, #ffffff 0 30%, #bcd4f3);box-shadow:0 4px 10px rgb(9 40 100 / .18);opacity:0;" }));
+      // people: walkers on the sidewalks and the corniche, and two shoppers walking into the shop
+      const WALK = [
+        { y: 316, x0: -1300, x1: 2100, v: 38, ph: 0 },
+        { y: 326, x0: 2100, x1: -1300, v: 33, ph: 800 },
+        { y: 312, x0: -1300, x1: 2100, v: 41, ph: 1900 },
+        { y: 470, x0: 2100, x1: -1300, v: 36, ph: 300 },
+        { y: 466, x0: -1300, x1: 2100, v: 30, ph: 1400 },
+        { y: 474, x0: -1300, x1: 2100, v: 34, ph: 2600 },
+        { y: -1215, x0: -800, x1: 2100, v: 34, ph: 500 },
+        { y: -1205, x0: 2100, x1: -800, v: 37, ph: 1500 },
+        { y: -1222, x0: -800, x1: 2100, v: 28, ph: 2400 },
+        { y: 322, x0: 2100, x1: -1300, v: 40, ph: 2900 },
+      ];
+      const SHOPPERS = [
+        { t0: 6.0, t1: 7.6, a: { x: 120, y: 318 }, b: { x: DOOR.x - 6, y: DOOR.y + 4 } },
+        { t0: 6.9, t1: 8.5, a: { x: 560, y: 322 }, b: { x: DOOR.x + 6, y: DOOR.y + 4 } },
+      ];
+      const people = C.people.map((pb, i) => ({ pb, legs: [pb.d.querySelector(".lg1"), pb.d.querySelector(".lg2")], i }));
+      // a soft vignette and a sun glint that sweeps across the wide shots
+      const vig = el(root, "fill");
+      vig.style.cssText += "background:radial-gradient(ellipse at 50% 46%, transparent 58%, rgb(9 40 100 / .17) 100%);";
+      const sun = el(root, "abs");
+      sun.style.cssText += "left:0;top:-300px;width:520px;height:1700px;background:linear-gradient(90deg, transparent, rgb(255 255 255 / .42), transparent);opacity:0;";
+      const SUN = [4.25, 25.4, 34.3];
       const storeFaces = C.store.faces;
       const glows = (box) => [...box.south.querySelectorAll(".st-glow, .st-lamp"), ...box.west.querySelectorAll(".st-glow, .st-lamp")];
       const dims = (box) => [...box.south.querySelectorAll(".st-dim"), ...box.west.querySelectorAll(".st-dim")];
@@ -268,6 +294,8 @@ SCENE_BUILDERS.push(() =>
       cue(28.72, "shimmer", { dur: 0.6, gain: 0.35 });
       cue(8.85, "whoosh", { dur: 0.65, gain: 1.0, rise: 1 });
       cue(T_SHOW, "impact", { gain: 0.7 });
+      FX.flash(T_SHOW, 0.22, "#ffffff", 0.75); // smooth the cut into the showroom
+      FX.flash(T_PHONE, 0.16, "#ffffff", 0.55); // and the whip to the phone
       T_ZONE.forEach((tz, i) => {
         cue(tz - 0.4, "whoosh", { dur: 0.35, gain: 0.35, pan: 0.5 });
         cue(tz - 0.2, "pop", { pitch: 0.9 + i * 0.1, gain: 0.55 });
@@ -344,14 +372,26 @@ SCENE_BUILDERS.push(() =>
         /* camera */
         let cam = camAt(t);
         if (window.__CAM) cam = Object.assign({}, cam, window.__CAM); // debug: look at the set from a fixed camera
+        // the camera bumps very slightly on every kick of the groove (music sections with four-on-the-floor)
+        const GROOVE = [
+          [4.0, 9.0],
+          [10.0, 14.5],
+          [15.5, 17.5],
+          [24.0, 34.0],
+        ];
+        if (GROOVE.some(([a, b]) => t >= a && t < b)) {
+          const beat = Math.floor(t * 2 + 1e-6) / 2;
+          cam = { ...cam, zoom: cam.zoom * (1 + 0.009 * Math.exp(-(t - beat) * 22)) };
+        }
         const sk = M.addShake(shake(t, T_SHOW, 0.35, 10, 20, 3), shake(t, T_LAND, 0.32, 10, 22, 5), shake(t, 28.7, 0.25, 6, 24, 7), shake(t, SH.land, 0.3, 9, 22, 11));
         W.camera({ ...cam, sx: (cam.sx || 960) + sk.x, sy: (cam.sy || 540) + sk.y });
         amb(t, 1);
         // speed lines from the camera's zoom, pan and turn speed
         const c0 = camAt(t - 1 / 30);
-        const vz = Math.abs(Math.log(cam.zoom / c0.zoom)) * 30;
-        const vp = (Math.hypot(cam.x - c0.x, cam.y - c0.y) * 30 * cam.zoom) / 1000;
-        const vy = (Math.abs(cam.yaw - c0.yaw) * 30) / 100;
+        const c1 = camAt(t); // without the beat bump, which must not trigger speed lines
+        const vz = Math.abs(Math.log(c1.zoom / c0.zoom)) * 30;
+        const vp = (Math.hypot(c1.x - c0.x, c1.y - c0.y) * 30 * c1.zoom) / 1000;
+        const vy = (Math.abs(c1.yaw - c0.yaw) * 30) / 100;
         speedLines(t, clamp(0.5 * vz + 0.3 * vp + vy - 0.3));
         // bursts
         BURSTS.forEach((b) => {
@@ -372,7 +412,66 @@ SCENE_BUILDERS.push(() =>
           ? "radial-gradient(circle at 50% 30%, #ffffff 0%, #eaf2fd 60%, #d6e5fa 100%)"
           : "radial-gradient(circle at 50% 28%, #f6f9ff 0%, #e4eefc 55%, #cfe0f8 100%)";
 
+        // sun glint over the wide shots
+        let sp0 = -1;
+        SUN.forEach((ts) => {
+          const p = prog(t, ts, ts + 0.9);
+          if (p > 0 && p < 1) sp0 = p;
+        });
+        sun.style.opacity = sp0 < 0 || inShow ? "0" : (0.9 * Math.sin(Math.PI * sp0)).toFixed(3);
+        if (sp0 >= 0) sun.style.transform = `translate3d(${lerp(-700, 2100, E.inOutSine(sp0)).toFixed(1)}px,0,0) rotate(20deg)`;
+
         if (!inShow) {
+          /* the corniche: rolling swell and foam, the mosque rises with the city */
+          C.corniche.waves.style.backgroundPosition = `${((t * 42) % 104).toFixed(1)}px 0, 0 0`;
+          C.corniche.foam.style.backgroundPosition = `${((t * 26) % 24).toFixed(1)}px 0, 0 0`;
+          const mk = Math.max(0.001, spring(t - 4.2, 2.0, 0.5));
+          C.corniche.mosque.style.transform = `scale3d(1,1,${mk.toFixed(4)})`;
+
+          /* people walking (feet bob, legs swing), shoppers walking into the shop */
+          people.forEach(({ pb, legs, i }) => {
+            let x;
+            let y;
+            let dir;
+            let op = 1;
+            if (i < WALK.length) {
+              const w = WALK[i];
+              const span = Math.abs(w.x1 - w.x0);
+              const s0 = (((t * w.v + w.ph) % span) + span) % span;
+              dir = w.x1 > w.x0 ? 1 : -1;
+              x = w.x0 + dir * s0;
+              y = w.y;
+            } else {
+              const sh = SHOPPERS[i - WALK.length];
+              const k = prog(t, sh.t0, sh.t1);
+              x = lerp(sh.a.x, sh.b.x, k);
+              y = lerp(sh.a.y, sh.b.y, k);
+              dir = sh.b.x > sh.a.x ? 1 : -1;
+              op = t < sh.t0 || t > sh.t1 + 0.05 ? 0 : 1 - prog(t, sh.t1 - 0.25, sh.t1);
+            }
+            const st = Math.sin(t * 9 + i * 1.7);
+            pb.p.x = x;
+            pb.p.y = y;
+            pb.p.z = Math.abs(st) * 2.5;
+            pb.extra = `scaleX(${dir})`;
+            pb.update();
+            pb.d.style.opacity = op.toFixed(3);
+            legs[0].style.transform = `translateY(${(-2.2 * st).toFixed(2)}px)`;
+            legs[1].style.transform = `translateY(${(2.2 * st).toFixed(2)}px)`;
+          });
+
+          /* a few birds crossing the city */
+          C.birds.forEach((bd, i) => {
+            const u = t - 4 + i * 0.35;
+            bd.p.x = -1500 + u * 120 + (i % 2) * 60;
+            bd.p.y = 500 - u * 60 + i * 40;
+            bd.p.z = 520 + 30 * Math.sin(u * 1.3 + i);
+            bd.update();
+            const f = 34 * Math.sin(t * 13 + i * 1.1);
+            bd.wings[0].style.transform = `rotate(${f.toFixed(1)}deg)`;
+            bd.wings[1].style.transform = `rotate(${(-f).toFixed(1)}deg)`;
+          });
+
           /* clouds: only in the wide shots */
           const cz = clamp((0.85 - cam.zoom) / 0.3) * prog(t, 4.2, 4.9);
           C.clouds.forEach((cl) => {
@@ -634,6 +733,11 @@ SCENE_BUILDERS.push(() =>
           waBubble.d.style.opacity = t > 31.45 && t < T_ISLAND + 0.6 ? "1" : "0";
         } else {
           /* showroom */
+          C.show.shoppers.forEach((pb, i) => {
+            const sw = Math.sin(t * 2.2 + i * 1.9);
+            pb.extra = `scale(${(2.6 * (i % 2 ? -1 : 1)).toFixed(2)},2.6) rotate(${(1.5 * sw).toFixed(2)}deg)`;
+            pb.update();
+          });
           C.show.zones.forEach((z, i) => {
             const ta = T_ZONE[i] - 0.3;
             z.items.forEach((g, j) => {

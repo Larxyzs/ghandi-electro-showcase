@@ -114,8 +114,8 @@ SCENE_BUILDERS.push(() =>
       const cards = [
         card({
           x: 70,
-          y: 600,
-          w: 1080,
+          y: 560,
+          w: 900,
           tIn: 6.0,
           tOut: 8.7,
           html: `${kicker("Bienvenue chez Ghandi Home Electro")}

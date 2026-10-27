@@ -160,5 +160,68 @@
     return g;
   }
 
-  G.ISO = { world, SHADE, tree, car, van };
+  /** Palm tree (Boulevard Ghandi and the corniche are lined with them): curved trunk + fronds billboard. */
+  function palm(W, parent, x, y, s = 1, seed = 0) {
+    const g = W.group(parent, 0, 0, 0);
+    W.plane(g, { x: x - 34 * s, y: y - 10 * s, z: 0.6, w: 76 * s, d: 34 * s, bg: "rgb(9 40 100 / .12)", css: "border-radius:50%;" });
+    const lean = ((seed * 37) % 11) - 5;
+    const fronds = [-150, -115, -80, -45, -10, 25]
+      .map((a, i) => {
+        const r = (a * Math.PI) / 180;
+        const L = 44 + ((i * 7 + seed) % 3) * 6;
+        const ex = 60 + Math.cos(r) * L;
+        const ey = 46 + Math.sin(r) * L * 0.75 + 18;
+        const cx = 60 + Math.cos(r) * L * 0.55;
+        const cy = 46 + Math.sin(r) * L * 0.55 - 10;
+        return `<path d="M60 46 Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}" fill="none" stroke="${i % 2 ? "#5aa2ff" : "#3d8cff"}" stroke-width="11" stroke-linecap="round"/>`;
+      })
+      .join("");
+    const b = W.billboard(g, {
+      x,
+      y,
+      z: 0,
+      w: 120 * s,
+      h: 170 * s,
+      html: `<svg viewBox="0 0 120 170" width="${120 * s}" height="${170 * s}" style="overflow:visible">
+        <path d="M60 170 C ${60 + lean} 120, ${58 - lean} 90, 60 48" fill="none" stroke="#8ea4c4" stroke-width="9" stroke-linecap="round"/>
+        <path d="M60 170 C ${60 + lean} 120, ${58 - lean} 90, 60 48" fill="none" stroke="#b9c8dd" stroke-width="9" stroke-dasharray="3 7" stroke-linecap="butt"/>
+        ${fronds}<circle cx="60" cy="47" r="7" fill="#2a6fd6"/></svg>`,
+    });
+    return { g, b };
+  }
+
+  /** Pedestrian billboard (head + body), anchored at the feet. */
+  function person(W, parent, shirt = "#1266e8", seed = 0) {
+    const skin = ["#f1c8a0", "#d9a77a", "#b98258", "#e8b98e"][seed % 4];
+    const legs = ["#22314d", "#3b4a66", "#1a2740"][seed % 3];
+    const b = W.billboard(parent, {
+      x: 0,
+      y: 0,
+      z: 0,
+      w: 22,
+      h: 48,
+      html: `<svg viewBox="0 0 22 48" width="22" height="48"><rect class="lg1" x="6" y="30" width="4.5" height="17" rx="2.2" fill="${legs}"/><rect class="lg2" x="11.5" y="30" width="4.5" height="17" rx="2.2" fill="${legs}"/>
+        <rect x="4" y="13" width="14" height="20" rx="6" fill="${shirt}"/><circle cx="11" cy="7.5" r="5.6" fill="${skin}"/></svg>`,
+    });
+    b.d.style.transformOrigin = "50% 100%";
+    return b;
+  }
+
+  /** Bird: two wings that flap (rotated per frame by the caller through .wings). */
+  function bird(W, parent) {
+    const b = W.billboard(parent, {
+      x: 0,
+      y: 0,
+      z: 0,
+      w: 40,
+      h: 20,
+      html: `<svg viewBox="0 0 40 20" width="40" height="20" style="overflow:visible"><g class="w1"><path d="M20 12 Q 12 4 2 8" fill="none" stroke="#22314d" stroke-width="2.6" stroke-linecap="round"/></g>
+        <g class="w2"><path d="M20 12 Q 28 4 38 8" fill="none" stroke="#22314d" stroke-width="2.6" stroke-linecap="round"/></g></svg>`,
+    });
+    b.wings = [b.d.querySelector(".w1"), b.d.querySelector(".w2")];
+    b.wings.forEach((w) => (w.style.transformOrigin = "20px 12px"));
+    return b;
+  }
+
+  G.ISO = { world, SHADE, tree, palm, person, bird, car, van };
 })(window);

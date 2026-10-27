@@ -128,10 +128,24 @@
       if (Math.abs(x - L.streetA.x - 50) < 120 || Math.abs(x - L.streetB.x - 50) < 120) continue;
       [L.blvd.y - 18, L.blvd.y + L.blvd.d + 18].forEach((y, k) => {
         if (k === 0 && x > -60 && x < 440) return; // keep the shop front clear
-        const tr = ISO.tree(W, city, x + (k ? 95 : 0), y, 0.9);
+        const tr = ISO.palm(W, city, x + (k ? 95 : 0), y, 0.85, Math.round(x / 190) + k);
         out.trees.push({ ...tr, x: x + (k ? 95 : 0), y, dist: Math.hypot(x - 220, y - 165) });
       });
     }
+    [-40, 470].forEach((x, i) => {
+      const y = L.blvd.y - 22;
+      out.trees.push({ ...ISO.palm(W, city, x, y, 1.0, 3 + i), x, y, dist: Math.hypot(x - 220, y - 165) });
+    });
+
+    /* ---- the Atlantic corniche along the north edge: a promenade with palms, the ocean, and the
+       Hassan II mosque on its platform over the water (the skyline Casablanca is known by) ---- */
+    out.corniche = buildCorniche(W, city, S, out);
+
+    /* ---- people on the sidewalks (some walk into the shop) and birds ---- */
+    out.people = ["#1266e8", "#ffffff", "#5aa2ff", "#22314d", "#0b55c6", "#9cc6ff", "#1266e8", "#3d8cff", "#ffffff", "#22314d", "#5aa2ff", "#0b55c6"].map((c, i) =>
+      ISO.person(W, city, c, i),
+    );
+    out.birds = [0, 1, 2, 3, 4].map(() => ISO.bird(W, city));
 
     /* ---- traffic ---- */
     const carColors = ["white", "sky", "white", "pale", "white", "blue"];
@@ -300,6 +314,72 @@
     /* ---- showroom interior (separate set, east of the city) ---- */
     out.show = buildShowroom(W);
     return out;
+  }
+
+  /** Promenade, ocean and the Hassan II mosque north of the city slab (separate pieces, so the generated
+      city is unchanged). Returns parts world.js animates: waves, foam and the mosque group. */
+  function buildCorniche(W, parent, S, out) {
+    const y0 = S.y; // the slab's north edge
+    const prom = W.box(parent, { x: S.x, y: y0 - 150, z: -90, w: S.w, d: 150, h: 90, c: { top: "#ffffff", west: "#1a6ef0", south: "#0b55c6" } });
+    prom.top.style.background = "linear-gradient(180deg, #f4f8ff 0 46%, #d3e0f2 46% 100%)";
+    W.plane(parent, { x: S.x, y: y0 - 80 + 34, w: S.w, d: 5, z: 0.6, bg: "repeating-linear-gradient(90deg, #ffffff 0 34px, transparent 34px 70px)" });
+    // the sea, a little lower than the promenade, with moving swell lines and foam along the seawall
+    const SEA_D = 420;
+    const sea = W.box(parent, { x: S.x, y: y0 - 150 - SEA_D, z: -90, w: S.w, d: SEA_D, h: 70, c: { top: "#2f7df2", west: "#0e4bb0", south: "#0b55c6" } });
+    sea.west.style.background = "linear-gradient(180deg, #3d8cff, #0a3d99)";
+    const waves = el(sea.top, "abs");
+    waves.style.cssText += `inset:0;background:repeating-linear-gradient(100deg, transparent 0 46px, rgb(255 255 255 / .32) 46px 50px, transparent 50px 104px), linear-gradient(0deg, #2a72e6, #5aa2ff);`;
+    const foam = W.plane(parent, { x: S.x, y: y0 - 166, z: -19, w: S.w, d: 16, css: `background:radial-gradient(circle at 12px 16px, #ffffff 11px, transparent 12px) 0 0 / 24px 16px repeat-x, rgb(255 255 255 / .5);` });
+    for (let x = S.x + 520; x < S.x + S.w - 40; x += 230) {
+      const tr = ISO.palm(W, parent, x, y0 - 112, 0.85, Math.round(x / 230));
+      out.trees.push({ ...tr, x, y: y0 - 112, dist: Math.hypot(x - 220, y0 - 112 - 165) });
+    }
+
+    // Hassan II mosque: esplanade over the water, prayer hall with arches, the minaret
+    const MX = S.x + 40;
+    const MY = y0 - 150 - SEA_D + 30;
+    const mg = W.group(parent, 0, 0, 0);
+    const arches = (n, h, col) =>
+      `<div style="position:absolute;left:8px;right:8px;bottom:0;height:${h}px;display:flex;gap:6px">${Array.from({ length: n }, () => `<i style="flex:1;border-radius:14px 14px 0 0;background:${col}"></i>`).join("")}</div>`;
+    const esp = W.box(mg, { x: MX, y: MY, z: -90, w: 420, d: 360, h: 96, c: { top: "#f4f8ff", west: "#d3e0f2", south: "#c3d4ec" } });
+    esp.west.innerHTML = esp.south.innerHTML = arches(9, 40, "rgb(18 102 232 / .25)");
+    const hall = W.box(mg, {
+      x: MX + 30,
+      y: MY + 40,
+      z: 6,
+      w: 260,
+      d: 220,
+      h: 64,
+      c: "white",
+      south: arches(11, 40, "#7fb2ff"),
+      west: arches(9, 40, "#7fb2ff"),
+    });
+    W.box(mg, { x: MX + 44, y: MY + 54, z: 70, w: 232, d: 192, h: 16, c: { top: "#1f63d6", west: "#0e4bb0", south: "#093a8c" } });
+    hall.top.style.background = "#ffffff";
+    // minaret: white shaft, blue zellige panel and arch near the top, crenellations, lantern, finial
+    const MW = 64;
+    const MH = 640;
+    const zellige = `linear-gradient(45deg, #1266e8 25%, transparent 25% 75%, #1266e8 75%) 0 0 / 14px 14px, linear-gradient(45deg, #1266e8 25%, #9cc6ff 25% 75%, #1266e8 75%) 7px 7px / 14px 14px`;
+    const shaft = (w) => `
+      <div style="position:absolute;left:0;right:0;top:0;height:12px;background:repeating-linear-gradient(90deg, #ffffff 0 9px, transparent 9px 14px)"></div>
+      <div style="position:absolute;left:5px;right:5px;top:16px;height:150px;background:${zellige};border:3px solid #ffffff;box-sizing:border-box"></div>
+      <div style="position:absolute;left:${w / 2 - 11}px;top:46px;width:22px;height:70px;border-radius:11px 11px 0 0;background:#ffffff"></div>
+      <div style="position:absolute;left:${w / 2 - 8}px;top:250px;width:16px;height:40px;border-radius:8px 8px 0 0;background:#7fb2ff"></div>
+      <div style="position:absolute;left:${w / 2 - 8}px;top:360px;width:16px;height:40px;border-radius:8px 8px 0 0;background:#7fb2ff"></div>`;
+    const minX = MX + 320;
+    const minY = MY + 120;
+    W.box(mg, { x: minX, y: minY, z: 6, w: MW, d: MW, h: MH, c: { top: "#ffffff", west: "#eef4fc", south: "#ffffff" }, south: shaft(MW), west: shaft(MW) });
+    W.box(mg, { x: minX + 16, y: minY + 16, z: 6 + MH, w: 32, d: 32, h: 64, c: "white", south: `<div style="position:absolute;left:9px;top:12px;width:14px;height:34px;border-radius:7px 7px 0 0;background:#1266e8"></div>`, west: `<div style="position:absolute;left:9px;top:12px;width:14px;height:34px;border-radius:7px 7px 0 0;background:#1266e8"></div>` });
+    W.box(mg, { x: minX + 12, y: minY + 12, z: 6 + MH + 64, w: 40, d: 40, h: 8, c: { top: "#1f63d6", west: "#0e4bb0", south: "#093a8c" } });
+    W.billboard(mg, {
+      x: minX + MW / 2,
+      y: minY + MW / 2,
+      z: 6 + MH + 72,
+      w: 20,
+      h: 60,
+      html: `<svg viewBox="0 0 20 60" width="20" height="60"><rect x="9" y="4" width="2" height="56" fill="#0e4bb0"/><circle cx="10" cy="44" r="6" fill="#3d8cff"/><circle cx="10" cy="30" r="5" fill="#3d8cff"/><circle cx="10" cy="17" r="4" fill="#3d8cff"/></svg>`,
+    });
+    return { sea, waves, foam, mosque: mg, minaret: { x: minX + MW / 2, y: minY + MW / 2, h: MH } };
   }
 
   /** The shop, modelled on the real building, in the video's blue and white. Every part is its own group
@@ -501,10 +581,22 @@
     const wallTitle = el(north.south, "abs");
     wallTitle.style.cssText += `left:0;right:0;top:278px;text-align:center;font:800 26px Unbounded;letter-spacing:.3em;color:${BLUE};`;
     wallTitle.textContent = "NOS MARQUES";
-    // ceiling lights (glowing discs on the wall top) and a promo stripe on the east wall
-    east.west.style.background = `linear-gradient(180deg, #ffffff 0 60%, #e9f1fd 60%)`;
-    east.west.innerHTML = `<div style="position:absolute;left:60px;right:60px;top:60px;height:120px;border-radius:20px;background:${BLUE};display:flex;align-items:center;justify-content:center;gap:18px;color:#fff;font:800 30px Unbounded">
-      <span style="width:80px;height:72px">${ART.logoHouse({ ink: "#fff", fill: "#fff", detail: BLUE, hl: "#b7d3ff", vent: "#fff" })}</span>GHANDI</div>`;
+    // the east wall is the inside of the shop's glass front: daylight, mullions, the mezzanine, the blue
+    // pillars outside, palms beyond, and the GHANDI sign hanging inside
+    const palmsOut = [70, 300, 520, 760, 900]
+      .map((x) => `<span style="position:absolute;left:${x}px;bottom:0;width:70px;height:120px;opacity:.35">${`<svg viewBox="0 0 70 120" width="70" height="120"><path d="M35 120 C 37 90, 33 70, 35 40" stroke="#7fa6dc" stroke-width="6" fill="none"/>${[-150, -110, -70, -30, 10].map((a) => `<path d="M35 40 l ${(Math.cos((a * Math.PI) / 180) * 32).toFixed(1)} ${(Math.sin((a * Math.PI) / 180) * 22 + 12).toFixed(1)}" stroke="#7fa6dc" stroke-width="8" stroke-linecap="round"/>`).join("")}</svg>`}</span>`)
+      .join("");
+    const pillarsOut = [120, 360, 600, 840]
+      .map((x) => `<span style="position:absolute;left:${x}px;top:0;bottom:0;width:24px;background:linear-gradient(90deg, #0a3d99, #3a8bff 40%, #a9d0ff 55%, #1a6ef0 75%, #0a3d99)"></span>`)
+      .join("");
+    east.west.style.background = "linear-gradient(180deg, #f4f9ff 0%, #cfe2ff 100%)";
+    east.west.innerHTML = `${palmsOut}
+      <div style="position:absolute;inset:0;background:repeating-linear-gradient(90deg, transparent 0 66px, rgb(255 255 255 / .95) 66px 70px)"></div>
+      <div style="position:absolute;inset:0;background:linear-gradient(115deg, transparent 20%, rgb(255 255 255 / .55) 24%, transparent 32%, transparent 60%, rgb(255 255 255 / .35) 63%, transparent 70%)"></div>
+      ${pillarsOut}
+      <div style="position:absolute;left:0;right:0;top:150px;height:16px;background:#ffffff;box-shadow:0 4px 0 #c9d8ee"></div>
+      <div style="position:absolute;left:390px;top:26px;width:200px;height:84px;border-radius:16px;background:${BLUE};display:flex;align-items:center;justify-content:center;gap:12px;color:#fff;font:800 24px Unbounded;box-shadow:0 0 0 5px #ffffff">
+        <span style="width:54px;height:48px">${ART.logoHouse({ ink: "#fff", fill: "#fff", detail: BLUE, hl: "#b7d3ff", vent: "#fff" })}</span>GHANDI</div>`;
 
     // product zones on podiums along the room
     const ZONES = [
@@ -548,6 +640,21 @@
         html: `<div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);background:${BLUE};color:#fff;font:800 34px Unbounded;padding:12px 26px;border-radius:999px;white-space:nowrap;box-shadow:0 18px 36px -16px rgb(4 21 58 / .5)">${z.name}</div>`,
       });
       out.zones.push({ ...z, g: zg, items, label, glow, ring, cx: zx + 135, cy: zy + 130, x: S.x + zx + 135, y: S.y + zy + 130 });
+    });
+    // customers looking at the products
+    // (the showroom is modelled at a larger scale than the city, so its customers are bigger)
+    out.shoppers = [
+      [24, 700, "#1266e8", 1],
+      [60 + 310 - 20, 560, "#22314d", 2],
+      [60 + 2 * 310 - 20, 600, "#5aa2ff", 3],
+      [60 + 3 * 310 - 20, 560, "#0b55c6", 4],
+      [60 + 4 * 310 - 20, 610, "#ffffff", 5],
+    ].map(([x, y, c, seed]) => {
+      const pb = ISO.person(W, g, c, seed);
+      pb.p.x = x;
+      pb.p.y = y;
+      pb.update();
+      return pb;
     });
     return out;
   }

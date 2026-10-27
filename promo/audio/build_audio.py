@@ -431,6 +431,16 @@ def sfx_scribble(dur=0.42, seed=130):
     return pan(edge(x * env * 0.5, 0.003, 0.02), 0.15)
 
 
+def sfx_note(midi=81):
+    """Sonic-logo note: a bright bell over a soft square pluck, with a little room."""
+    f = 440.0 * 2 ** ((midi - 69) / 12)
+    t = tt(0.9)
+    b = bell(f, 0.9, ((1, 1, 1.0), (2.0, 0.45, 0.6), (3.0, 0.2, 0.35), (4.2, 0.12, 0.2)), decay=0.5)
+    pl = filt(square(f, len(t)) * 0.5 + np.sin(2 * np.pi * f * 2 * t) * 0.3, "lp", 5200) * np.exp(-t / 0.12)
+    x = b * 0.8 + pl * 0.45
+    return reverb(st(edge(x, 0.0008, 0.05)), IR_ROOM, 0.3)
+
+
 def sfx_riser(dur=1.0):
     n = int(dur * SR)
     u = np.arange(n) / n
@@ -606,6 +616,7 @@ SFX = {
     "glitch": lambda c: sfx_glitch(c.get("dur", 0.2)),
     "powerdown": lambda c: sfx_powerdown(c.get("dur", 0.5)),
     "scribble": lambda c: sfx_scribble(c.get("dur", 0.42), int(c["t"] * 10)),
+    "note": lambda c: sfx_note(c.get("midi", 81)),
 }
 
 # Relative level of each effect family in the mix.
@@ -614,7 +625,7 @@ LEVEL = {
     "click": 0.6, "type": 0.45, "ding": 0.7, "buzz": 0.5, "glass": 0.5, "fall": 0.45, "crackle": 0.5, "zap": 0.6,
     "powerup": 0.6, "riser": 0.55, "riserShort": 0.4, "shimmer": 0.5, "scroll": 0.45, "blip": 0.35, "sonar": 0.55, "pinDrop": 0.85,
     "truck": 0.7, "horn": 0.55, "cash": 0.8, "ring": 0.45, "glitch": 0.5, "whoosh": 0.6, "swish": 0.45, "swoosh": 0.45,
-    "powerdown": 0.6, "scribble": 0.4,
+    "powerdown": 0.6, "scribble": 0.4, "note": 0.55,
 }
 
 

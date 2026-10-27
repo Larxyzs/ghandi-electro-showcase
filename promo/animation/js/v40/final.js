@@ -78,6 +78,8 @@ SCENE_BUILDERS.push(() =>
       cue(T_HIT, "subdrop", { gain: 1.0 });
       cue(T_HIT + 0.02, "shimmer", { dur: 1.2, gain: 0.5 });
       LT.forEach((t0, i) => cue(t0 + 0.12, "tick", { pitch: 1.1 + i * 0.08, gain: 0.35 }));
+      // sonic logo, as on the opening logo
+      [74, 77, 81, 81, 79, 81].forEach((m, i) => cue(LT[i] + 0.12, "note", { midi: m, gain: 0.8 }));
       cue(36.55, "swish", { gain: 0.45 });
       cue(36.85, "thud", { pitch: 0.9, gain: 0.7 });
       cue(36.87, "pop", { pitch: 1.1, gain: 0.6 });
