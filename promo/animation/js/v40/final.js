@@ -13,10 +13,10 @@ SCENE_BUILDERS.push(() =>
       const BLUE = ART.BLUE;
       const WA_GREEN = "#02853c"; // the site's WhatsApp green, one step darker so white text passes 4.5:1
       const T_HIT = 36.0;
-      const T_TAP = 37.3;
+      const T_TAP = 37.0;
 
       const bg = el(root, "fill");
-      bg.style.background = "radial-gradient(circle at 50% 34%, #3a8dff 0%, #1266e8 45%, #0a48a8 100%)";
+      bg.style.background = "radial-gradient(circle at 50% 34%, #1a6ef0 0%, #1266e8 45%, #0a48a8 100%)"; // white text passes 4.5:1 everywhere
       const rays = el(root, "fill");
       rays.style.cssText += `inset:-700px;background:repeating-conic-gradient(from 0deg at 50% 50%, rgb(255 255 255 / .08) 0deg 5deg, transparent 5deg 15deg);
         -webkit-mask-image:radial-gradient(circle at 50% 50%, #000 0%, transparent 52%);`;
@@ -43,7 +43,7 @@ SCENE_BUILDERS.push(() =>
         display:flex;align-items:center;gap:30px;padding:0 56px;box-sizing:border-box;color:#fff;
         box-shadow:0 0 0 6px rgb(255 255 255 / .95), 0 34px 60px -24px rgb(2 20 60 / .7);`;
       cta.innerHTML = `<span style="flex:none;width:112px;height:112px;border-radius:50%;background:#fff;color:${WA_GREEN};display:grid;place-items:center">${ART.waIcon(70)}</span>
-        <span style="line-height:1.05"><span style="display:block;font:700 38px Roboto;opacity:.95">Écrivez-nous sur WhatsApp</span>
+        <span style="line-height:1.05"><span style="display:block;font:700 38px Roboto">Écrivez-nous sur WhatsApp</span>
         <span style="display:block;font:800 74px Unbounded;letter-spacing:-.01em;margin-top:6px;white-space:nowrap">${SITE.PHONE}</span></span>`;
       const sheen = el(cta, "abs");
       sheen.style.cssText += "left:0;top:-20px;width:180px;height:200px;background:linear-gradient(90deg, transparent, rgb(255 255 255 / .45), transparent);";
@@ -69,7 +69,7 @@ SCENE_BUILDERS.push(() =>
         .map(([ic, txt]) => `<span style="display:flex;align-items:center;gap:12px"><span style="display:flex;color:#cfe3ff">${icon(ic, 34, 2.2)}</span>${txt}</span>`)
         .join("");
       const hours = el(cam, "abs");
-      hours.style.cssText += "left:0;top:928px;width:1920px;text-align:center;font:500 30px Roboto;color:rgb(235 243 255 / .9);";
+      hours.style.cssText += "left:0;top:928px;width:1920px;text-align:center;font:500 30px Roboto;color:#ffffff;";
       hours.innerHTML = `${icon("clock", 30, 2).replace("<svg", '<svg style="vertical-align:-6px;margin-right:12px"')}Lun – Sam · 9h–13h / 15h–20h`;
       const LT = [36.15, 36.21, 36.27, 36.33, 36.39, 36.45];
 
@@ -80,15 +80,14 @@ SCENE_BUILDERS.push(() =>
       LT.forEach((t0, i) => cue(t0 + 0.12, "tick", { pitch: 1.1 + i * 0.08, gain: 0.35 }));
       // sonic logo, as on the opening logo
       [74, 77, 81, 81, 79, 81].forEach((m, i) => cue(LT[i] + 0.12, "note", { midi: m, gain: 0.8 }));
-      cue(36.35, "swish", { gain: 0.45 });
-      cue(36.6, "thud", { pitch: 0.9, gain: 0.7 });
-      cue(36.62, "pop", { pitch: 1.1, gain: 0.6 });
+      cue(36.3, "swish", { gain: 0.45 });
+      cue(36.5, "thud", { pitch: 0.9, gain: 0.7 });
+      cue(36.52, "pop", { pitch: 1.1, gain: 0.6 });
       cue(T_TAP, "click", { gain: 0.9 });
       cue(T_TAP + 0.04, "pop", { pitch: 1.5, gain: 0.55 });
       cue(T_TAP + 0.02, "shimmer", { dur: 0.6, gain: 0.4 });
-      cue(37.0, "tick", { pitch: 1.3, gain: 0.4 });
-      cue(37.12, "tick", { pitch: 1.5, gain: 0.35 });
-      cue(38.0, "shimmer", { dur: 0.7, gain: 0.45 });
+      cue(36.8, "tick", { pitch: 1.3, gain: 0.4 });
+      cue(36.9, "tick", { pitch: 1.5, gain: 0.35 });
       cue(T_OFF, "powerdown", { gain: 0.9 });
       FX.flash(T_HIT, 0.25, "#ffffff", 0.7);
 
@@ -117,13 +116,13 @@ SCENE_BUILDERS.push(() =>
         Lk.subTxt.style.letterSpacing = lerp(0.9, 0.32, sk).toFixed(3) + "em";
         Lk.lines.forEach((l) => (l.style.transform = `scaleX(${E.outExpo(prog(t, 36.5, 36.9)).toFixed(3)})`));
         // slogan
-        tf(Lk.tag, { y: 26 * (1 - E.outCubic(prog(t, 36.35, 36.7))), o: prog(t, 36.35, 36.55) });
+        tf(Lk.tag, { y: 26 * (1 - E.outCubic(prog(t, 36.3, 36.62))), o: prog(t, 36.3, 36.48) });
 
         // WhatsApp button: pops, is tapped, then a sheen runs across it
-        const ck = Math.max(0, spring(t - 36.6, 3, 0.5));
+        const ck = Math.max(0, spring(t - 36.5, 3.2, 0.55));
         const press = Math.sin(Math.PI * prog(t, T_TAP - 0.06, T_TAP + 0.1));
-        tf(cta, { s: ck * (1 - 0.05 * press), o: prog(t, 36.6, 36.67) });
-        tf(sheen, { x: lerp(-220, BW + 40, E.inOutCubic(prog(t, 38.0, 38.6))), skx: -20 });
+        tf(cta, { s: ck * (1 - 0.05 * press), o: prog(t, 36.5, 36.57) });
+        tf(sheen, { x: lerp(-220, BW + 40, E.inOutCubic(prog(t, 37.0, 37.5))), skx: -20 }); // sweeps with the tap
         const fOn = t > T_TAP - 0.5 && t < T_TAP + 0.55;
         finger.style.opacity = fOn ? "1" : "0";
         if (fOn) {
@@ -134,8 +133,8 @@ SCENE_BUILDERS.push(() =>
         const rp = prog(t, T_TAP, T_TAP + 0.5);
         ripple.style.opacity = rp > 0 && rp < 1 ? (1 - rp).toFixed(3) : "0";
         ripple.style.transform = `translate3d(${TAP.x}px,${TAP.y}px,0) scale(${(0.3 + 1.6 * E.outCubic(rp)).toFixed(3)})`;
-        tf(info, { y: 20 * (1 - E.outCubic(prog(t, 37.0, 37.3))), o: prog(t, 37.0, 37.2) });
-        tf(hours, { y: 20 * (1 - E.outCubic(prog(t, 37.12, 37.42))), o: prog(t, 37.12, 37.32) });
+        tf(info, { y: 20 * (1 - E.outCubic(prog(t, 36.8, 37.1))), o: prog(t, 36.8, 37.0) });
+        tf(hours, { y: 20 * (1 - E.outCubic(prog(t, 36.9, 37.2))), o: prog(t, 36.9, 37.1) });
 
         // power-off: the card folds into a bright line, the line into a dot, the dot fades (loops into frame 0)
         if (t >= T_OFF) {

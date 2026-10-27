@@ -103,12 +103,25 @@ SCENE_BUILDERS.push(() =>
             <div class="rv" style="font:400 30px Roboto;color:#5f6368;margin-top:10px">${body}</div>${more}</div></div>`,
         });
 
-      /* brand mark (top right) during the whole diorama */
-      const mark = el(root, "abs");
-      mark.style.cssText += `left:auto;right:56px;top:44px;display:flex;align-items:center;gap:14px;padding:12px 22px 12px 14px;border-radius:999px;background:rgb(255 255 255 / .88);
+      /* brand pill (top right, inside the graphics-safe margins) during the whole diorama, with a WhatsApp
+         chip carrying the number from 8 s: tucked away during the brand wall, back at 18.3 s, a pulse at 31.5 s */
+      const corner = el(root, "abs");
+      corner.style.cssText += "left:auto;right:96px;top:60px;display:flex;align-items:center;gap:12px;";
+      const waChip = el(corner, "");
+      waChip.style.cssText += `display:flex;align-items:center;height:60px;border-radius:999px;background:#02853c;color:#fff;font:700 28px Roboto;white-space:nowrap;overflow:hidden;
+        box-shadow:0 16px 36px -20px rgb(4 21 58 / .55);`;
+      waChip.innerHTML = `<span class="wa-in" style="display:flex;align-items:center;gap:10px;padding:0 22px 0 14px">${ART.waIcon(32)}${SITE.PHONE}</span>`;
+      const waIn = waChip.firstElementChild;
+      const waRing = el(corner, "abs");
+      waRing.style.cssText += "left:0;top:0;height:60px;border-radius:999px;border:4px solid #02853c;box-sizing:border-box;opacity:0;";
+      const mark = el(corner, "");
+      mark.style.cssText += `display:flex;align-items:center;gap:12px;height:60px;padding:0 22px 0 10px;box-sizing:border-box;border-radius:999px;background:rgb(255 255 255 / .92);
         box-shadow:0 16px 36px -20px rgb(4 21 58 / .5);`;
-      mark.innerHTML = `${ART.logoMark(46)}<span style="line-height:1"><b style="display:block;font:600 22px 'Lexend Zetta';letter-spacing:.05em;color:#3a3f47">GHANDI</b>
-        <span style="font:600 9px 'Lexend Zetta';letter-spacing:.32em;color:${BLUE}">HOME ELECTRO</span></span>`;
+      mark.innerHTML = `${ART.logoMark(44)}<b style="font:600 24px 'Lexend Zetta';letter-spacing:.05em;color:#2a2f37">GHANDI</b>`;
+      cue(8.0, "pop", { pitch: 1.3, gain: 0.5 });
+      cue(8.02, "swish", { gain: 0.3 });
+      cue(18.3, "pop", { pitch: 1.3, gain: 0.5 });
+      cue(31.5, "pop", { pitch: 1.5, gain: 0.45 });
 
       /* chapters */
       const cards = [
@@ -207,7 +220,17 @@ SCENE_BUILDERS.push(() =>
 
       return (t) => {
         const inShow = t >= 9.5 && t < 18.0;
-        tf(mark, { o: prog(t, 4.6, 5.0) * (1 - prog(t, 35.2, 35.5)), x: 30 * (1 - E.outCubic(prog(t, 4.6, 5.0))) });
+        tf(corner, { o: prog(t, 4.6, 5.0) * (1 - prog(t, 35.2, 35.5)), x: 30 * (1 - E.outCubic(prog(t, 4.6, 5.0))) });
+        const open = Math.max(0, spring(t - 8.0, 2.6, 0.55)) * (1 - E.inOutCubic(prog(t, 15.0, 15.3))) + (t > 18.3 ? Math.max(0, spring(t - 18.3, 2.6, 0.55)) : 0);
+        const fullW = waIn.offsetWidth;
+        waChip.style.width = (fullW * clamp(open, 0, 1.08)).toFixed(1) + "px";
+        waChip.style.display = open > 0.01 ? "" : "none";
+        const pulse = [18.3 + 0.45, 31.5].reduce((a, tp) => Math.max(a, Math.exp(-Math.max(0, t - tp) * 5) * (t >= tp ? 1 : 0)), 0);
+        tf(waChip, { s: 1 + 0.1 * pulse });
+        const rp = [18.75, 31.5].map((tp) => prog(t, tp, tp + 0.6)).find((p) => p > 0 && p < 1);
+        waRing.style.width = fullW + "px";
+        waRing.style.opacity = rp ? (1 - rp).toFixed(3) : "0";
+        if (rp) tf(waRing, { s: 1 + 0.35 * E.outCubic(rp) });
         cards.forEach((c) => c.update(t));
         marks.forEach((m) => m(t));
 

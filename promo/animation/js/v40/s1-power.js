@@ -14,10 +14,10 @@ SCENE_BUILDERS.push(() =>
         ["d'une clim ?", 0.5],
         ["d'une télé ?", 0.75],
       ];
-      const T_COLLAPSE = 1.0; // the question is sucked into the power button
-      const T_PRESS = 1.2;
-      const T_WAVE = 1.25;
-      const WAVE_SPEED = 2800;
+      const T_COLLAPSE = 1.25; // the question is sucked into the power button (the last noun holds longest)
+      const T_PRESS = 1.375;
+      const T_WAVE = 1.5;
+      const WAVE_SPEED = 5200; // the power wave sweeps the whole field before the implosion at 1.72 s
       const T_IMPLODE = 1.72;
       const T_FLASH = 2.0;
       const T_REVEAL = 4.0; // a hole opens in the middle and reveals the city underneath
@@ -87,7 +87,7 @@ SCENE_BUILDERS.push(() =>
 
       /* ---------- logo stage (after the flash) ---------- */
       const blue = el(root, "fill");
-      blue.style.background = "radial-gradient(circle at 50% 36%, #3a8dff 0%, #1266e8 45%, #0a48a8 100%)";
+      blue.style.background = "radial-gradient(circle at 50% 36%, #1a6ef0 0%, #1266e8 45%, #0a48a8 100%)";
       const rays = el(blue, "fill");
       rays.style.cssText += `inset:-700px;background:repeating-conic-gradient(from 0deg at 50% 50%, rgb(255 255 255 / .08) 0deg 5deg, transparent 5deg 15deg);
         -webkit-mask-image:radial-gradient(circle at 50% 50%, #000 0%, transparent 52%);`;
@@ -116,8 +116,8 @@ SCENE_BUILDERS.push(() =>
       cue(T_PRESS, "click", { gain: 1.0 });
       cue(T_WAVE, "impact", { gain: 0.75 });
       cue(T_WAVE, "zap", { gain: 0.6 });
-      cue(T_WAVE, "crackle", { dur: 0.45, gain: 0.8 });
-      for (let i = 0; i < 6; i++) cue(T_WAVE + 0.05 + i * 0.06, "blip", { pitch: 1 + i * 0.15, gain: 0.35 });
+      cue(T_WAVE, "crackle", { dur: 0.25, gain: 0.8 });
+      for (let i = 0; i < 4; i++) cue(T_WAVE + 0.03 + i * 0.045, "blip", { pitch: 1 + i * 0.2, gain: 0.35 });
       cue(T_IMPLODE - 0.05, "whoosh", { dur: 0.33, gain: 0.9, rise: 1 });
       cue(T_FLASH, "impact", { gain: 1.1 });
       cue(T_FLASH, "subdrop", { gain: 1.0 });
@@ -177,7 +177,7 @@ SCENE_BUILDERS.push(() =>
           const R = Math.max(0, (t - T_WAVE) * WAVE_SPEED);
           front.style.display = t > T_WAVE && t < T_IMPLODE + 0.05 ? "" : "none";
           front.style.width = front.style.height = 2 * R + "px";
-          tf(front, { x: C.x - R, y: C.y - R, o: 1 - prog(t, T_WAVE + 0.5, T_IMPLODE) });
+          tf(front, { x: C.x - R, y: C.y - R, o: 1 - prog(t, T_WAVE + 0.1, T_IMPLODE) });
           arcs.forEach((u, i) => {
             const a = ((i * 60 + 15 + 25 * Math.sin(t * 3 + i)) * Math.PI) / 180;
             const rr = Math.min(R, 760);
