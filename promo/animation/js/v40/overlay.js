@@ -112,6 +112,8 @@ SCENE_BUILDERS.push(() =>
         box-shadow:0 16px 36px -20px rgb(4 21 58 / .55);`;
       waChip.innerHTML = `<span class="wa-in" style="display:flex;align-items:center;gap:10px;padding:0 22px 0 14px">${ART.waIcon(32)}${SITE.PHONE}</span>`;
       const waIn = waChip.firstElementChild;
+      waIn.style.flex = "none"; // keeps its natural width; the chip clips it while it slides open
+      let waW = 0; // measured once, the first time the chip is laid out
       const waRing = el(corner, "abs");
       waRing.style.cssText += "left:0;top:0;height:60px;border-radius:999px;border:4px solid #02853c;box-sizing:border-box;opacity:0;";
       const mark = el(corner, "");
@@ -222,9 +224,13 @@ SCENE_BUILDERS.push(() =>
         const inShow = t >= 9.5 && t < 18.0;
         tf(corner, { o: prog(t, 4.6, 5.0) * (1 - prog(t, 35.2, 35.5)), x: 30 * (1 - E.outCubic(prog(t, 4.6, 5.0))) });
         const open = Math.max(0, spring(t - 8.0, 2.6, 0.55)) * (1 - E.inOutCubic(prog(t, 15.0, 15.3))) + (t > 18.3 ? Math.max(0, spring(t - 18.3, 2.6, 0.55)) : 0);
-        const fullW = waIn.offsetWidth;
+        if (!waW) {
+          waChip.style.display = "flex";
+          waW = waIn.offsetWidth;
+        }
+        const fullW = waW;
         waChip.style.width = (fullW * clamp(open, 0, 1.08)).toFixed(1) + "px";
-        waChip.style.display = open > 0.01 ? "" : "none";
+        waChip.style.display = open > 0.01 ? "flex" : "none";
         const pulse = [18.3 + 0.45, 31.5].reduce((a, tp) => Math.max(a, Math.exp(-Math.max(0, t - tp) * 5) * (t >= tp ? 1 : 0)), 0);
         tf(waChip, { s: 1 + 0.1 * pulse });
         const rp = [18.75, 31.5].map((tp) => prog(t, tp, tp + 0.6)).find((p) => p > 0 && p < 1);

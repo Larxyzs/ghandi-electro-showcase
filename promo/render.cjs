@@ -10,6 +10,9 @@
  * 180° shutter (half a frame), like a film camera. A composition can list its fast moments in
  * window.COMP.fast ([[t0, t1], ...]); those get FAST_SUB sub-frames (default 7) so whips, dives and
  * slams blur smoothly instead of showing ghost copies.
+ *
+ * ONLY=a,b re-renders just the segments that overlap a..b seconds and reuses the other segments of the
+ * previous render (same composition timing), then joins them again into out/video.mp4.
  */
 const { chromium } = require("playwright");
 const { spawn } = require("child_process");
@@ -95,17 +98,22 @@ async function main() {
       f = g;
     }
     const segDir = path.join(OUT, "segments");
-    fs.rmSync(segDir, { recursive: true, force: true });
+    const segs = jobs.map((_, i) => path.join(segDir, `seg${String(i).padStart(4, "0")}.mp4`));
+    const only = process.env.ONLY ? process.env.ONLY.split(",").map(Number) : null;
+    const todo = jobs
+      .map((j, i) => i)
+      .filter((i) => !only || !fs.existsSync(segs[i]) || (jobs[i].from / fps < only[1] && jobs[i].to / fps > only[0]));
+    if (!only) fs.rmSync(segDir, { recursive: true, force: true });
     fs.mkdirSync(segDir, { recursive: true });
+    const totalTodo = todo.reduce((a, i) => a + jobs[i].to - jobs[i].from, 0);
     const t0 = Date.now();
     let doneFrames = 0;
     let next = 0;
-    const segs = jobs.map((_, i) => path.join(segDir, `seg${String(i).padStart(4, "0")}.mp4`));
     await Promise.all(
       Array.from({ length: workers }, async () => {
         const { page } = await openPage(browser);
-        while (next < jobs.length) {
-          const i = next++;
+        while (next < todo.length) {
+          const i = todo[next++];
           const { from, to, sub: n } = jobs[i];
           const { ff, done } = ffmpegSegment(segs[i], fps, n);
           for (let f = from; f < to; f++) {
@@ -117,7 +125,7 @@ async function main() {
             doneFrames++;
             if (doneFrames % 60 === 0) {
               const el = (Date.now() - t0) / 1000;
-              process.stdout.write(`\r${doneFrames}/${total} frames  ${el.toFixed(0)}s elapsed  ~${((el / doneFrames) * (total - doneFrames)).toFixed(0)}s left   `);
+              process.stdout.write(`\r${doneFrames}/${totalTodo} frames  ${el.toFixed(0)}s elapsed  ~${((el / doneFrames) * (totalTodo - doneFrames)).toFixed(0)}s left   `);
             }
           }
           ff.stdin.end();
