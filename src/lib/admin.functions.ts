@@ -539,3 +539,17 @@ export const adminSaveProductsBatch = createServerFn({ method: "POST" })
     }
     return { saved: results.filter((r) => r.ok).length, results };
   });
+
+export const adminCreatePhoneCode = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => ({ id: String(data.id ?? "").slice(0, 80) }))
+  .handler(async ({ data }) => {
+    const { createPhoneCode } = await import("./admin.server");
+    return createPhoneCode(data.id);
+  });
+
+export const adminPhoneCodeLogin = createServerFn({ method: "POST" })
+  .inputValidator((data: { code: string }) => ({ code: String(data.code ?? "").slice(0, 20) }))
+  .handler(async ({ data }) => {
+    const { loginWithPhoneCode } = await import("./admin.server");
+    return loginWithPhoneCode(data.code);
+  });

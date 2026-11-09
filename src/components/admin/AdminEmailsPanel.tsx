@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { Loader2, Mail, Trash2 } from "lucide-react";
+import { Loader2, Mail, Smartphone, Trash2 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
 import type { AdminRole } from "@/lib/admin-types";
+import { adminCreatePhoneCode } from "@/lib/admin.functions";
 
 export type AdminEmail = { id: string; email: string; role: AdminRole };
 
@@ -19,6 +21,8 @@ export function AdminEmailsPanel({
   const [role, setRole] = useState<AdminRole>("staff");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const makeCode = useServerFn(adminCreatePhoneCode);
+  const [phone, setPhone] = useState<{ email: string; code: string; minutes: number } | null>(null);
 
   const refresh = async () => setRows(await load().catch(() => []));
 
@@ -103,7 +107,7 @@ export function AdminEmailsPanel({
             {rows.map((row) => (
               <li
                 key={row.id}
-                className="flex items-center gap-3 rounded-2xl border border-border p-4"
+                className="flex flex-wrap items-center gap-3 rounded-2xl border border-border p-4"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{row.email}</p>
@@ -111,6 +115,15 @@ export function AdminEmailsPanel({
                     {row.role === "super" ? "Super admin" : "Administrateur"}
                   </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setPhone(await makeCode({ data: { id: row.id } }).catch(() => null));
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold hover:border-brand hover:text-brand"
+                >
+                  <Smartphone className="h-4 w-4" /> Connecter un téléphone
+                </button>
                 <button
                   type="button"
                   onClick={async () => {
@@ -126,6 +139,21 @@ export function AdminEmailsPanel({
               </li>
             ))}
           </ul>
+        )}
+        {phone && (
+          <div className="mt-5 rounded-2xl border-2 border-brand bg-brand-soft/40 p-5 text-center">
+            <p className="text-sm font-semibold">Code pour le téléphone de {phone.email}</p>
+            <p className="mt-3 font-mono text-4xl font-bold tracking-[0.2em]">
+              {phone.code.slice(0, 4)} {phone.code.slice(4)}
+            </p>
+            <p className="mt-3 text-sm text-foreground/70">
+              Sur le téléphone, ouvrez l'application « Prix & stock », touchez « J'ai un code » et tapez ce
+              code. Valable {phone.minutes} minutes. Le téléphone restera connecté.
+            </p>
+            <button type="button" onClick={() => setPhone(null)} className="mt-3 text-sm underline">
+              Fermer
+            </button>
+          </div>
         )}
       </div>
     </div>

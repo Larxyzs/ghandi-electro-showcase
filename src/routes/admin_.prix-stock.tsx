@@ -9,6 +9,7 @@ import { lovable } from '@/integrations/lovable';
 import { supabase } from '@/integrations/supabase/client';
 import { integerDH, AVAILABILITY_LABELS, type Availability, type PriceStockChange, type PriceStockProduct, type PriceStockState } from '@/lib/price-stock';
 import { cn } from '@/lib/utils';
+import { adminPhoneCodeLogin } from '@/lib/admin.functions';
 
 export const Route = createFileRoute('/admin_/prix-stock')({
   ssr: false,
@@ -18,6 +19,11 @@ export const Route = createFileRoute('/admin_/prix-stock')({
     { property: 'og:title', content: 'Prix & stock | Ghandi Home Electro' },
     { property: 'og:description', content: 'Gestion privée des prix et disponibilités du magasin.' },
     { property: 'og:type', content: 'website' }, { name: 'twitter:card', content: 'summary' }, { name: 'robots', content: 'noindex, nofollow' },
+    // installable as a phone app that opens straight on this page
+    { name: 'theme-color', content: '#f7cf47' }, { name: 'mobile-web-app-capable', content: 'yes' }, { name: 'apple-mobile-web-app-capable', content: 'yes' },
+    { name: 'apple-mobile-web-app-title', content: 'Prix & stock' }, { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
+  ], links: [
+    { rel: 'manifest', href: '/prix-stock.webmanifest' }, { rel: 'apple-touch-icon', href: '/prix-stock-180.png' },
   ] }), component: PriceStockPage,
 });
 type Data = Awaited<ReturnType<typeof getPriceStock>>;
@@ -32,6 +38,9 @@ function PriceStockPage() {
   const backup = useServerFn(downloadPriceBackup);
   const router = useRouter();
   const [allowed, setAllowed] = useState<boolean | null>(null);
+  const phoneLogin = useServerFn(adminPhoneCodeLogin);
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [code, setCode] = useState('');
   const [email, setEmail] = useState('');
   const [data, setData] = useState<Data | null>(null);
   const [products, setProducts] = useState<PriceStockProduct[]>([]);
@@ -127,6 +136,12 @@ function PriceStockPage() {
   if (!allowed) return <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-6 p-6 text-xl">
     <h1 className="text-3xl font-bold">Prix & stock</h1><p>Connectez-vous avec le compte Google autorisé par le magasin.</p>
     <Button className={cn(btn,'bg-price-tool text-price-tool-foreground hover:bg-price-tool/90')} onClick={async () => { setError(''); try { await lovable.auth.signInWithOAuth('google',{ redirect_uri: `${window.location.origin}/admin/prix-stock` }); const { data: session } = await supabase.auth.getSession(); if (session.session?.access_token) { await google({ data: { accessToken: session.session.access_token } }); const result = await access(); setAllowed(result.allowed); setEmail(result.email); if (!result.allowed) setError('Ce compte n’est pas autorisé.'); } } catch { setError('Connexion impossible. Réessayez.'); } }}>Continuer avec Google</Button>
+    {!codeOpen ? <Button variant="outline" className={btn} onClick={() => { setError(''); setCodeOpen(true); }}>J’ai un code</Button>
+    : <form className="flex flex-col gap-3" onSubmit={async e => { e.preventDefault(); setError(''); setBusy(true); try { const r = await phoneLogin({ data: { code } }); if (r.ok) { const result = await access(); setAllowed(result.allowed); setEmail(result.email); if (result.allowed) { setMode(window.matchMedia('(max-width:767px)').matches ? 'one' : 'list'); setHelp(0); } } else setError('Code incorrect ou trop ancien. Demandez un nouveau code.'); } catch { setError('Connexion impossible. Réessayez.'); } finally { setBusy(false); } }}>
+      <p>Tapez le code à 8 chiffres donné par l’administrateur.</p>
+      <input aria-label="Code à 8 chiffres" autoFocus inputMode="numeric" autoComplete="one-time-code" placeholder="1234 5678" value={code} onChange={e => setCode(e.target.value.replace(/[^\d ]/g, '').slice(0, 9))} className="min-h-16 rounded-md border-2 border-input bg-background p-4 text-center font-mono text-3xl tracking-[0.2em]" />
+      <Button type="submit" disabled={busy || code.replace(/\D/g, '').length !== 8} className={cn(btn,'bg-price-tool text-price-tool-foreground hover:bg-price-tool/90')}>Se connecter</Button>
+    </form>}
     {error && <p role="alert" className="text-destructive">{error}</p>}<Link to="/" className="underline">Retour au magasin</Link>
   </main>;
   const shown = mode === 'one' ? products.slice(index,index+1) : products;

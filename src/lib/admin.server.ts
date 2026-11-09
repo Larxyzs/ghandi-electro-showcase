@@ -1343,3 +1343,62 @@ export async function restoreSnapshot(id: string) {
   }
   return { ok: true as const, label: snapshot.label };
 }
+
+/* ---------- Phone code: log a phone app in without Google ----------
+   A phone "app" (site added to the home screen) cannot finish a Google sign-in:
+   Google opens in another window and the login never comes back into the app.
+   A super admin makes an 8-digit code for an allowed email on the PC; it is typed
+   once in the phone app, which then keeps the normal 10-year admin cookie.
+   No table needed: the code is an HMAC of the email and the 10-minute time slot. */
+const PHONE_CODE_SLOT_MS = 10 * 60 * 1000;
+
+async function phoneCodeFor(email: string, slot: number) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(process.env["ADMIN_SESSION_SECRET"]!),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const mac = new Uint8Array(
+    await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`phone-link|${email.toLowerCase()}|${slot}`)),
+  );
+  const n = ((mac[0]! << 24) | (mac[1]! << 16) | (mac[2]! << 8) | mac[3]!) >>> 0;
+  return String(n % 100_000_000).padStart(8, "0");
+}
+
+export async function createPhoneCode(id: string) {
+  const db = await requireSuperAdmin();
+  const { data, error } = await db.from("admin_emails").select("email").eq("id", id).maybeSingle();
+  if (error || !data) throw new Error("NOT_FOUND");
+  const slot = Math.floor(Date.now() / PHONE_CODE_SLOT_MS);
+  return { email: data.email, code: await phoneCodeFor(data.email, slot), minutes: 10 };
+}
+
+export async function loginWithPhoneCode(raw: string) {
+  const code = String(raw ?? "").replace(/\D/g, "");
+  const fail = async () => {
+    // slow down guessing
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    return { ok: false as const, email: "" };
+  };
+  if (code.length !== 8) return fail();
+  // at most 10 tries per hour from one connection
+  const { allowAction } = await import("./rate-limit.server");
+  if (!(await allowAction("phone-code", 10, 60))) return fail();
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: rows } = await supabaseAdmin.from("admin_emails").select("email, role");
+  const slot = Math.floor(Date.now() / PHONE_CODE_SLOT_MS);
+  for (const row of rows ?? []) {
+    if (!row.email?.includes("@")) continue;
+    for (const s of [slot, slot - 1]) {
+      if (equals(await phoneCodeFor(row.email, s), code)) {
+        const role: AdminRole = row.role === "super" ? "super" : "staff";
+        const session = await useSession<AdminSession>(sessionConfig());
+        await session.update({ unlocked: true, username: row.email.toLowerCase(), role });
+        return { ok: true as const, email: row.email };
+      }
+    }
+  }
+  return fail();
+}
