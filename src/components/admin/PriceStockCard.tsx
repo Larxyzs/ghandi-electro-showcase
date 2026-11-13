@@ -53,13 +53,19 @@ export function PriceStockCard({ product, category, email, save, onSaved, next, 
     if (running.current) { queued.current = true; if(goNext) advance.current=true; return false; }
     if (goNext) advance.current=true;
     const d = draftRef.current;
-    if ((d.name.trim().match(/\p{L}/gu) ?? []).length < 3) { setLeaveName(true); setStatus('Le nom ne peut pas être vide'); return false; }
+    if ((d.name.trim().match(/\p{L}/gu) ?? []).length < 3) {
+      const restored={...d,name:current.current.name};
+      draftRef.current=restored; setDraft(restored);
+      setLeaveName(true); setStatus('Le nom ne peut pas être vide');
+      try { localStorage.setItem(key,JSON.stringify({draft:restored,base:current.current,pending:null})); } catch { /* Keep the draft in memory. */ }
+      return false;
+    }
     if (priceError) return false;
     const patch: PriceStockSave['patch'] = {};
     for (const field of ['name','price','stock','availability'] as const) {
       if (d[field] !== current.current[field]) Object.assign(patch, { [field]: d[field] });
     }
-    if (!Object.keys(patch).length && !pending.current) { setDirty(false); localStorage.removeItem(key); if (goNext) next(); return true; }
+    if (!Object.keys(patch).length && !pending.current) { setDirty(false); localStorage.removeItem(key); if (goNext) {advance.current=false;next();} return true; }
     const request = approved ?? pending.current ?? { id: product.id, patch, expected: current.current.updated_at, operation: crypto.randomUUID() };
     pending.current = request;
     try { localStorage.setItem(key, JSON.stringify({ draft: d, base: current.current, pending: request })); }
