@@ -553,3 +553,15 @@ export const adminPhoneCodeLogin = createServerFn({ method: "POST" })
     const { loginWithPhoneCode } = await import("./admin.server");
     return loginWithPhoneCode(data.code);
   });
+
+export const adminMyWifi = createServerFn({ method: "GET" }).handler(async () => {
+  const { myWifi } = await import("./admin.server");
+  return myWifi();
+});
+
+export const adminAllowWifi = createServerFn({ method: "POST" })
+  .inputValidator((data: { ip: string }) => ({ ip: String(data.ip ?? "").slice(0, 60) }))
+  .handler(async ({ data }) => {
+    const { allowWifi } = await import("./admin.server");
+    return allowWifi(data.ip);
+  });

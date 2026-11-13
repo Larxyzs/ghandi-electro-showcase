@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Loader2, Mail, Smartphone, Trash2 } from "lucide-react";
+import { Loader2, Mail, Smartphone, Trash2, Wifi } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import type { AdminRole } from "@/lib/admin-types";
-import { adminCreatePhoneCode } from "@/lib/admin.functions";
+import { adminAllowWifi, adminCreatePhoneCode, adminMyWifi } from "@/lib/admin.functions";
 
 export type AdminEmail = { id: string; email: string; role: AdminRole };
 
@@ -24,10 +24,17 @@ export function AdminEmailsPanel({
   const makeCode = useServerFn(adminCreatePhoneCode);
   const [phone, setPhone] = useState<{ email: string; code: string; minutes: number } | null>(null);
 
+  const myWifi = useServerFn(adminMyWifi);
+  const allowWifi = useServerFn(adminAllowWifi);
+  const [ip, setIp] = useState("");
+  const [here, setHere] = useState("");
+  const [wifiMsg, setWifiMsg] = useState("");
+
   const refresh = async () => setRows(await load().catch(() => []));
 
   useEffect(() => {
     void refresh();
+    void myWifi().then((r) => { setHere(r.ip); setIp((v) => v || r.ip); }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -92,6 +99,36 @@ export function AdminEmailsPanel({
         {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
       </form>
 
+
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setWifiMsg("");
+          try {
+            await allowWifi({ data: { ip: ip.trim() } });
+            setWifiMsg("C’est fait. Sur ce Wi-Fi, Prix & stock s’ouvre directement, sans connexion.");
+            await refresh();
+          } catch (err) {
+            setWifiMsg(err instanceof Error && err.message.includes("INVALID_IP") ? "Adresse incorrecte (exemple : 160.90.62.179)." : "Opération impossible.");
+          }
+        }}
+        className="rounded-3xl border-2 border-price-tool bg-card p-5 sm:p-6"
+      >
+        <h2 className="flex items-center gap-2 text-lg font-semibold"><Wifi className="h-5 w-5" /> Wi-Fi du magasin</h2>
+        <p className="mt-1 text-sm text-foreground/60">
+          Les appareils connectés à ce Wi-Fi ouvrent « Prix & stock » sans se connecter (seulement les prix, le stock et les noms,
+          pas le reste de l’administration). N’autorisez qu’un Wi-Fi privé avec un mot de passe.
+          {here && <> Votre adresse en ce moment : <b>{here}</b>.</>}
+        </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <input value={ip} onChange={(e) => setIp(e.target.value)} placeholder="160.90.62.179" inputMode="decimal" aria-label="Adresse du Wi-Fi"
+            className="min-w-0 flex-1 rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-brand" />
+          <button type="submit" disabled={!ip.trim()} className="rounded-full bg-price-tool px-5 py-2.5 text-sm font-semibold text-price-tool-foreground disabled:opacity-50">
+            Autoriser ce Wi-Fi
+          </button>
+        </div>
+        {wifiMsg && <p className="mt-3 text-sm font-semibold">{wifiMsg}</p>}
+      </form>
       <div className="rounded-3xl border border-border bg-card p-5 sm:p-6">
         <h2 className="text-lg font-semibold">Adresses autorisées</h2>
         {rows === null ? (
@@ -110,12 +147,12 @@ export function AdminEmailsPanel({
                 className="flex flex-wrap items-center gap-3 rounded-2xl border border-border p-4"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">{row.email}</p>
+                  <p className="truncate font-semibold">{row.email.startsWith("wifi:") ? `Wi-Fi du magasin · ${row.email.slice(5)}` : row.email}</p>
                   <p className="text-xs text-foreground/55">
-                    {row.role === "super" ? "Super admin" : "Administrateur"}
+                    {row.email.startsWith("wifi:") ? "Ouvre Prix & stock sans connexion" : row.role === "super" ? "Super admin" : "Administrateur"}
                   </p>
                 </div>
-                <button
+                {!row.email.startsWith("wifi:") && <button
                   type="button"
                   onClick={async () => {
                     setPhone(await makeCode({ data: { id: row.id } }).catch(() => null));
@@ -123,7 +160,7 @@ export function AdminEmailsPanel({
                   className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold hover:border-brand hover:text-brand"
                 >
                   <Smartphone className="h-4 w-4" /> Connecter un téléphone
-                </button>
+                </button>}
                 <button
                   type="button"
                   onClick={async () => {

@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { integerDH, AVAILABILITY_LABELS, type Availability, type PriceStockChange, type PriceStockProduct, type PriceStockState } from '@/lib/price-stock';
 import { cn } from '@/lib/utils';
 import { adminPhoneCodeLogin } from '@/lib/admin.functions';
+import { MissingReferenceButton } from '@/components/admin/MissingReference';
 
 export const Route = createFileRoute('/admin_/prix-stock')({
   ssr: false,
@@ -157,6 +158,7 @@ function PriceStockPage() {
         const speech = new Ctor(); speech.lang='fr-FR'; speech.onresult=e => { setQuery(e.results[0]?.[0]?.transcript ?? ''); }; speech.onend=() => setListening(false); speech.onerror=() => { setListening(false); setError('Le microphone n’est pas disponible. Tapez votre recherche.'); }; setListening(true); speech.start();
       }}><Mic /> {listening ? 'J’écoute…' : 'Parler'}</Button>}
     </form>
+    <div className="mt-3"><MissingReferenceButton initial={query} brands={data?.brands ?? []} /></div>
     <div className="mt-5 flex flex-wrap gap-3">{([['todo','À faire (sans prix)'],['all','Tous'],['in_stock','En stock'],['out_of_stock','Rupture'],['on_request','Sur demande']] as const).map(([v,label]) => <Button key={v} variant="outline" className={cn(btn,filter===v && 'border-price-tool bg-price-tool text-price-tool-foreground')} aria-pressed={filter===v} onClick={() => safeChange(() => setFilter(v))}>{label}</Button>)}</div>
     {data && <div className="mt-4 flex flex-wrap items-center gap-3">
       <Button variant="outline" className={cn(btn,!node && 'bg-price-tool text-price-tool-foreground')} onClick={() => safeChange(() => setNode(''))}>Toutes les catégories</Button>
@@ -169,7 +171,7 @@ function PriceStockPage() {
     </div>
     {error && <p role="alert" className="mt-4 font-bold text-destructive">{error} <Button variant="outline" className={btn} onClick={() => void fetchRows()}>Réessayer</Button></p>}
     <div className="mt-6 space-y-5">{shown.map(p => <PriceStockCard key={p.id} product={p} email={email} category={data?.nodes.find(n => n.id===p.node_id)?.name ?? ''} save={input => save({data:input})} onSaved={onSaved} next={() => next(p.id)} register={el => { if (el) inputs.current.set(p.id,el); else inputs.current.delete(p.id); }} registerCommit={fn=>{if(fn) commits.current.set(p.id,fn); else commits.current.delete(p.id);}} />)}</div>
-    {!busy && !products.length && <p className="py-12 text-xl">Aucun produit dans cette sélection.</p>}
+    {!busy && !products.length && <div className="py-12 text-xl"><p>Aucun produit dans cette sélection.</p>{query.trim() && <div className="mt-4"><MissingReferenceButton initial={query} brands={data?.brands ?? []} className="bg-price-tool text-price-tool-foreground" /></div>}</div>}
     {mode==='one' && products[index] && <div className="mt-5 grid grid-cols-2 gap-3"><Button variant="outline" disabled={index===0} className={btn} onClick={() => safeChange(() => setIndex(Math.max(0,index-1)))}>‹ Précédent</Button><Button className={cn(btn,'bg-price-tool text-price-tool-foreground hover:bg-price-tool/90')} disabled={index+1>=products.length && products.length>=(data?.total ?? 0)} onClick={() => { void commits.current.get(products[index]?.id ?? '')?.(); }}>Suivant ›</Button></div>}
     <div ref={sentinel} className="mt-5">{busy && <p>Chargement…</p>}{!busy && data && products.length<data.total && <Button variant="outline" className={btn} onClick={() => void fetchRows(true)}>Afficher 30 produits de plus</Button>}</div>
     {undo && <aside className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-price-tool bg-card p-4" aria-live="polite"><div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3"><p className="text-lg font-bold">{undo.before.price !== undo.after.price ? `Prix de ${undo.reference} changé : ${integerDH(undo.before.price)} → ${integerDH(undo.after.price)}` : `${undo.reference} : modification enregistrée`}</p><Button variant="outline" className={btn} onClick={async () => { try { const patch: Record<string,unknown>={}; for (const k of ['name','price','stock','availability'] as const) if (undo.before[k]!==undo.after[k]) patch[k]=undo.before[k]; const r=await save({ data:{ id:undo.id, expected:undo.after.updated_at, operation:crypto.randomUUID(), patch, confirmed:true } }); if (!r.confirmation) { onSaved(undo.id,r.state); setUndo(null); } } catch (e) { setError(e instanceof Error ? e.message : 'Annulation impossible.'); } }}>Annuler</Button></div></aside>}

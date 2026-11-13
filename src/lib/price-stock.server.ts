@@ -1,16 +1,68 @@
+import { getRequestHeader } from '@tanstack/react-start/server';
 import { currentAdmin } from './admin.server';
 import { signImagePaths } from './catalog.server';
 import { needsPriceConfirmation, searchKey, type PriceStockSave, type PriceStockProduct, type PriceStockChange, type PriceStockState } from './price-stock';
 import type { Json } from '@/integrations/supabase/types';
 
-/** Re-read the Google allow-list every time, including for old admin cookies. */
+/** Name used in the history for changes made from the shop's allowed Wi-Fi. */
+export const WIFI_NAME = 'Wi-Fi du magasin';
+
+/** The visitor's address as Cloudflare saw it (a visitor cannot fake this header). */
+export function visitorIp() {
+  return (getRequestHeader('cf-connecting-ip') ?? '').trim();
+}
+
+/** Re-read the Google allow-list every time, including for old admin cookies.
+ *  Without a Google admin, a Wi-Fi allowed in Admin (row "wifi:<address>") opens Prix & stock only. */
 export async function priceStockAdmin() {
   const me = await currentAdmin();
-  if (!me || !me.username.includes('@')) throw new Error('UNAUTHORIZED');
   const { supabaseAdmin: db } = await import('@/integrations/supabase/client.server');
-  const { data, error } = await db.from('admin_emails').select('email,role').ilike('email', me.username).maybeSingle();
-  if (error || !data || !['super', 'staff'].includes(data.role)) throw new Error('UNAUTHORIZED');
-  return { db, email: data.email, role: data.role };
+  if (me && me.username.includes('@')) {
+    const { data, error } = await db.from('admin_emails').select('email,role').ilike('email', me.username).maybeSingle();
+    if (!error && data && ['super', 'staff'].includes(data.role)) return { db, email: data.email, role: data.role };
+  }
+  const ip = visitorIp();
+  if (ip) {
+    const { data } = await db.from('admin_emails').select('id').eq('email', `wifi:${ip}`).maybeSingle();
+    if (data) return { db, email: WIFI_NAME, role: 'staff' };
+  }
+  throw new Error('UNAUTHORIZED');
+}
+
+/* ---------- "Je ne trouve pas un produit": notes for the owner ---------- */
+const MISSING_SUBJECT = 'Référence à ajouter';
+export async function reportMissing(input: { reference: string; brand: string; note: string }) {
+  const { db, email } = await priceStockAdmin();
+  const reference = input.reference.trim();
+  if (reference.length < 2) throw new Error('Tapez la référence.');
+  const message = [`Référence : ${reference}`, input.brand.trim() && `Marque : ${input.brand.trim()}`, input.note.trim() && `Note : ${input.note.trim()}`].filter(Boolean).join('\n');
+  const { error } = await db.from('contact_messages').insert({ name: email, email: email.includes('@') ? email : '', phone: '', subject: MISSING_SUBJECT, message });
+  if (error) throw new Error('Pas envoyé. Réessayez.');
+  return { ok: true };
+}
+function parseMissing(row: { id: string; message: string; name: string; created_at: string; read: boolean }) {
+  const get = (k: string) => (row.message.match(new RegExp(`^${k} : (.*)$`, 'm')) ?? [])[1] ?? '';
+  return { id: row.id, reference: get('Référence'), brand: get('Marque'), note: get('Note'), by: row.name, at: row.created_at, done: row.read };
+}
+/** Notes still to do (any admin, or the shop Wi-Fi to see what was already sent). */
+export async function listMissing() {
+  const { db } = await priceStockAdmin().catch(async () => {
+    const me = await currentAdmin();
+    if (!me) throw new Error('UNAUTHORIZED');
+    const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+    return { db: supabaseAdmin };
+  });
+  const r = await db.from('contact_messages').select('id,message,name,created_at,read').eq('subject', MISSING_SUBJECT).eq('read', false).order('created_at', { ascending: false }).limit(200);
+  if (r.error) throw new Error('Impossible de charger les références.');
+  return r.data.map(parseMissing);
+}
+export async function finishMissing(id: string) {
+  const me = await currentAdmin();
+  if (!me) throw new Error('UNAUTHORIZED');
+  const { supabaseAdmin: db } = await import('@/integrations/supabase/client.server');
+  const { error } = await db.from('contact_messages').update({ read: true }).eq('id', id).eq('subject', MISSING_SUBJECT);
+  if (error) throw new Error(error.message);
+  return { ok: true };
 }
 export async function listPriceStock(input: { q?: string | undefined; filter?: string | undefined; node?: string | undefined; brand?: string | undefined; offset?: number | undefined }) {
   const { db, email } = await priceStockAdmin();
@@ -52,7 +104,16 @@ export async function savePriceStock(input: PriceStockSave) {
   if (patch.price !== undefined && patch.price !== null && needsPriceConfirmation(r.data.price, patch.price) && !input.confirmed) return { confirmation: true as const };
   const { data, error } = await db.rpc('save_product_price_stock', { _id: input.id, _patch: patch as Json, _expected: input.expected, _email: email, _operation: input.operation });
   if (error) throw new Error(error.message);
-  return { confirmation: false as const, ...(data as unknown as { state: PriceStockState; before?: PriceStockState }) };
+  const saved = data as unknown as { state?: PriceStockState; before?: PriceStockState; conflict?: unknown; error?: unknown };
+  // Never say "Enregistré" unless the database really holds the new values.
+  const check = await db.from('products').select('name,price,stock,availability,updated_at').eq('id', input.id).single();
+  if (check.error) throw new Error('Vérification impossible. Réessayez.');
+  const wrong = (Object.keys(patch) as (keyof typeof patch)[]).filter(k => (k === 'price' ? Number(check.data.price ?? 0) !== Number(patch.price ?? 0) : check.data[k] !== patch[k]));
+  if (wrong.length) {
+    console.error('price-stock save not applied', { id: input.id, wrong, reply: saved });
+    throw new Error(saved?.conflict ? 'Ce produit a été modifié ailleurs. Touchez « Actualiser » puis recommencez.' : 'Le site n’a pas gardé la modification. Réessayez.');
+  }
+  return { confirmation: false as const, state: { ...(saved?.state ?? {}), ...check.data, price: check.data.price === null ? null : Number(check.data.price) } as PriceStockState, ...(saved?.before ? { before: saved.before } : {}) };
 }
 export async function historyPriceStock() {
   const { db } = await priceStockAdmin();

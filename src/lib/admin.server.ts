@@ -1402,3 +1402,23 @@ export async function loginWithPhoneCode(raw: string) {
   }
   return fail();
 }
+
+/* ---------- Shop Wi-Fi: opens Prix & stock without signing in ----------
+   Stored as an admin_emails row "wifi:<address>" (role staff) so it shows in the
+   emails list and is removed with the same trash button. Only Prix & stock reads it. */
+export async function myWifi() {
+  await requireSuperAdmin();
+  const { visitorIp } = await import("./price-stock.server");
+  return { ip: visitorIp() };
+}
+
+export async function allowWifi(raw: string) {
+  const db = await requireSuperAdmin();
+  const ip = String(raw ?? "").trim();
+  const v4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(ip);
+  const v6 = /^[0-9a-f:]{3,45}$/i.test(ip) && ip.includes(":");
+  if (!v4 && !v6) throw new Error("INVALID_IP");
+  const { error } = await db.from("admin_emails").insert({ email: `wifi:${ip.toLowerCase()}`, role: "staff" });
+  if (error && error.code !== "23505") throw new Error(error.message);
+  return { ok: true as const };
+}

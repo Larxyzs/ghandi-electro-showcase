@@ -15,6 +15,7 @@ import {
   Mail,
 } from "lucide-react";
 import logo from "@/assets/ghandi-logo.png.asset.json";
+import { MissingReferencesPanel } from "@/components/admin/MissingReference";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useI18n } from "@/lib/i18n";
 import type { SiteData, SiteSettings } from "@/lib/catalog-types";
@@ -215,6 +216,7 @@ export function AdminDashboard({
         )}
       >
         <Button asChild className="mb-7 min-h-24 h-auto w-full whitespace-normal bg-price-tool p-6 text-2xl font-bold text-price-tool-foreground hover:bg-price-tool/90"><Link to="/admin/prix-stock"><Tags /> Prix & stock</Link></Button>
+        <MissingReferencesPanel />
         {tab === "staff" && role === "super" ? (
           <StaffPanel
             load={staffActions.list}
