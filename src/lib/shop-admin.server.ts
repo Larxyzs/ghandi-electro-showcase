@@ -26,13 +26,3 @@ export async function saveBanners(banners: BannerInput[]) {
   return out;
 }
 
-export async function savePrices(rows: { id: string; price: number | null }[]) {
-  const db = await adminDb();
-  let saved = 0;
-  for (const r of rows) {
-    const price = r.price === null || !Number.isFinite(r.price) ? null : Math.max(0, Math.round(r.price * 100) / 100);
-    const { error } = await db.from("products").update({ price }).eq("id", r.id);
-    if (!error) saved++;
-  }
-  return { saved };
-}

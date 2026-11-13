@@ -11,17 +11,3 @@ export const adminSaveBanners = createServerFn({ method: "POST" })
     return saveBanners(data.banners);
   });
 
-export const adminSavePrices = createServerFn({ method: "POST" })
-  .inputValidator((data: { rows: { id: string; price: number | null }[] }) => {
-    if (!Array.isArray(data?.rows) || data.rows.length > 500) throw new Error("BAD_INPUT");
-    return {
-      rows: data.rows.map((r) => ({
-        id: String(r.id),
-        price: r.price === null ? null : Number(r.price),
-      })),
-    };
-  })
-  .handler(async ({ data }) => {
-    const { savePrices } = await import("./shop-admin.server");
-    return savePrices(data.rows);
-  });
