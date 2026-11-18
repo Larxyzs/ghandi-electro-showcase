@@ -35,3 +35,6 @@
   Build variables (VITE_SUPABASE_*) and runtime secrets (SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SERVICE_ROLE_KEY,
   ADMIN_SESSION_SECRET, ADMIN_PASSWORD) live in Cloudflare, never in the repo. Schema: `supabase/full_schema.sql`, folders:
   `supabase/catalog_tree.sql`. Google sign-in (Lovable broker) does not work there: admins use the password, the shop Wi-Fi or a phone code.
+- DOMAIN: ghandihomeelectro.com is registered through Lovable (auto-renew OFF, expires 2027-08-24) but its nameservers now point to
+  Cloudflare (zone in the same Cloudflare account). The root `wrangler.json` (merged by nitro into `.output/server/wrangler.json`)
+  keeps both hostnames as Worker custom domains; do not delete it.

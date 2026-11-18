@@ -1,0 +1,8 @@
+{
+  "name": "larxyzs-ghandi-electro-showcase",
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "ghandihomeelectro.com", "custom_domain": true },
+    { "pattern": "www.ghandihomeelectro.com", "custom_domain": true }
+  ]
+}
