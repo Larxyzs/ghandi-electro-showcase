@@ -12,7 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { getSiteData } from "../lib/catalog.functions";
+import { fetchSiteDataInBrowser } from "../lib/site-data-browser";
 import { DEFAULT_SETTINGS } from "../lib/catalog-types";
 import { SiteTheme } from "../components/SiteTheme";
 import { SiteModeGate } from "../components/SiteModeGate";
@@ -78,7 +78,9 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   loader: async () => {
     try {
-      return await getSiteData();
+      // pages are drawn in the visitor's browser (defaultSsr: false in start.ts): it reads the catalog itself
+      if (typeof window === "undefined") throw new Error("server");
+      return await fetchSiteDataInBrowser();
     } catch {
       return { settings: DEFAULT_SETTINGS, nodes: [], products: [], popularSearches: [], brands: [] };
     }

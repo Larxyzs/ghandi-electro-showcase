@@ -26,6 +26,9 @@ const csrfMiddleware = createCsrfMiddleware({
 });
 
 export const startInstance = createStart(() => ({
+  // Cloudflare's free plan allows 10 ms of work per request: the server only sends the page shell,
+  // the visitor's browser draws the pages and reads the catalog from Supabase.
+  defaultSsr: false,
   functionMiddleware: [attachSupabaseAuth],
   requestMiddleware: [errorMiddleware, csrfMiddleware],
 }));

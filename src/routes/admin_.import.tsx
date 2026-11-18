@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { fetchSiteDataInBrowser } from "@/lib/site-data-browser";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, Check, Download, FileUp, Loader2, Plus, Upload, X } from "lucide-react";
-import { adminCreateNode, adminGetData, adminStatus } from "@/lib/admin.functions";
+import { adminCreateNode, adminStatus } from "@/lib/admin.functions";
 import { adminBulkImport, adminBulkPreview } from "@/lib/bulk-import.functions";
 import { extGetBatch, extMarkItems } from "@/lib/extension.functions";
 import {
@@ -126,7 +127,7 @@ export function ImportPage({ inboxId }: { inboxId?: string } = {}) {
   const [inboxLabel, setInboxLabel] = useState("");
   const [inboxDone, setInboxDone] = useState(false);
   const status = useServerFn(adminStatus);
-  const getData = useServerFn(adminGetData);
+  const getData = fetchSiteDataInBrowser;
   const preview = useServerFn(adminBulkPreview);
   const runBatch = useServerFn(adminBulkImport);
   const createNode = useServerFn(adminCreateNode);

@@ -38,3 +38,6 @@
 - DOMAIN: ghandihomeelectro.com is registered through Lovable (auto-renew OFF, expires 2027-08-24) but its nameservers now point to
   Cloudflare (zone in the same Cloudflare account). The root `wrangler.json` (merged by nitro into `.output/server/wrangler.json`)
   keeps both hostnames as Worker custom domains; do not delete it.
+- FREE PLAN = 10 ms CPU per request (error 1102 otherwise). So `defaultSsr: false` (src/start.ts): the Worker only sends the page shell;
+  the browser reads the catalog itself (`fetchSiteDataInBrowser` → `buildSiteData` in `catalog-data.ts`, public bucket URLs).
+  Never load the whole catalog inside a server function or SSR again; keep server functions small (one product, one chunk).

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { fetchSiteDataInBrowser } from "@/lib/site-data-browser";
 import { useServerFn } from "@tanstack/react-start";
 import { Loader2 } from "lucide-react";
 import {
@@ -8,7 +9,6 @@ import {
   adminDeleteNode,
   adminDeleteProduct,
   adminDeleteStaff,
-  adminGetData,
   adminListStaff,
   adminLogin,
   adminLogout,
@@ -77,7 +77,7 @@ function AdminPage() {
   const status = useServerFn(adminStatus);
   const login = useServerFn(adminLogin);
   const logout = useServerFn(adminLogout);
-  const getData = useServerFn(adminGetData);
+  const getData = fetchSiteDataInBrowser;
   const createNode = useServerFn(adminCreateNode);
   const renameNode = useServerFn(adminRenameNode);
   const moveNode = useServerFn(adminMoveNode);
