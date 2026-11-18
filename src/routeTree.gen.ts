@@ -41,6 +41,7 @@ import { Route as MarquesSlugRouteImport } from './routes/marques.$slug'
 import { Route as ProduitsIndexRouteImport } from './routes/produits.index'
 import { Route as ProduitsSplatRouteImport } from './routes/produits.$'
 import { Route as ApiAdminCheckImageRouteImport } from './routes/api/admin/check-image'
+import { Route as ApiPublicCopySiteAssetsRouteImport } from './routes/api/public/copy-site-assets'
 import { Route as ApiPublicGhandiImportRouteImport } from './routes/api/public/ghandi-import'
 import { Route as ProduitsArticleProductIdRouteImport } from './routes/produits.article.$productId'
 import { Route as AdminImportInboxIndexRouteImport } from './routes/admin_.import_.inbox.index'
@@ -208,6 +209,11 @@ const ApiAdminCheckImageRoute = ApiAdminCheckImageRouteImport.update({
   path: '/api/admin/check-image',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCopySiteAssetsRoute = ApiPublicCopySiteAssetsRouteImport.update({
+  id: '/api/public/copy-site-assets',
+  path: '/api/public/copy-site-assets',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicGhandiImportRoute = ApiPublicGhandiImportRouteImport.update({
   id: '/api/public/ghandi-import',
   path: '/api/public/ghandi-import',
@@ -263,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/marques/': typeof MarquesIndexRoute
   '/produits/': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
+  '/api/public/copy-site-assets': typeof ApiPublicCopySiteAssetsRoute
   '/api/public/ghandi-import': typeof ApiPublicGhandiImportRoute
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
   '/admin/import/inbox/$batchId': typeof AdminImportInboxBatchIdRoute
@@ -301,6 +308,7 @@ export interface FileRoutesByTo {
   '/marques': typeof MarquesIndexRoute
   '/produits': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
+  '/api/public/copy-site-assets': typeof ApiPublicCopySiteAssetsRoute
   '/api/public/ghandi-import': typeof ApiPublicGhandiImportRoute
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
   '/admin/import/inbox/$batchId': typeof AdminImportInboxBatchIdRoute
@@ -340,6 +348,7 @@ export interface FileRoutesById {
   '/marques/': typeof MarquesIndexRoute
   '/produits/': typeof ProduitsIndexRoute
   '/api/admin/check-image': typeof ApiAdminCheckImageRoute
+  '/api/public/copy-site-assets': typeof ApiPublicCopySiteAssetsRoute
   '/api/public/ghandi-import': typeof ApiPublicGhandiImportRoute
   '/produits/article/$productId': typeof ProduitsArticleProductIdRoute
   '/admin_/import_/inbox/$batchId': typeof AdminImportInboxBatchIdRoute
@@ -380,6 +389,7 @@ export interface FileRouteTypes {
     | '/marques/'
     | '/produits/'
     | '/api/admin/check-image'
+    | '/api/public/copy-site-assets'
     | '/api/public/ghandi-import'
     | '/produits/article/$productId'
     | '/admin/import/inbox/$batchId'
@@ -418,6 +428,7 @@ export interface FileRouteTypes {
     | '/marques'
     | '/produits'
     | '/api/admin/check-image'
+    | '/api/public/copy-site-assets'
     | '/api/public/ghandi-import'
     | '/produits/article/$productId'
     | '/admin/import/inbox/$batchId'
@@ -456,6 +467,7 @@ export interface FileRouteTypes {
     | '/marques/'
     | '/produits/'
     | '/api/admin/check-image'
+    | '/api/public/copy-site-assets'
     | '/api/public/ghandi-import'
     | '/produits/article/$productId'
     | '/admin_/import_/inbox/$batchId'
@@ -495,6 +507,7 @@ export interface RootRouteChildren {
   MarquesIndexRoute: typeof MarquesIndexRoute
   ProduitsIndexRoute: typeof ProduitsIndexRoute
   ApiAdminCheckImageRoute: typeof ApiAdminCheckImageRoute
+  ApiPublicCopySiteAssetsRoute: typeof ApiPublicCopySiteAssetsRoute
   ApiPublicGhandiImportRoute: typeof ApiPublicGhandiImportRoute
   ProduitsArticleProductIdRoute: typeof ProduitsArticleProductIdRoute
   AdminImportInboxBatchIdRoute: typeof AdminImportInboxBatchIdRoute
@@ -727,6 +740,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminCheckImageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/copy-site-assets': {
+      id: '/api/public/copy-site-assets'
+      path: '/api/public/copy-site-assets'
+      fullPath: '/api/public/copy-site-assets'
+      preLoaderRoute: typeof ApiPublicCopySiteAssetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/ghandi-import': {
       id: '/api/public/ghandi-import'
       path: '/api/public/ghandi-import'
@@ -791,6 +811,7 @@ const rootRouteChildren: RootRouteChildren = {
   MarquesIndexRoute: MarquesIndexRoute,
   ProduitsIndexRoute: ProduitsIndexRoute,
   ApiAdminCheckImageRoute: ApiAdminCheckImageRoute,
+  ApiPublicCopySiteAssetsRoute: ApiPublicCopySiteAssetsRoute,
   ApiPublicGhandiImportRoute: ApiPublicGhandiImportRoute,
   ProduitsArticleProductIdRoute: ProduitsArticleProductIdRoute,
   AdminImportInboxBatchIdRoute: AdminImportInboxBatchIdRoute,
