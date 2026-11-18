@@ -408,3 +408,6 @@
     padding-inline: 24px;
   }
 }
+
+/* category drawings keep the same line thickness at every size */
+.cat-icon * { vector-effect: non-scaling-stroke; }
