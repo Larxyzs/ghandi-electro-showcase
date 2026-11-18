@@ -260,3 +260,118 @@ export async function importBulkBatch(items: BulkItem[], opts: BulkOptions, dbOv
   }, { concurrency: 3 });
   return outcomes.map((r) => r.ok ? r.value : { key: items[r.index]?.key ?? "", outcome: "problem", error: r.error });
 }
+
+/**
+ * FAST path of importBulkBatch (mode "replace", no photo copy) for the Chrome extension: a whole chunk in about
+ * 10 database calls, because Cloudflare's free plan allows only 50 outside calls per request.
+ * Same rules: one copy per product (same brand page, or same brand + model), the new version replaces the old one
+ * in the section it was sent to, prices/stock and hand-edited names are kept, pictures stay on the brand addresses.
+ */
+
+type Row = { id: string; brand: string | null; model: string | null; serial_number: string | null; source_url: string | null; created_at: string; name: string; name_edited_by_hand: boolean; node_id: string | null };
+
+const low = (v: unknown) => String(v ?? "").normalize("NFC").trim().toLowerCase().replace(/\s+/g, " ");
+const COLS = "id, brand, model, serial_number, source_url, created_at, name, name_edited_by_hand, node_id";
+
+export async function importBulkChunkFast(db: Db, items: BulkItem[], nodeId: string | null): Promise<BulkRowResult[]> {
+  const results: BulkRowResult[] = [];
+  const good = items.filter((it) => {
+    if (!it.name) results.push({ key: it.key, outcome: "problem", error: "Nom vide" });
+    else if (!nodeId && !it.nodeId) results.push({ key: it.key, outcome: "problem", error: "Aucune catégorie" });
+    else return true;
+    return false;
+  });
+  if (!good.length) return results;
+
+  // 1) every copy already on the site, in 3 calls
+  const urls = Array.from(new Set(good.map((it) => it.sourceUrl).filter(Boolean)));
+  const models = Array.from(new Set(good.flatMap((it) => (it.model ? [it.model, it.model.toUpperCase(), it.model.toLowerCase()] : []))));
+  const found = new Map<string, Row>();
+  const qs = [
+    urls.length ? db.from("products").select(COLS).in("source_url", urls) : null,
+    models.length ? db.from("products").select(COLS).in("model", models) : null,
+    models.length ? db.from("products").select(COLS).in("serial_number", models) : null,
+  ].filter((q) => q !== null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const r of (await Promise.all(qs)) as any[]) {
+    if (r.error) throw new Error(r.error.message);
+    for (const p of (r.data ?? []) as Row[]) found.set(p.id, p);
+  }
+  const rows = [...found.values()].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+  const copiesOf = (it: BulkItem) =>
+    rows.filter((p) =>
+      (it.sourceUrl && p.source_url === it.sourceUrl) ||
+      (it.brand && it.model && low(p.brand) === low(it.brand) && (low(p.model) === low(it.model) || low(p.serial_number) === low(it.model))),
+    );
+
+  // 2) decide per product: replace the oldest copy, remove the others for good
+  const extra = new Set<string>();
+  const taken = new Set<string>();
+  const now = new Date().toISOString();
+  const plan = good.map((it) => {
+    const all = copiesOf(it).filter((p) => !taken.has(p.id));
+    const keep = all[0] ?? null;
+    if (keep) taken.add(keep.id);
+    all.slice(1).forEach((p) => extra.add(p.id));
+    const images = Array.from(new Set(it.images.filter((u) => /^https?:\/\//i.test(u))));
+    const target = (it.nodeId as string | undefined) || nodeId!;
+    const full = {
+      name: keep && keep.name_edited_by_hand ? keep.name : it.name,
+      brand: it.brand,
+      model: it.model,
+      serial_number: it.model,
+      image_url: images[0] ?? null,
+      gallery: images as Json,
+      specifications: it.specs as Json,
+      spec_groups: it.specGroups as Json,
+      needs_review: false,
+      review_state: "verified",
+      source_url: it.sourceUrl || null,
+      source_name: it.brand || null,
+      imported_at: now,
+      node_id: target,
+    };
+    return { it, keep, full, target };
+  });
+  taken.forEach((id) => extra.delete(id));
+  if (extra.size) await purgeProducts(db, [...extra]);
+
+  // 3) replace the old copies (1 call) and add the new ones (1 call)
+  const upd = plan.filter((p) => p.keep);
+  const add = plan.filter((p) => !p.keep);
+  const ids = new Map<BulkItem, string>();
+  if (upd.length) {
+    const { error } = await db.from("products").upsert(upd.map((p) => ({ id: p.keep!.id, ...p.full })), { onConflict: "id", defaultToNull: false });
+    if (error) throw new Error(error.message);
+    upd.forEach((p) => ids.set(p.it, p.keep!.id));
+  }
+  if (add.length) {
+    const { data, error } = await db
+      .from("products")
+      .insert(add.map((p) => ({ ...p.full, price: 0, availability: "out_of_stock", stock: 0, characteristics: "" })))
+      .select("id, source_url, name");
+    if (error) throw new Error(error.message);
+    // rows come back in the same order as sent
+    (data ?? []).forEach((d: { id: string }, i: number) => add[i] && ids.set(add[i].it, d.id));
+  }
+
+  // 4) sections: only the new one (2 calls)
+  const all = plan.filter((p) => ids.has(p.it));
+  const byTarget = new Map<string, string[]>();
+  all.forEach((p) => byTarget.set(p.target, [...(byTarget.get(p.target) ?? []), ids.get(p.it)!]));
+  for (const [target, pids] of byTarget) {
+    const replaced = pids.filter((id) => upd.some((p) => p.keep!.id === id));
+    if (replaced.length) await db.from("product_nodes").delete().in("product_id", replaced).neq("node_id", target);
+  }
+  if (all.length) {
+    const { error } = await db
+      .from("product_nodes")
+      .upsert(all.map((p) => ({ product_id: ids.get(p.it)!, node_id: p.target })), { onConflict: "product_id,node_id", ignoreDuplicates: true });
+    if (error) throw new Error(error.message);
+  }
+  for (const p of plan) {
+    const id = ids.get(p.it);
+    results.push(id ? { key: p.it.key, outcome: p.keep ? "updated" : "created", productId: id } : { key: p.it.key, outcome: "problem", error: "Non enregistré" });
+  }
+  return results;
+}

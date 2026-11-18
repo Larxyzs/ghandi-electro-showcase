@@ -106,21 +106,28 @@ export const Route = createFileRoute("/api/public/ghandi-import")({
             });
             let added = 0;
             if (rows.length) {
-              const ins = await db.from("extension_inbox_items").upsert(rows, { onConflict: "batch_id,source_url" }).select("id, payload");
+              const ins = await db.from("extension_inbox_items").upsert(rows, { onConflict: "batch_id,source_url" }).select("id, batch_id, source_url, payload, suggested_category_id");
               if (ins.error) return fail("Could not save the products.", 500);
-              // Straight to the shop: no admin review step.
+              // Straight to the shop: no admin review step. Fast path: about 10 database calls for the whole chunk
+              // (Cloudflare's free plan allows 50 outside calls per request).
               const { parseBulkFile } = await import("@/lib/bulk-import-types");
-              const { importBulkBatch } = await import("@/lib/bulk-import.server");
+              const { importBulkChunkFast } = await import("@/lib/bulk-import.server");
               const saved = ins.data ?? [];
+              const { data: folders } = await db.from("catalog_nodes").select("id, name");
+              const n = (v: string) => v.normalize("NFC").trim().toLowerCase().replace(/\s+/g, " ");
               const items = parseBulkFile(JSON.stringify(saved.map((r) => r.payload))).items
-                .map((it, k) => ({ ...it, key: saved[k]?.id ?? it.key }));
-              const results = await importBulkBatch(items, {
-                mode: "replace", folderId: sid, fallbackId: sid, createMissing: false, copyImages: false, dropForeignPrice: false,
-              }, db as never);
-              for (const r of results) {
-                if (r.outcome === "problem") continue;
-                added++;
-                await db.from("extension_inbox_items").update({ status: "imported", product_id: r.productId ?? null }).eq("id", r.key);
+                .map((it, k) => {
+                  const hit = !sid && it.category ? (folders ?? []).find((f) => n(f.name) === n(it.category)) : undefined;
+                  return { ...it, key: saved[k]?.id ?? it.key, ...(hit ? { nodeId: hit.id } : {}) };
+                });
+              const results = await importBulkChunkFast(db as never, items, sid);
+              const done = new Map(results.filter((r) => r.outcome !== "problem").map((r) => [r.key, r.productId ?? null]));
+              added = done.size;
+              if (done.size) {
+                await db.from("extension_inbox_items").upsert(
+                  saved.filter((r) => done.has(r.id)).map((r) => ({ ...r, status: "imported", product_id: done.get(r.id) })) as never,
+                  { onConflict: "id" },
+                );
               }
             }
             if (body.final === true) {
