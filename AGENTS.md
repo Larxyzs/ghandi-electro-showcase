@@ -29,3 +29,9 @@
 - Shop Wi-Fi: a super admin allows an address in Admin > emails (stored as an `admin_emails` row `wifi:<ip>`, role staff, removable like an email). `priceStockAdmin` accepts it ONLY for Prix & stock (never the rest of admin), reading only Cloudflare's `cf-connecting-ip` (never `x-forwarded-for`, which visitors can fake); history shows « Wi-Fi du magasin ».
 - `savePriceStock` re-reads the product after the RPC and throws unless the database really holds the new values — the page must never say « Enregistré » for a change that was not kept.
 - « Je ne trouve pas un produit » in Prix & stock stores a note in `contact_messages` (subject « Référence à ajouter »); the admin dashboard shows the open ones under the Prix & stock button (`MissingReferencesPanel`), « Ajouté » marks them read.
+- HOSTING (Nov 2026): the site no longer runs on Lovable Cloud (out of credits). It is built and served by Cloudflare Workers
+  (worker `larxyzs-ghandi-electro-showcase`, auto-deploys on every push to main: `npm run build` then
+  `npx wrangler deploy --config .output/server/wrangler.json`) with the free Supabase project `syqmkxhfofsrxezrgyge`.
+  Build variables (VITE_SUPABASE_*) and runtime secrets (SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SERVICE_ROLE_KEY,
+  ADMIN_SESSION_SECRET, ADMIN_PASSWORD) live in Cloudflare, never in the repo. Schema: `supabase/full_schema.sql`, folders:
+  `supabase/catalog_tree.sql`. Google sign-in (Lovable broker) does not work there: admins use the password, the shop Wi-Fi or a phone code.
