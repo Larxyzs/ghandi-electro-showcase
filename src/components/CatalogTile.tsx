@@ -34,7 +34,9 @@ export function CatalogTile({
         {node.image_url ? (
           <img src={node.image_url} alt={tr(node.name)} loading="lazy" className="h-full w-full object-contain p-1 transition group-hover:scale-[1.03]" />
         ) : (
-          <Icon className="h-3/5 w-3/5 text-brand transition group-hover:scale-[1.04]" strokeWidth={1.6} />
+          <div className="grid h-[82%] w-[82%] place-items-center rounded-full bg-brand-soft/70 transition group-hover:bg-brand-soft">
+            <Icon className="h-[72%] w-[72%] text-brand transition group-hover:scale-[1.05]" strokeWidth={1.6} />
+          </div>
         )}
       </div>
       <p className="text-sm font-medium leading-tight">{tr(node.menu_label?.trim() || node.name)}</p>
